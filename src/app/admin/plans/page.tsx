@@ -23,15 +23,13 @@ const PLAN_BG_COLORS: Record<number, string> = {
   4: 'bg-amber-50 border-amber-200',
 };
 
-// Configuração hardcoded do PIX da LinkePag
-// TODO: Configure a URL da imagem do QR Code quando disponível
+// Configuração do PIX da LinkePag via variáveis de ambiente
 const LINKEPAG_PIX_CONFIG = {
-  key: 'pix@linkepag.com',
-  keyType: 'EMAIL',
-  beneficiary: 'LinkePag Tecnologia',
-  city: 'Sao Paulo',
-  // qrCodeImageUrl: '/images/qr-code-pix-linkepag.png', // Descomente e configure quando tiver a imagem
-  qrCodeImageUrl: null as string | null, // null = usa o QR Code dinâmico do backend ou mostra mensagem
+  key: process.env.NEXT_PUBLIC_LINKEPAG_PIX_KEY || 'pix@linkepag.com',
+  keyType: (process.env.NEXT_PUBLIC_LINKEPAG_PIX_KEY_TYPE || 'EMAIL') as 'CPF' | 'CNPJ' | 'EMAIL' | 'PHONE' | 'RANDOM',
+  beneficiary: process.env.NEXT_PUBLIC_LINKEPAG_PIX_NAME || 'LinkePag Tecnologia',
+  city: process.env.NEXT_PUBLIC_LINKEPAG_PIX_CITY || 'Sao Paulo',
+  qrCodeImageUrl: process.env.NEXT_PUBLIC_LINKEPAG_PIX_QR_CODE_URL || null as string | null,
 };
 
 export default function PlansPage() {
