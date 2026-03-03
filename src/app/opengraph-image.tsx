@@ -34,27 +34,32 @@ export default function Image() {
           }}
         >
           <svg
-            width="120"
-            height="120"
-            viewBox="0 0 24 24"
+            width="160"
+            height="160"
+            viewBox="0 0 100 100"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
           >
-            <rect width="24" height="24" rx="6" fill="#10B981" />
-            <path
-              d="M8 12C8 9.79086 9.79086 8 12 8C14.2091 8 16 9.79086 16 12"
-              stroke="white"
-              strokeWidth="2.5"
-              strokeLinecap="round"
+            {/* Elo inferior - verde escuro */}
+            <rect
+              x="38"
+              y="38"
+              width="42"
+              height="54"
+              rx="16"
+              fill="#059669"
             />
-            <path
-              d="M12 16C12 16 14 14 16 14C18 14 19 16 19 16"
-              stroke="white"
-              strokeWidth="2.5"
-              strokeLinecap="round"
+            {/* Elo superior - verde primário */}
+            <rect
+              x="20"
+              y="8"
+              width="42"
+              height="54"
+              rx="16"
+              fill="#10B981"
             />
-            <circle cx="12" cy="12" r="2" fill="white" />
-            <circle cx="16" cy="14" r="1.5" fill="white" />
+            {/* Ponto de destaque âmbar */}
+            <circle cx="62" cy="50" r="12" fill="#F59E0B" />
           </svg>
         </div>
 
