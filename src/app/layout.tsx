@@ -85,7 +85,40 @@ export const metadata: Metadata = {
   verification: {
     // Adicionar verificações quando necessário
   },
+  
+  // Apple Web App
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'LinkePag',
+  },
+  
+  // Manifesto
+  manifest: '/manifest.json',
 };
+
+// Helper para verificar se deve fazer preconnect
+function shouldPreconnect(apiUrl: string): boolean {
+  // Não fazer preconnect em desenvolvimento (localhost)
+  if (apiUrl.includes('localhost')) return false;
+  
+  // Não fazer preconnect se a URL estiver vazia ou for inválida
+  if (!apiUrl || !apiUrl.startsWith('http')) return false;
+  
+  try {
+    // Em produção, verifica se a API é de um domínio diferente
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
+    if (appUrl) {
+      const apiHost = new URL(apiUrl).hostname;
+      const appHost = new URL(appUrl).hostname;
+      // Se for o mesmo domínio, não precisa de preconnect
+      if (apiHost === appHost) return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export default function RootLayout({
   children,
@@ -93,35 +126,49 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+  const enablePreconnect = shouldPreconnect(apiUrl);
+  
+  // Verifica se está em desenvolvimento
+  const isDevelopment = process.env.NODE_ENV === 'development';
   
   return (
     <html lang="pt-BR" className={`${geistSans.variable} ${geistMono.variable}`}>
       <head>
-        {/* Cache busting */}
-        <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-        <meta httpEquiv="Pragma" content="no-cache" />
-        <meta httpEquiv="Expires" content="0" />
-        
-        {/* Permissions Policy - previne solicitações de permissão indesejadas */}
-        <meta httpEquiv="Permissions-Policy" content="payment=(), usb=(), serial=(), bluetooth=(), midi=(), camera=(), microphone=(), geolocation=(), notifications=(), push=(), interest-cohort=()" />
-        
         {/* Favicon */}
         <link rel="icon" type="image/svg+xml" href="/logo-icon.svg?v=2" />
         <link rel="apple-touch-icon" href="/logo-icon.svg?v=2" />
         
-        {/* Preconnect para API backend - melhora TTFB */}
-        <link rel="preconnect" href={apiUrl} />
-        <link rel="dns-prefetch" href={apiUrl} />
+        {/* Preconnect para API backend - apenas em produção e domínio diferente */}
+        {enablePreconnect && (
+          <>
+            <link rel="preconnect" href={apiUrl} />
+            <link rel="dns-prefetch" href={apiUrl} />
+          </>
+        )}
         
         {/* Preconnect para Google Fonts (se usado no futuro) */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         
-        {/* Script para suprimir warning de WebSocket HMR antes do React carregar */}
-        <script src="/suppress-ws.js" />
+        {/* Script para suprimir warning de WebSocket HMR - APENAS EM DESENVOLVIMENTO */}
+        {isDevelopment && <script src="/suppress-ws.js" />}
+        
+        {/* Desabilitar React DevTools em produção */}
+        {!isDevelopment && (
+          <script dangerouslySetInnerHTML={{__html: `
+            if (typeof window !== 'undefined') {
+              // Desabilitar React DevTools
+              window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = { isDisabled: true };
+              // Desabilitar HMR WebSocket
+              window.__NEXT_DATA__ = window.__NEXT_DATA__ || {};
+              window.__NEXT_DATA__.buildId = '${Date.now()}';
+            }
+          `}} />
+        )}
       </head>
       <body className="antialiased">
-        <ErrorSuppressor />
+        {/* ErrorSuppressor - APENAS EM DESENVOLVIMENTO */}
+        {isDevelopment && <ErrorSuppressor />}
         <Providers>{children}</Providers>
       </body>
     </html>
