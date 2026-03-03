@@ -102,6 +102,9 @@ export default function RootLayout({
         <meta httpEquiv="Pragma" content="no-cache" />
         <meta httpEquiv="Expires" content="0" />
         
+        {/* Permissions Policy - previne solicitações de permissão indesejadas */}
+        <meta httpEquiv="Permissions-Policy" content="payment=(), usb=(), serial=(), bluetooth=(), midi=(), camera=(), microphone=(), geolocation=(), notifications=(), push=(), interest-cohort=()" />
+        
         {/* Favicon */}
         <link rel="icon" type="image/svg+xml" href="/logo-icon.svg?v=2" />
         <link rel="apple-touch-icon" href="/logo-icon.svg?v=2" />

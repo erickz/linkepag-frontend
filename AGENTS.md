@@ -240,15 +240,15 @@ MONGO_INITDB_ROOT_PASSWORD=test123
 BACKEND_PORT=3001
 NODE_ENV=development
 JWT_SECRET=iqXiorf428b8zvnOneY3WdcaNJkWULM5HIb2ko1LByo=
-BACKEND_API_URL=http://localhost:3001
+NEXT_PUBLIC_API_URL=http://localhost:3001
 
 # Throttling - automaticamente desabilitado quando NODE_ENV=development
 
 # ============================================
 # Frontend
 # ============================================
-FRONTEND_PORT=3000
-FRONTEND_APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_PORT=3000
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 # ============================================
 # MercadoPago
@@ -526,7 +526,7 @@ Configurado em `app.module.ts` - limites generosos para evitar bloqueios em uso 
 Configurado em `main.ts`:
 ```typescript
 app.enableCors({
-  origin: process.env.FRONTEND_APP_URL || 'http://localhost:3000',
+  origin: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
 });
@@ -894,13 +894,13 @@ O MercadoPago **não aceita URLs localhost** na `notification_url`. O sistema de
 - Funciona normalmente para testes
 
 **Produção:**
-- Configure `BACKEND_API_URL` com HTTPS (ex: `https://api.seusite.com`)
+- Configure `NEXT_PUBLIC_API_URL` com HTTPS (ex: `https://api.seusite.com`)
 - Ou defina `MERCADOPAGO_WEBHOOK_URL` explicitamente
 - O webhook recebe notificações instantâneas de pagamento confirmado
 
 ```env
 # Produção - Webhook ativo
-BACKEND_API_URL=https://api.seusite.com
+NEXT_PUBLIC_API_URL=https://api.seusite.com
 NODE_ENV=production
 
 # Ou URL customizada (opcional)
@@ -1255,11 +1255,11 @@ Usar MSW para mockar APIs. Configuração já existe em `playwright.global-setup
    
 4. **JWT Secret**: O segredo atual é para desenvolvimento. Em produção, gerar novo segredo seguro.
 
-5. **Frontend URL**: O frontend usa variável de ambiente `BACKEND_API_URL` para comunicação com backend.
+5. **Frontend URL**: O frontend usa variável de ambiente `NEXT_PUBLIC_API_URL` para comunicação com backend.
 
 6. **Type Safety**: Ambos projetos usam TypeScript strict. Evitar usar `any`.
 
-7. **MercadoPago Webhook**: Em desenvolvimento (localhost), o webhook é automaticamente desabilitado pois o MercadoPago não aceita URLs localhost. Em produção, configure `MERCADOPAGO_WEBHOOK_URL` ou deixe o sistema usar `BACKEND_API_URL` automaticamente.
+7. **MercadoPago Webhook**: Em desenvolvimento (localhost), o webhook é automaticamente desabilitado pois o MercadoPago não aceita URLs localhost. Em produção, configure `MERCADOPAGO_WEBHOOK_URL` ou deixe o sistema usar `NEXT_PUBLIC_API_URL` automaticamente.
 
 8. **Throttling**: Em ambiente de desenvolvimento (`NODE_ENV=development`), o rate limiting é automaticamente desabilitado.
 

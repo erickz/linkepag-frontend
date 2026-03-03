@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/PageHeader';
 import { IconUser, IconMail, IconPhone, IconCreditCard, IconQrcode } from '@/components/icons';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
+
 export default function PersonalSettingsPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
@@ -32,7 +34,7 @@ export default function PersonalSettingsPage() {
           return;
         }
         
-        const response = await fetch('http://localhost:3001/users/profile', {
+        const response = await fetch(`${API_BASE_URL}/users/profile`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -78,7 +80,7 @@ export default function PersonalSettingsPage() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3001/users/profile', {
+      const response = await fetch(`${API_BASE_URL}/users/profile`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
