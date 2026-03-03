@@ -56,11 +56,20 @@ export const metadata: Metadata = {
     siteName: "LinkePag",
     title: "LinkePag - Monetize sua audiência",
     description: "Crie uma página única para seus links e receba pagamentos via PIX. Sua link-in-bio que vende mais.",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "LinkePag - Monetize sua audiência",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "LinkePag - Monetize sua audiência",
     description: "Crie uma página única para seus links e receba pagamentos via PIX. Sua link-in-bio que vende mais.",
+    images: ["/opengraph-image"],
   },
   robots: {
     index: true,
