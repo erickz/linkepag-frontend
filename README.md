@@ -6,7 +6,7 @@ Frontend da plataforma LinkePag - Link-in-bio com monetização via PIX.
 
 Este projeto está configurado para deploy no [Vercel](https://vercel.com).
 
-### Deploy Rápido
+### Deploy Rápidoo
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/seu-usuario/linkepag-frontend)
 
