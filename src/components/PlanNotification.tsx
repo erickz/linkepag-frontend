@@ -33,9 +33,10 @@ let globalProfilePromise: Promise<unknown> | null = null;
 let globalRequestCount = 0;
 
 // Helper para extrair PlanInfo da resposta da API
-const extractPlanInfoFromResponse = (data: { user?: unknown }): PlanInfo | null => {
-  if (!data.user) return null;
-  const user = data.user as Record<string, unknown>;
+const extractPlanInfoFromResponse = (data: unknown): PlanInfo | null => {
+  const response = data as { user?: unknown };
+  if (!response.user) return null;
+  const user = response.user as Record<string, unknown>;
   return {
     planId: (user.planId as number) || 1,
     planStatus: (user.planStatus as PlanInfo['planStatus']) || 'active',
@@ -64,7 +65,7 @@ export function PlanNotification({ planInfo: externalPlanInfo }: PlanNotificatio
     // Verifica se já existe no cache
     const cached = apiCache.get(CACHE_KEYS.PROFILE);
     if (cached) {
-      const info = extractPlanInfoFromResponse({ user: cached });
+      const info = extractPlanInfoFromResponse(cached);
       if (info) {
         setPlanInfo(info);
         setIsLoading(false);

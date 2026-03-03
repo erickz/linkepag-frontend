@@ -40,3 +40,4 @@ playwright-report/
 # Typescript
 *.tsbuildinfo
 next-env.d.ts
+.vercel

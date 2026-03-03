@@ -30,7 +30,9 @@ export default function TermosPage() {
             </Link>
           </nav>
           <div className="flex items-center gap-3">
-            <AuthNavButton />
+            <AuthNavButton className="inline-flex items-center justify-center h-9 px-5 rounded-full bg-emerald-500 text-white text-sm font-semibold hover:bg-emerald-600 transition shadow-md shadow-emerald-200">
+              Cadastrar
+            </AuthNavButton>
             <MobileMenu />
           </div>
         </div>
