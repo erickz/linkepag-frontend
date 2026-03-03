@@ -1,0 +1,42 @@
+# Arquivos específicos do Docker (não usados no Vercel)
+Dockerfile
+docker-compose.yml
+
+# Dependências
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build
+.next/
+dist/
+out/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Ambiente
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testes
+test-results/
+coverage/
+playwright-report/
+
+# Typescript
+*.tsbuildinfo
+next-env.d.ts

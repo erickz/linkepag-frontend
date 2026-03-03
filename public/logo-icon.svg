@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <!-- Gradiente sutil para profundidade -->
+    <linearGradient id="primaryGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#10B981;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#059669;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Elo inferior (mais escuro) -->
+  <rect x="38" y="38" width="42" height="54" rx="16" ry="16" fill="#059669"/>
+  
+  <!-- Elo superior (cor primária) -->
+  <rect x="20" y="8" width="42" height="54" rx="16" ry="16" fill="#10B981"/>
+  
+  <!-- Ponto de destaque âmbar (monetização/ação) -->
+  <circle cx="62" cy="50" r="12" fill="#F59E0B"/>
+</svg>
