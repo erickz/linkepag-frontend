@@ -4,14 +4,14 @@ import type { NextConfig } from "next";
 process.env.NEXT_TELEMETRY_DISABLED = '1';
 
 const nextConfig: NextConfig = {
-  // Configuração do Turbopack - APENAS EM DESENVOLVIMENTO
-  // Desabilita WebSocket HMR do Turbopack para evitar erros ws://localhost:8081
+  // Configuração do Turbopack
+  // Desabilita WebSocket HMR do Turbopack para evitar erros ws://localhost:8081 (dev)
   turbopack: process.env.NODE_ENV === 'development' ? {
     // Usa polling em vez de WebSocket para HMR (mais estável em Docker/WSL)
     hmr: {
       usePolling: true,
     },
-  } : undefined,
+  } : {}, // Em produção: objeto vazio para evitar conflito com webpack config
   
   // Otimização de imagens
   images: {
