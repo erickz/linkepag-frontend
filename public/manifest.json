@@ -1,0 +1,19 @@
+{
+  "name": "LinkePag - Monetize sua audiência",
+  "short_name": "LinkePag",
+  "description": "Crie uma página única para seus links e receba pagamentos via PIX",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
+  "orientation": "portrait",
+  "scope": "/",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "/logo-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
