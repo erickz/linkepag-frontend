@@ -118,7 +118,7 @@ const nextConfig: NextConfig = {
           "style-src 'self' 'unsafe-inline'",
           "img-src 'self' data: https:",
           "font-src 'self'",
-          "connect-src 'self' https://*.vercel.app https://*.railway.app",
+          "connect-src 'self' https://*.vercel.app https://*.railway.app https://www.google-analytics.com https://*.googletagmanager.com",
           "frame-ancestors 'none'",
           "form-action 'self'",
           "base-uri 'self'",
