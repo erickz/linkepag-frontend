@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { Providers } from "./providers";
 import { ErrorSuppressor } from "@/components/ErrorSuppressor";
@@ -152,6 +153,20 @@ export default function RootLayout({
         
         {/* Script para suprimir warning de WebSocket HMR - APENAS EM DESENVOLVIMENTO */}
         {isDevelopment && <script src="/suppress-ws.js" />}
+        
+        {/* Google Analytics */}
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-Q4RBPEVS59"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-Q4RBPEVS59');
+          `}
+        </Script>
         
         {/* Desabilitar React DevTools em produção */}
         {!isDevelopment && (
