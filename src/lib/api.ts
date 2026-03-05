@@ -821,3 +821,145 @@ export async function submitContactForm(data: {
 
   return result;
 }
+
+// ============ BILLING / TAXAS ============
+
+export interface FeeReport {
+  totalTransactionFees: number;
+  pendingFees: number;
+  paidFees: number;
+  waivedFees: number;
+  transactions: Array<{
+    id: string;
+    date: string;
+    amount: number;
+    fee: number;
+    netAmount: number;
+    description: string;
+    status: string;
+  }>;
+}
+
+export interface CurrentInvoice {
+  invoiceId: string | null;
+  totalFees: number;
+  transactionCount: number;
+  dueDate: string | null;
+  pixCode?: string;
+  qrCodeUrl?: string;
+}
+
+export interface BillingSummary {
+  feeBalance: number;
+  totalFeesPaid: number;
+  pendingFees: number;
+  currentInvoice: CurrentInvoice | null;
+  recentTransactions: FeeReport['transactions'];
+}
+
+export async function getFeeReport(startDate?: string, endDate?: string): Promise<FeeReport> {
+  const params = new URLSearchParams();
+  if (startDate) params.append('startDate', startDate);
+  if (endDate) params.append('endDate', endDate);
+
+  const response = await fetch(`${API_BASE_URL}/billing/report?${params.toString()}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Erro ao obter relatório de taxas');
+  }
+
+  const result = await response.json();
+  return result.data;
+}
+
+export async function getCurrentInvoice(): Promise<CurrentInvoice> {
+  const response = await fetch(`${API_BASE_URL}/billing/invoice/current`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Erro ao obter fatura atual');
+  }
+
+  const result = await response.json();
+  return result.data;
+}
+
+export async function generateInvoice() {
+  const response = await fetch(`${API_BASE_URL}/billing/invoice/generate`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({}),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Erro ao gerar fatura');
+  }
+
+  return response.json();
+}
+
+export async function getBillingSummary(): Promise<BillingSummary> {
+  const response = await fetch(`${API_BASE_URL}/billing/summary`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Erro ao obter resumo de cobranças');
+  }
+
+  const result = await response.json();
+  return result.data;
+}
+
+export async function getUserFees(
+  page = 1,
+  limit = 20,
+  status?: string
+): Promise<{
+  fees: Array<{
+    _id: string;
+    amount: number;
+    status: string;
+    description: string;
+    createdAt: string;
+    paidAt?: string;
+    transactionAmount?: number;
+    paymentId?: {
+      paymentId: string;
+      amount: number;
+      payerEmail?: string;
+      payerName?: string;
+    };
+  }>;
+  total: number;
+  page: number;
+  totalPages: number;
+}> {
+  const params = new URLSearchParams();
+  params.append('page', page.toString());
+  params.append('limit', limit.toString());
+  if (status) params.append('status', status);
+
+  const response = await fetch(`${API_BASE_URL}/billing/fees?${params.toString()}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Erro ao obter taxas');
+  }
+
+  const result = await response.json();
+  return result.data;
+}

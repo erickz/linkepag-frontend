@@ -19,6 +19,7 @@ import {
   IconLogout,
   IconMenu,
   IconX,
+  IconReceipt,
 } from './icons';
 
 interface NavItem {
@@ -121,6 +122,11 @@ export function AdminSidebar() {
       label: 'Vendas',
       href: '/admin/payments',
       icon: <IconCoins className="w-5 h-5" />,
+    },
+    {
+      label: 'Cobranças',
+      href: '/admin/billing',
+      icon: <IconReceipt className="w-5 h-5" />,
     },
     {
       label: 'Leads',
