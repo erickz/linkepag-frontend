@@ -118,7 +118,7 @@ const nextConfig: NextConfig = {
           "style-src 'self' 'unsafe-inline'",
           "img-src 'self' data: https:",
           "font-src 'self'",
-          "connect-src 'self' https://*.vercel.app https://*.railway.app https://www.google-analytics.com https://*.googletagmanager.com https://api.linkepag.com.br",
+          "connect-src 'self' https://*.vercel.app https://*.railway.app https://www.google-analytics.com https://*.googletagmanager.com https://api.linkepag.com.br https://api.mercadopago.com",
           "frame-ancestors 'none'",
           "form-action 'self'",
           "base-uri 'self'",
