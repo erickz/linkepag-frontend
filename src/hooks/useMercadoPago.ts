@@ -28,7 +28,7 @@ interface UseMercadoPagoReturn {
   isLoading: boolean;
   isReady: boolean;
   error: string | null;
-  createCardToken: (cardData: CardTokenData) => Promise<string | null>;
+  createCardToken: (cardData: CardTokenData, abortSignal?: AbortSignal) => Promise<string | null>;
 }
 
 const MP_PUBLIC_KEY = process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY || '';
