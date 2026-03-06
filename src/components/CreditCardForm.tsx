@@ -114,11 +114,11 @@ export function CreditCardForm({
   
   useEffect(() => {
     const allFieldsFilled = 
-      formData.cardNumber && 
-      formData.cardholderName && 
-      formData.expiry && 
-      formData.cvv && 
-      formData.cpf;
+      !!formData.cardNumber && 
+      !!formData.cardholderName && 
+      !!formData.expiry && 
+      !!formData.cvv && 
+      !!formData.cpf;
 
     const isValid = allFieldsFilled && Object.keys(errors).length === 0;
     
