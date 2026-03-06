@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useApi, useApiMutation } from './useApi';
 import {
   getPlans,
@@ -42,10 +42,27 @@ export interface Subscription {
   };
 }
 
+// Plano padrão (Grátis) quando não há assinatura
+const DEFAULT_PLAN_ID = 1;
+
+// Plano de fallback quando os planos ainda não foram carregados
+const FALLBACK_PLAN: Plan = {
+  id: DEFAULT_PLAN_ID,
+  name: 'Grátis',
+  monthlyPrice: 0,
+  feePerTransaction: 0.70,
+  maxPaidLinks: 3,
+  features: ['3 links monetizados', 'Links gratuitos ilimitados', 'Relatório básico'],
+};
+
 export function useSubscription() {
   // Verifica se há token antes de fazer chamadas autenticadas
   const token = typeof window !== 'undefined' ? getStoredToken() : null;
   const isAuthenticated = !!token;
+
+  // Memoize fetch functions to prevent unnecessary re-renders
+  const fetchPlans = useCallback(() => getPlans(), []);
+  const fetchSubscription = useCallback(() => getCurrentSubscription(), []);
 
   // Busca planos disponíveis (público, não precisa de auth)
   const {
@@ -54,7 +71,7 @@ export function useSubscription() {
     error: plansError,
   } = useApi<{ success: boolean; plans: Plan[] }>(
     CACHE_KEYS.PLANS,
-    getPlans,
+    fetchPlans,
     { ttl: 5 * 60 * 1000 } // Cache de 5 minutos
   );
 
@@ -66,7 +83,7 @@ export function useSubscription() {
     refetch: refetchSubscription,
   } = useApi<{ success: boolean; subscription: Subscription | null }>(
     CACHE_KEYS.SUBSCRIPTION,
-    getCurrentSubscription,
+    fetchSubscription,
     {
       ttl: 30 * 1000, // Cache de 30 segundos
       enabled: isAuthenticated, // Só executa se estiver autenticado
@@ -76,9 +93,17 @@ export function useSubscription() {
   const subscription = subscriptionData?.subscription;
   const plans = plansData?.plans || [];
 
-  // Encontra o plano atual
-  const currentPlan = useMemo(() => {
-    if (!subscription) return plans.find(p => p.id === 1); // Plano Grátis como padrão
+  // Encontra o plano atual - sempre retorna um plano válido
+  const currentPlan = useMemo((): Plan => {
+    // Se planos ainda não foi carregado, retorna o plano fallback
+    if (plans.length === 0) {
+      return FALLBACK_PLAN;
+    }
+    
+    // Se não tem assinatura, usa o plano Grátis como padrão
+    if (!subscription) {
+      return plans.find(p => p.id === DEFAULT_PLAN_ID) || FALLBACK_PLAN;
+    }
     
     // Converte para número para garantir comparação correta
     const subPlanId = Number(subscription.planId);
@@ -86,17 +111,17 @@ export function useSubscription() {
     
     // Se expirou ou cancelou, volta para Grátis
     if (subStatus === 'expired' || subStatus === 'cancelled') {
-      return plans.find(p => p.id === 1); // Grátis
+      return plans.find(p => p.id === DEFAULT_PLAN_ID) || FALLBACK_PLAN;
     }
     
     // Se pendente ou ativo, mostra o plano da assinatura
     // Status 'pending_payment' = upgrade em andamento, usa limite do novo plano
-    return plans.find(p => p.id === subPlanId);
+    return plans.find(p => p.id === subPlanId) || FALLBACK_PLAN;
   }, [subscription, plans]);
 
   // Calcula economia ao fazer upgrade
-  const calculateUpgradeSavings = (targetPlanId: number, monthlySales: number = 100): number => {
-    if (!currentPlan || targetPlanId <= currentPlan.id) return 0;
+  const calculateUpgradeSavings = useCallback((targetPlanId: number, monthlySales: number = 100): number => {
+    if (currentPlan.id >= targetPlanId) return 0;
     
     const targetPlan = plans.find(p => p.id === targetPlanId);
     if (!targetPlan) return 0;
@@ -105,12 +130,24 @@ export function useSubscription() {
     const targetMonthlyCost = targetPlan.monthlyPrice + (targetPlan.feePerTransaction * monthlySales);
     
     return Math.max(0, currentMonthlyCost - targetMonthlyCost);
-  };
+  }, [currentPlan, plans]);
 
   // Verifica se pode criar link pago
-  const canCreatePaidLink = (currentPaidLinksCount: number = 0): { allowed: boolean; message?: string } => {
+  const canCreatePaidLink = useCallback((currentPaidLinksCount: number = 0): { allowed: boolean; message?: string } => {
+    // Se planos ainda estão carregando, permite criar (usando plano fallback)
+    // O plano fallback permite até 3 links
+    const plan = currentPlan;
+
+    // Se não tem assinatura, usa o plano atual (que será o Grátis por padrão)
     if (!subscription) {
-      return { allowed: false, message: 'Carregando informações do plano...' };
+      // Plano Grátis permite criar links até o limite
+      if (plan.maxPaidLinks !== null && currentPaidLinksCount >= plan.maxPaidLinks) {
+        return {
+          allowed: false,
+          message: `Limite de ${plan.maxPaidLinks} links monetizados atingido no plano Grátis. Faça upgrade para criar mais.`,
+        };
+      }
+      return { allowed: true };
     }
 
     // Se expirou, bloqueia
@@ -128,12 +165,6 @@ export function useSubscription() {
       return { allowed: false, message: 'Pagamento falhou. Atualize suas informações de pagamento.' };
     }
 
-    // Pendente ou ativo: usa o plano da assinatura
-    const plan = currentPlan;
-    if (!plan) {
-      return { allowed: false, message: 'Plano não encontrado' };
-    }
-
     // Verifica limite de links
     if (plan.maxPaidLinks !== null && currentPaidLinksCount >= plan.maxPaidLinks) {
       return {
@@ -143,20 +174,20 @@ export function useSubscription() {
     }
 
     return { allowed: true };
-  };
+  }, [subscription, currentPlan]);
 
   // Verifica se assinatura está ativa
-  const isSubscriptionActive = (): boolean => {
+  const isSubscriptionActive = useCallback((): boolean => {
     return subscription?.status === 'active';
-  };
+  }, [subscription]);
 
   // Verifica se plano está próximo de expirar (menos de 3 dias)
-  const isExpiringSoon = (): boolean => {
+  const isExpiringSoon = useCallback((): boolean => {
     if (!subscription?.expiresAt) return false;
     const expiresAt = new Date(subscription.expiresAt);
     const threeDaysFromNow = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
     return expiresAt <= threeDaysFromNow && subscription.status === 'active';
-  };
+  }, [subscription]);
 
   // Mutations
   const createSubscriptionMutation = useApiMutation(
@@ -178,7 +209,7 @@ export function useSubscription() {
   );
 
   // Conta links pagos (para mostrar uso)
-  const getPaidLinksUsage = (currentCount: number): { used: number; limit: number | null; percentage: number } => {
+  const getPaidLinksUsage = useCallback((currentCount: number): { used: number; limit: number | null; percentage: number } => {
     const limit = currentPlan?.maxPaidLinks ?? null;
     if (limit === null) {
       return { used: currentCount, limit: null, percentage: 0 };
@@ -188,7 +219,7 @@ export function useSubscription() {
       limit,
       percentage: Math.min(100, Math.round((currentCount / limit) * 100)),
     };
-  };
+  }, [currentPlan]);
 
   return {
     // Dados

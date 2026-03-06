@@ -626,7 +626,6 @@ export default function PixCheckout({
             </svg>
           </div>
           <p className="text-slate-900 font-medium mb-1">Pagamento temporariamente indisponível</p>
-          <p className="text-slate-500 text-sm">O vendedor ainda não configurou as opções de pagamento.</p>
         </div>
       )}
 

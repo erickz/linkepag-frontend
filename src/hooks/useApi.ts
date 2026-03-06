@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { apiCache } from '@/lib/api-cache';
 
 interface UseApiOptions<T> {
@@ -43,6 +43,20 @@ export function useApi<T>(
     error: null as Error | null,
   });
 
+  // Use ref to store fetchFn to avoid dependency changes
+  const fetchFnRef = useRef(fetchFn);
+  
+  // Only update the ref when fetchFn actually changes (by reference)
+  useEffect(() => {
+    fetchFnRef.current = fetchFn;
+  }, [fetchFn]);
+
+  // Memoize retry config to prevent unnecessary re-renders
+  const retryConfigRef = useRef({ retry, retryDelay });
+  useEffect(() => {
+    retryConfigRef.current = { retry, retryDelay };
+  }, [retry, retryDelay]);
+
   // Refetch function - manual trigger
   const refetch = useCallback(async (): Promise<void> => {
     setState(prev => ({ ...prev, isLoading: true, error: null }));
@@ -50,10 +64,11 @@ export function useApi<T>(
     apiCache.invalidate(key);
     
     let lastError: Error | null = null;
+    const { retry, retryDelay } = retryConfigRef.current;
     
     for (let attempt = 0; attempt <= retry; attempt++) {
       try {
-        const result = await fetchFn();
+        const result = await fetchFnRef.current();
 
         if (ttl) {
           apiCache.set(key, result, ttl);
@@ -72,8 +87,7 @@ export function useApi<T>(
 
     setState(prev => ({ ...prev, isLoading: false, error: lastError }));
     onError?.(lastError!);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, fetchFn, ttl, retry, retryDelay]);
+  }, [key, ttl, onSuccess, onError]);
 
   // Main effect - fetch data when key or enabled changes
   useEffect(() => {
@@ -85,19 +99,29 @@ export function useApi<T>(
     // Check cache first
     const cached = apiCache.get<T>(key);
     if (cached !== null) {
-      setState({ data: cached, isLoading: false, error: null });
+      // Only update state if data is different to prevent loops
+      setState(prev => {
+        if (JSON.stringify(prev.data) === JSON.stringify(cached)) {
+          return { ...prev, isLoading: false, error: null };
+        }
+        return { data: cached, isLoading: false, error: null };
+      });
       onSuccess?.(cached);
       return;
     }
 
-    // Set loading state
-    setState(prev => ({ ...prev, isLoading: true, error: null }));
+    // Set loading state only if not already loading to prevent loops
+    setState(prev => {
+      if (prev.isLoading) return prev;
+      return { ...prev, isLoading: true, error: null };
+    });
 
     // Track if component is still mounted
     let isMounted = true;
 
     const fetchData = async () => {
       let lastError: Error | null = null;
+      const { retry, retryDelay } = retryConfigRef.current;
 
       for (let attempt = 0; attempt <= retry; attempt++) {
         if (!isMounted) return;
@@ -109,7 +133,7 @@ export function useApi<T>(
           if (pending) {
             result = await pending;
           } else {
-            const promise = fetchFn();
+            const promise = fetchFnRef.current();
             apiCache.setPendingRequest(key, promise);
             result = await promise;
           }
@@ -143,7 +167,7 @@ export function useApi<T>(
       isMounted = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, enabled, fetchFn, ttl, retry, retryDelay]);
+  }, [key, enabled]);
 
   return { 
     data: state.data, 
@@ -168,15 +192,36 @@ export function useApiParallel<T extends Record<string, unknown>>(
   const [isLoading, setIsLoading] = useState(enabled);
   const [error, setError] = useState<Error | null>(null);
 
-  const queriesKey = Object.keys(queries).join(',');
+  // Store callbacks in refs to avoid dependency issues
+  const onErrorRef = useRef(onError);
+  const onSuccessRef = useRef(onSuccess);
+  
+  useEffect(() => {
+    onErrorRef.current = onError;
+    onSuccessRef.current = onSuccess;
+  }, [onError, onSuccess]);
+
+  // Create a stable key from the queries object - only depends on keys and query keys
+  const queriesKey = useMemo(() => {
+    const keys = Object.keys(queries).sort();
+    const keyString = keys.map(k => `${k}:${queries[k].key}`).join(',');
+    return keyString;
+  }, [queries]);
+
+  // Store the latest queries in a ref
+  const queriesRef = useRef(queries);
+  useEffect(() => {
+    queriesRef.current = queries;
+  }, [queries]);
 
   const refetch = useCallback(async (): Promise<void> => {
     setIsLoading(true);
     setError(null);
 
     try {
+      const currentQueries = queriesRef.current;
       const results = await Promise.all(
-        Object.entries(queries).map(async ([name, query]) => {
+        Object.entries(currentQueries).map(async ([name, query]) => {
           const result = await query.fetchFn();
           return [name, result] as const;
         })
@@ -185,14 +230,14 @@ export function useApiParallel<T extends Record<string, unknown>>(
       const newData = Object.fromEntries(results) as Partial<T>;
       setData(newData);
       setIsLoading(false);
-      onSuccess?.(newData as T);
+      onSuccessRef.current?.(newData as T);
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
       setError(error);
       setIsLoading(false);
-      onError?.(error);
+      onErrorRef.current?.(error);
     }
-  }, [queries, onError, onSuccess]);
+  }, []);
 
   useEffect(() => {
     if (!enabled) {
@@ -207,8 +252,9 @@ export function useApiParallel<T extends Record<string, unknown>>(
 
     const fetchAll = async () => {
       try {
+        const currentQueries = queriesRef.current;
         const results = await Promise.all(
-          Object.entries(queries).map(async ([name, query]) => {
+          Object.entries(currentQueries).map(async ([name, query]) => {
             const result = await query.fetchFn();
             return [name, result] as const;
           })
@@ -218,14 +264,14 @@ export function useApiParallel<T extends Record<string, unknown>>(
           const newData = Object.fromEntries(results) as Partial<T>;
           setData(newData);
           setIsLoading(false);
-          onSuccess?.(newData as T);
+          onSuccessRef.current?.(newData as T);
         }
       } catch (err) {
         if (isMounted) {
           const error = err instanceof Error ? err : new Error(String(err));
           setError(error);
           setIsLoading(false);
-          onError?.(error);
+          onErrorRef.current?.(error);
         }
       }
     };
@@ -235,7 +281,7 @@ export function useApiParallel<T extends Record<string, unknown>>(
     return () => {
       isMounted = false;
     };
-  }, [queriesKey, enabled, onError, onSuccess]);
+  }, [queriesKey, enabled]);
 
   return { data, isLoading, error, refetch };
 }

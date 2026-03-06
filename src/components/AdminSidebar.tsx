@@ -123,11 +123,7 @@ export function AdminSidebar() {
       href: '/admin/payments',
       icon: <IconCoins className="w-5 h-5" />,
     },
-    {
-      label: 'Cobranças',
-      href: '/admin/billing',
-      icon: <IconReceipt className="w-5 h-5" />,
-    },
+
     {
       label: 'Leads',
       href: '/admin/leads',
