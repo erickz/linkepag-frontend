@@ -191,8 +191,9 @@ export function useSubscription() {
 
   // Mutations
   const createSubscriptionMutation = useApiMutation(
-    async ({ planId, paymentMethod, cardToken }: { planId: number; paymentMethod: 'credit_card' | 'pix'; cardToken?: string }) => {
-      return createSubscription(planId, paymentMethod, cardToken);
+    async ({ planId, paymentMethod, cardToken, cardHolderCpf }: 
+      { planId: number; paymentMethod: 'credit_card' | 'pix'; cardToken?: string; cardHolderCpf?: string }) => {
+      return createSubscription(planId, paymentMethod, cardToken, cardHolderCpf);
     }
   );
 

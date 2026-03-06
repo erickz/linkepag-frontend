@@ -1,68 +1,230 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth, useProtectedRoute } from '@/hooks/useAuth';
-
+import { useApi } from '@/hooks/useApi';
 import { useSubscription } from '@/hooks/useSubscription';
 import { CreditCardForm } from '@/components/CreditCardForm';
 import { apiCache } from '@/lib/api';
 
-const PLAN_COLORS: Record<number, string> = {
-  1: 'from-slate-500 to-slate-600',
-  2: 'from-indigo-500 to-indigo-600',
-  3: 'from-purple-500 to-purple-600',
-  4: 'from-amber-500 to-amber-600',
+// Types para Billing Híbrido
+interface BillingCycle {
+  id: string;
+  planId: number;
+  planName: string;
+  startDate: string;
+  endDate: string;
+  daysRemaining: number;
+  transactionCount: number;
+  totalTransactionFees: number;
+  monthlyFee: number;
+  totalAmount: number;
+  status: 'open' | 'closing' | 'closed' | 'invoiced';
+}
+
+interface Invoice {
+  id: string;
+  invoiceNumber: string;
+  status: 'draft' | 'pending' | 'processing' | 'paid' | 'overdue' | 'failed' | 'cancelled';
+  subscriptionAmount: number;
+  usageAmount: number;
+  totalAmount: number;
+  dueDate: string;
+  gracePeriodEnd?: string;
+  paymentMethod?: 'credit_card_auto' | 'credit_card_manual' | 'pix' | 'boleto';
+  pixCode?: string;
+  pixQrCodeUrl?: string;
+  pixExpirationDate?: string;
+}
+
+interface BillingData {
+  cycle: BillingCycle | null;
+  invoice: Invoice | null;
+  usage: {
+    transactions: number;
+    totalFees: number;
+    feePerTransaction: number;
+    projectedTotal: number;
+  };
+}
+
+// Configuração de cores por plano
+const PLAN_COLORS: Record<number, { bg: string; border: string; gradient: string; badge: string; text: string }> = {
+  1: { 
+    bg: 'bg-slate-50', 
+    border: 'border-slate-200', 
+    gradient: 'from-slate-400 to-slate-600',
+    badge: 'bg-slate-100 text-slate-700',
+    text: 'text-slate-700'
+  },
+  2: { 
+    bg: 'bg-indigo-50', 
+    border: 'border-indigo-200', 
+    gradient: 'from-indigo-500 to-indigo-700',
+    badge: 'bg-indigo-100 text-indigo-700',
+    text: 'text-indigo-700'
+  },
+  3: { 
+    bg: 'bg-purple-50', 
+    border: 'border-purple-200', 
+    gradient: 'from-purple-500 to-purple-700',
+    badge: 'bg-purple-100 text-purple-700',
+    text: 'text-purple-700'
+  },
+  4: { 
+    bg: 'bg-amber-50', 
+    border: 'border-amber-200', 
+    gradient: 'from-amber-500 to-amber-700',
+    badge: 'bg-amber-100 text-amber-700',
+    text: 'text-amber-700'
+  },
 };
 
-const PLAN_BG_COLORS: Record<number, string> = {
-  1: 'bg-slate-50 border-slate-200',
-  2: 'bg-indigo-50 border-indigo-200',
-  3: 'bg-purple-50 border-purple-200',
-  4: 'bg-amber-50 border-amber-200',
+const PLAN_NAMES: Record<number, string> = {
+  1: 'Starter',
+  2: 'Creator',
+  3: 'Pro',
+  4: 'Ilimitado',
 };
 
-// Configuração do PIX da LinkePag via variáveis de ambiente
-const LINKEPAG_PIX_CONFIG = {
-  key: process.env.NEXT_PUBLIC_LINKEPAG_PIX_KEY || 'pix@linkepag.com',
-  keyType: (process.env.NEXT_PUBLIC_LINKEPAG_PIX_KEY_TYPE || 'EMAIL') as 'CPF' | 'CNPJ' | 'EMAIL' | 'PHONE' | 'RANDOM',
-  beneficiary: process.env.NEXT_PUBLIC_LINKEPAG_PIX_NAME || 'LinkePag Tecnologia',
-  city: process.env.NEXT_PUBLIC_LINKEPAG_PIX_CITY || 'Sao Paulo',
-  qrCodeImageUrl: process.env.NEXT_PUBLIC_LINKEPAG_PIX_QR_CODE_URL || null as string | null,
+const PLAN_FEATURES: Record<number, string[]> = {
+  1: ['3 links monetizados', 'Taxa de R$ 0,70/venda', 'Relatórios básicos'],
+  2: ['10 links monetizados', 'Taxa de R$ 0,50/venda', 'Relatórios completos', 'Suporte por email'],
+  3: ['Links ilimitados', 'Taxa de R$ 0,35/venda', 'Relatórios avançados', 'Suporte prioritário'],
+  4: ['Tudo ilimitado', 'Taxa de R$ 0,20/venda', 'API e webhooks', 'Suporte VIP', 'Múltiplos usuários'],
 };
 
+const PLAN_BADGES: Record<number, string> = {
+  1: 'Grátis',
+  2: 'Mais popular',
+  3: 'Recomendado',
+  4: 'Top',
+};
+
+// Formatters
+const formatCurrency = (value: number) => {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(value);
+};
+
+const formatDate = (dateString: string | null | undefined) => {
+  if (!dateString) return '-';
+  return new Date(dateString).toLocaleDateString('pt-BR', {
+    day: 'numeric',
+    month: 'short',
+  });
+};
+
+const formatPeriod = (start: string, end: string) => {
+  return `${formatDate(start)} até ${formatDate(end)}`;
+};
+
+// Componente de Loading Skeleton
+function PlansSkeleton() {
+  return (
+    <div className="space-y-6 animate-pulse">
+      <div className="h-8 bg-slate-200 rounded w-1/4"></div>
+      <div className="h-64 bg-slate-200 rounded-2xl"></div>
+      <div className="h-48 bg-slate-200 rounded-2xl"></div>
+    </div>
+  );
+}
+
+// Badge de Status
+function StatusBadge({ status }: { status: string }) {
+  const variants: Record<string, { bg: string; text: string; label: string }> = {
+    active: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Ativo' },
+    pending: { bg: 'bg-amber-100', text: 'text-amber-700', label: 'Aguardando pagamento' },
+    expired: { bg: 'bg-rose-100', text: 'text-rose-700', label: 'Expirado' },
+    cancelled: { bg: 'bg-slate-100', text: 'text-slate-700', label: 'Cancelado' },
+    open: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Aberto' },
+    closed: { bg: 'bg-slate-100', text: 'text-slate-700', label: 'Fechado' },
+  };
+
+  const variant = variants[status] || variants.active;
+
+  return (
+    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${variant.bg} ${variant.text}`}>
+      {variant.label}
+    </span>
+  );
+}
+
+// Alert Component
+function Alert({ 
+  variant, 
+  title, 
+  children, 
+  action 
+}: { 
+  variant: 'success' | 'error' | 'warning' | 'info';
+  title: string;
+  children: React.ReactNode;
+  action?: React.ReactNode;
+}) {
+  const colors = {
+    success: 'bg-emerald-50 border-emerald-200 text-emerald-800',
+    error: 'bg-rose-50 border-rose-200 text-rose-800',
+    warning: 'bg-amber-50 border-amber-200 text-amber-800',
+    info: 'bg-blue-50 border-blue-200 text-blue-800',
+  };
+
+  return (
+    <div className={`rounded-xl border p-4 ${colors[variant]}`}>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h4 className="font-semibold">{title}</h4>
+          <div className="text-sm mt-1 opacity-90">{children}</div>
+        </div>
+        {action && <div>{action}</div>}
+      </div>
+    </div>
+  );
+}
+
+// Main Page Component
 export default function PlansPage() {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const router = useRouter();
+  
+  // Estados locais
   const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'credit_card' | 'pix'>('pix');
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
-  const [monthlySales, setMonthlySales] = useState(100);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [cardToken, setCardToken] = useState<string | null>(null);
+  const [cardHolderCpf, setCardHolderCpf] = useState<string | null>(null);
+  /**
+   * Ref para armazenar o token do cartão de forma síncrona.
+   * O estado React é assíncrono, então quando o callback onCardTokenGenerated é chamado
+   * e em seguida onTokenizationComplete é disparado, o estado ainda não foi atualizado.
+   * A ref garante acesso imediato ao token sem esperar re-renderização.
+   */
+  const cardTokenRef = useRef<string | null>(null);
+  const cardHolderCpfRef = useRef<string | null>(null);
   const [isCardTokenized, setIsCardTokenized] = useState(false);
-  
-  // Estados para PIX
+  const [shouldTokenize, setShouldTokenize] = useState(false);
   const [pixData, setPixData] = useState<{
     pixCode: string;
     qrCodeUrl: string;
     expirationDate: string;
   } | null>(null);
-  const [copied, setCopied] = useState(false);
-  const [timeRemaining, setTimeRemaining] = useState<string>('');
 
   useProtectedRoute('/login');
 
+  // Hooks de dados
   const {
     plans,
     subscription,
     currentPlan,
     isLoading: isLoadingSubscription,
-    isSubscriptionActive,
     isExpiringSoon,
-    calculateUpgradeSavings,
     createSubscription,
     isCreatingSubscription,
     cancelSubscription,
@@ -70,94 +232,45 @@ export default function PlansPage() {
     refetchSubscription,
   } = useSubscription();
 
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push('/login?redirect=admin/plans');
-    }
-  }, [isLoading, isAuthenticated, router]);
+  // Fetch billing data
+  const fetchBillingData = useCallback(async (): Promise<BillingData> => {
+    const cycle: BillingCycle | null = subscription ? {
+      id: subscription.id || 'current',
+      planId: subscription.planId,
+      planName: subscription.planName,
+      startDate: subscription.startedAt || new Date().toISOString(),
+      endDate: subscription.expiresAt || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      daysRemaining: subscription.expiresAt 
+        ? Math.max(0, Math.ceil((new Date(subscription.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+        : 30,
+      transactionCount: 0,
+      totalTransactionFees: 0,
+      monthlyFee: currentPlan?.monthlyPrice || 0,
+      totalAmount: (currentPlan?.monthlyPrice || 0),
+      status: subscription.status === 'active' ? 'open' : 'closed',
+    } : null;
 
-  // Force refetch when component mounts to get fresh data
-  useEffect(() => {
-    if (isAuthenticated) {
-      // Clear cache and refetch
-      apiCache.invalidate('subscription');
-      apiCache.invalidate('plans');
-      refetchSubscription();
-    }
-  }, [isAuthenticated]);
-
-  const handleSelectPlan = (planId: number) => {
-    // Se clicou no mesmo plano já selecionado, desseleciona
-    if (planId === selectedPlan) {
-      setSelectedPlan(null);
-      setPixData(null);
-      return;
-    }
-    
-    // Se tem upgrade pendente e selecionou outro plano, mostrar aviso
-    if (hasPendingSubscription && planId !== pendingPlanId) {
-      setMessage({
-        type: 'info',
-        text: `Você tem um upgrade pendente para o plano ${subscription?.planName}. Selecionar outro plano cancelará o upgrade atual.`,
-      });
-    }
-    
-    setSelectedPlan(planId);
-    setCardToken(null);
-    setIsCardTokenized(false);
-    setPixData(null); // Limpa dados do PIX anterior
-  };
-
-  const handlePaymentMethodChange = (method: 'credit_card' | 'pix') => {
-    setPaymentMethod(method);
-    setCardToken(null);
-    setIsCardTokenized(false);
-  };
-
-  const handleCardTokenGenerated = (token: string) => {
-    setCardToken(token);
-    setIsCardTokenized(true);
-  };
-
-  const handleCardValidationChange = (isValid: boolean) => {
-    // Validation state is managed internally by the form
-    // We just need to reset the tokenized state if it becomes invalid
-    if (!isValid && isCardTokenized) {
-      setIsCardTokenized(false);
-      setCardToken(null);
-    }
-  };
-
-  // Timer para expiração do PIX
-  useEffect(() => {
-    if (!pixData?.expirationDate) return;
-
-    const updateTimer = () => {
-      const now = new Date();
-      const target = new Date(pixData.expirationDate);
-      const diff = target.getTime() - now.getTime();
-
-      if (diff <= 0) {
-        setTimeRemaining('Expirado');
-        return;
-      }
-
-      const hours = Math.floor(diff / 3600000);
-      const minutes = Math.floor((diff % 3600000) / 60000);
-      
-      if (hours > 0) {
-        setTimeRemaining(`${hours}h ${minutes.toString().padStart(2, '0')}min`);
-      } else {
-        setTimeRemaining(`${minutes} min`);
-      }
+    return {
+      cycle,
+      invoice: null,
+      usage: {
+        transactions: 0,
+        totalFees: 0,
+        feePerTransaction: currentPlan?.feePerTransaction || 0.70,
+        projectedTotal: (currentPlan?.monthlyPrice || 0),
+      },
     };
+  }, [subscription, currentPlan]);
 
-    updateTimer();
-    const interval = setInterval(updateTimer, 1000);
-    return () => clearInterval(interval);
-  }, [pixData?.expirationDate]);
+  const { 
+    data: billingData, 
+    isLoading: isLoadingBilling 
+  } = useApi<BillingData>('billing-current', fetchBillingData, {
+    ttl: 30 * 1000,
+    enabled: isAuthenticated,
+  });
 
-  // Carregar pixData da subscription pendente quando a página inicia
+  // Carregar pixData da subscription pendente ou do estado
   useEffect(() => {
     if (subscription?.status === 'pending_payment' && subscription?.pixCode && subscription?.pixExpirationDate) {
       setPixData({
@@ -165,800 +278,813 @@ export default function PlansPage() {
         qrCodeUrl: subscription.pixQrCodeUrl || '',
         expirationDate: subscription.pixExpirationDate,
       });
-      // Seleciona o plano pendente automaticamente
-      if (subscription.planId) {
-        setSelectedPlan(Number(subscription.planId));
-      }
     }
   }, [subscription]);
 
-  // Limpar selectedPlan quando a assinatura ativa for para o mesmo plano selecionado
-  // (caso o pagamento tenha sido confirmado em outra aba/janela)
-  useEffect(() => {
-    if (selectedPlan && subscription?.status === 'active' && Number(subscription.planId) === selectedPlan) {
+  const handleSelectPlan = (planId: number) => {
+    if (planId === selectedPlan) {
       setSelectedPlan(null);
       setPixData(null);
+      // Limpa token ao cancelar seleção
+      setCardToken(null);
+      cardTokenRef.current = null;
+      return;
     }
-  }, [subscription, selectedPlan]);
-
-  const handleCopyPixCode = async () => {
-    if (!pixData?.pixCode) return;
-    try {
-      await navigator.clipboard.writeText(pixData.pixCode);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      setMessage({ type: 'error', text: 'Erro ao copiar código' });
-    }
+    setSelectedPlan(planId);
+    // Limpa tokens ao selecionar novo plano para evitar uso de token antigo
+    setCardToken(null);
+    cardTokenRef.current = null;
+    setCardHolderCpf(null);
+    cardHolderCpfRef.current = null;
+    setIsCardTokenized(false);
+    setShouldTokenize(false);
+    setPixData(null);
+    
+    // Scroll para o formulário de checkout após selecionar plano
+    setTimeout(() => {
+      document.getElementById('finalizar-assinatura')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
   };
 
-  const handleCardError = (error: string) => {
-    setMessage({ type: 'error', text: error });
+  const handlePaymentMethodChange = (method: 'credit_card' | 'pix') => {
+    setPaymentMethod(method);
+    // Limpa tokens ao trocar método de pagamento para evitar conflito
+    setCardToken(null);
+    cardTokenRef.current = null;
+    setCardHolderCpf(null);
+    cardHolderCpfRef.current = null;
+    setIsCardTokenized(false);
+    setShouldTokenize(false);
+    setCheckoutError(null);
+  };
+
+  const handleCardTokenGenerated = (token: string) => {
+    // Atualiza o estado para trigger de re-renderização (UI feedback)
+    setCardToken(token);
+    // Atualiza a ref de forma síncrona para acesso imediato no callback seguinte
+    cardTokenRef.current = token;
+    setIsCardTokenized(true);
+    setCheckoutError(null);
+  };
+
+  // Create subscription after token is ready
+  const createSubscriptionWithToken = async () => {
+    if (!selectedPlan) return;
+
+    try {
+      // Usa a ref como fonte primária (acesso síncrono) e o estado como fallback
+      // A ref é atualizada imediatamente no callback, enquanto o estado pode atrasar
+      const tokenToSend = paymentMethod === 'credit_card' ? cardTokenRef.current || cardToken || undefined : undefined;
+
+      // Get CPF from ref (synchronous) or state
+      const cpfToSend = paymentMethod === 'credit_card' ? cardHolderCpfRef.current || cardHolderCpf || undefined : undefined;
+
+      const result = await createSubscription({
+        planId: selectedPlan,
+        paymentMethod,
+        cardToken: tokenToSend,
+        cardHolderCpf: cpfToSend,
+      });
+
+      // Se result for null, houve erro (já tratado no catch do useApiMutation)
+      if (!result) {
+        return;
+      }
+
+      if (result.pixData) {
+        // Pagamento PIX: mostra QR code
+        setPixData(result.pixData);
+      } else {
+        // Pagamento com cartão: aprovado ou pendente
+        setMessage({ type: 'success', text: 'Assinatura criada com sucesso!' });
+        setSelectedPlan(null);
+      }
+      
+      apiCache.clear();
+    } catch (error: any) {
+      let errorMessage = error.response?.data?.message || error.message || 'Erro ao criar assinatura';
+      
+      // Melhorar mensagens de erro específicas
+      if (errorMessage.includes('token') || errorMessage.includes('Token') || errorMessage.includes('card')) {
+        errorMessage = 'Erro ao processar o cartão. Os dados podem ter expirado. Por favor, atualize a página e preencha os dados do cartão novamente.';
+      } else if (errorMessage.includes('Card token service not found')) {
+        errorMessage = 'O token do cartão expirou. Por favor, preencha os dados do cartão novamente.';
+      }
+      
+      setCheckoutError(errorMessage);
+      setMessage({ 
+        type: 'error', 
+        text: errorMessage 
+      });
+    }
   };
 
   const handleSubscribe = async () => {
     if (!selectedPlan) return;
 
-    // Se for cartão de crédito, verificar se temos o token
-    if (paymentMethod === 'credit_card' && !cardToken) {
-      setMessage({
-        type: 'error',
-        text: 'Por favor, preencha os dados do cartão primeiro.',
-      });
+    setCheckoutError(null);
+
+    // Se for cartão de crédito e não tiver token ainda, dispara tokenização primeiro
+    if (paymentMethod === 'credit_card' && !cardTokenRef.current && !cardToken) {
+      setShouldTokenize(true);
       return;
     }
 
-    // Se tem assinatura pendente e selecionou outro plano, cancelar primeiro
-    if (hasPendingSubscription && selectedPlan !== pendingPlanId) {
-      try {
-        await cancelSubscription('cancelado_para_selecionar_outro_plano');
-      } catch (err) {
-        setMessage({
-          type: 'error',
-          text: 'Erro ao cancelar assinatura pendente. Tente novamente.',
-        });
-        return;
-      }
-    }
+    // Já tem token ou é PIX, cria assinatura direto
+    await createSubscriptionWithToken();
+  };
 
-    // Se selecionou o plano Grátis, apenas cancela a assinatura atual
-    if (selectedPlan === 1) {
-      if (hasPendingSubscription) {
-        setMessage({
-          type: 'success',
-          text: 'Upgrade cancelado. Você está no plano Grátis.',
-        });
-      } else {
-        setMessage({
-          type: 'info',
-          text: 'Você já está no plano Grátis.',
-        });
-      }
-      apiCache.invalidate('subscription');
-      refetchSubscription();
-      setSelectedPlan(null);
-      return;
-    }
-
-    const result = await createSubscription(
-      { planId: selectedPlan, paymentMethod, cardToken: cardToken || undefined },
-      {
-        onSuccess: (data) => {
-          if (paymentMethod === 'pix' && data.pixData) {
-            setPixData(data.pixData);
-            setMessage({
-              type: 'info',
-              text: 'Pagamento PIX gerado! Escaneie o QR code ou copie o código para completar a assinatura.',
-            });
-          } else {
-            setMessage({
-              type: 'success',
-              text: 'Assinatura criada com sucesso!',
-            });
-            // Limpa estados apenas se não for PIX
-            setSelectedPlan(null);
-            setCardToken(null);
-            setIsCardTokenized(false);
-          }
-          // Invalida cache de subscription
-          apiCache.invalidate('subscription');
-          refetchSubscription();
-        },
-        onError: (err) => {
-          setMessage({
-            type: 'error',
-            text: err.message || 'Erro ao criar assinatura. Tente novamente.',
-          });
-        },
-      }
-    );
+  // Callback quando tokenização completa
+  const handleTokenizationComplete = () => {
+    setShouldTokenize(false);
+    // Usa setTimeout com 0ms para garantir que a ref foi atualizada
+    // A ref é atualizada de forma síncrona, mas o estado React é async
+    setTimeout(() => {
+      createSubscriptionWithToken();
+    }, 0);
   };
 
   const handleCancel = async () => {
-    const result = await cancelSubscription(cancelReason || undefined, {
-      onSuccess: () => {
-        setMessage({
-          type: 'success',
-          text: 'Assinatura cancelada com sucesso. Você foi movido para o plano Grátis.',
-        });
-        setShowCancelModal(false);
-        setCancelReason('');
-        setSelectedPlan(null); // Limpa plano selecionado ao cancelar
-        setPixData(null); // Limpa dados do PIX
-        apiCache.invalidate('subscription');
-        refetchSubscription();
-      },
-      onError: (err) => {
-        setMessage({
-          type: 'error',
-          text: err.message || 'Erro ao cancelar assinatura.',
-        });
-      },
-    });
-  };
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value);
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Intl.DateTimeFormat('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    }).format(new Date(dateString));
-  };
-
-  const formatDateTime = (dateString: string) => {
-    return new Intl.DateTimeFormat('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(dateString));
-  };
-
-  const getTimeRemaining = (dateString: string): string => {
-    const now = new Date();
-    const target = new Date(dateString);
-    const diffMs = target.getTime() - now.getTime();
-    
-    if (diffMs <= 0) return 'Expirado';
-    
-    const diffSecs = Math.floor(diffMs / 1000);
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-    
-    // Menos de 1 minuto
-    if (diffSecs < 60) {
-      return 'menos de 1 minuto';
+    try {
+      await cancelSubscription(cancelReason);
+      setShowCancelModal(false);
+      setCancelReason('');
+      setMessage({ type: 'success', text: 'Assinatura cancelada. Você foi movido para o plano Grátis.' });
+      apiCache.clear();
+    } catch (error: any) {
+      setMessage({ 
+        type: 'error', 
+        text: error.response?.data?.message || 'Erro ao cancelar assinatura' 
+      });
     }
-    
-    // Menos de 1 hora: mostra minutos
-    if (diffMins < 60) {
-      return `${diffMins} minuto${diffMins !== 1 ? 's' : ''}`;
-    }
-    
-    // Menos de 24 horas: mostra horas e minutos
-    if (diffHours < 24) {
-      const mins = diffMins % 60;
-      if (mins === 0) {
-        return `${diffHours} hora${diffHours !== 1 ? 's' : ''}`;
-      }
-      return `${diffHours}h ${mins}min`;
-    }
-    
-    // 24 horas ou mais: mostra dias e horas
-    const hours = diffHours % 24;
-    if (hours === 0) {
-      return `${diffDays} dia${diffDays !== 1 ? 's' : ''}`;
-    }
-    return `${diffDays} dia${diffDays !== 1 ? 's' : ''} e ${hours}h`;
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
-      </div>
-    );
+  // Plano atual baseado em user.planId
+  const isCurrentPlan = (planId: number) => {
+    return planId === user?.planId;
+  };
+
+  const canUpgrade = (planId: number) => {
+    if (hasPendingSubscription) return false;
+    return planId > (user?.planId || 1);
+  };
+
+  const canDowngrade = (planId: number) => {
+    if (hasPendingSubscription) return false;
+    return planId < (user?.planId || 1);
+  };
+
+  const hasPendingSubscription = subscription?.status === 'pending_payment';
+  const pendingPlanId = hasPendingSubscription ? Number(subscription?.planId) : null;
+
+  // Plano atual do usuário baseado em user.planId (plano efetivo já pago)
+  const currentUserPlanId = user?.planId || 1;
+  const currentUserPlan = plans.find(p => p.id === currentUserPlanId);
+  const planColors = PLAN_COLORS[currentUserPlanId];
+
+  const scrollToPlans = () => {
+    document.getElementById('comparar-planos')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  // Loading state
+  if (isAuthLoading || isLoadingSubscription) {
+    return <PlansSkeleton />;
   }
 
   if (!isAuthenticated) {
     return null;
   }
 
-  const isCurrentPlan = (planId: number) => currentPlan?.id === planId;
-  
-  // Verifica se existe uma assinatura pendente (upgrade em andamento)
-  const hasPendingSubscription = subscription?.status === 'pending_payment';
-  const pendingPlanId = hasPendingSubscription ? Number(subscription?.planId) : null;
-  
-  const canUpgrade = (planId: number) => {
-    if (!currentPlan) return true;
-    return planId > currentPlan.id;
-  };
-  
-  const canDowngrade = (planId: number) => {
-    if (!currentPlan) return false;
-    return planId < currentPlan.id;
-  };
-  
-  // Verifica se pode selecionar um plano (para cancelar upgrade pendente)
-  const canSelectPlan = (planId: number) => {
-    // Se tem upgrade pendente, pode selecionar qualquer plano diferente para cancelar
-    if (hasPendingSubscription && planId !== pendingPlanId) {
-      return true;
-    }
-    return false;
-  };
-
   return (
-    <div className="min-h-screen bg-slate-50">
-      
+    <div className="space-y-8 max-w-6xl mx-auto">
+      {/* Breadcrumb */}
+      <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-sm text-slate-500">
+        <Link href="/admin/dashboard" className="hover:text-indigo-600 transition">
+          Dashboard
+        </Link>
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+        <span className="text-slate-900 font-medium">Seu Plano</span>
+      </nav>
 
-      <main className="py-8">
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-sm text-slate-500 mb-6">
-          <Link href="/admin/dashboard" className="hover:text-indigo-600 transition">Dashboard</Link>
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-          <span className="text-slate-900 font-medium">Planos</span>
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Seu Plano</h1>
+        <p className="text-slate-500 mt-1">Acompanhe seus custos e escolha o melhor plano para suas vendas</p>
+      </div>
+
+      {/* Messages */}
+      {message && (
+        <Alert 
+          variant={message.type === 'error' ? 'error' : message.type === 'success' ? 'success' : 'info'}
+          title={message.type === 'error' ? 'Erro' : message.type === 'success' ? 'Sucesso' : 'Informação'}
+        >
+          {message.text}
+        </Alert>
+      )}
+
+      {/* SEÇÃO 1: Seu Plano Atual */}
+      <section className={`bg-white rounded-2xl border-2 ${planColors.border} shadow-sm overflow-hidden`}>
+        <div className={`${planColors.bg} px-6 py-5 border-b ${planColors.border}`}>
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <h2 className="font-semibold text-slate-900 text-lg">Plano Atual</h2>
+            <StatusBadge status={subscription?.status || 'active'} />
+          </div>
         </div>
+        
+        <div className="p-6">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-6">
+            {/* Logo do plano */}
+            <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${planColors.gradient} flex items-center justify-center shadow-lg flex-shrink-0`}>
+              <span className="text-white font-bold text-3xl">
+                {currentUserPlan?.name?.[0] || 'S'}
+              </span>
+            </div>
 
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Planos e Assinatura</h1>
-          <p className="text-slate-500">Gerencie seu plano e escolha o melhor para o seu negócio</p>
-        </div>
-
-        {/* Current Plan Status */}
-        {subscription && (
-          <div className={`mb-8 p-6 rounded-2xl border-2 ${
-            subscription.status === 'pending_payment' 
-              ? 'bg-amber-50 border-amber-200' 
-              : PLAN_BG_COLORS[subscription.planId]
-          } ${isExpiringSoon() ? 'ring-2 ring-amber-400' : ''}`}>
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <h2 className="text-xl font-bold text-slate-900">
-                    {subscription.status === 'pending_payment' 
-                      ? `Upgrade para ${subscription.planName} - Pendente` 
-                      : `Plano ${subscription.planName}`
-                    }
-                  </h2>
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                    subscription.status === 'active'
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : subscription.status === 'pending_payment'
-                      ? 'bg-amber-100 text-amber-700'
-                      : subscription.status === 'expired'
-                      ? 'bg-rose-100 text-rose-700'
-                      : 'bg-slate-100 text-slate-700'
-                  }`}>
-                    {subscription.status === 'active' && 'Ativo'}
-                    {subscription.status === 'pending_payment' && 'Aguardando Pagamento'}
-                    {subscription.status === 'expired' && 'Expirado'}
-                    {subscription.status === 'cancelled' && 'Cancelado'}
-                    {subscription.status === 'payment_failed' && 'Pagamento Falhou'}
+            {/* Info principal */}
+            <div className="flex-1">
+              <div className="flex items-center gap-3 flex-wrap">
+                <h3 className="text-2xl font-bold text-slate-900">{currentUserPlan?.name || 'Starter'}</h3>
+                {currentUserPlan && (
+                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${PLAN_COLORS[currentUserPlan.id].badge}`}>
+                    {PLAN_BADGES[currentUserPlan.id]}
                   </span>
-                </div>
-                <p className="text-slate-600">
-                  {subscription.status === 'active' ? (
-                    <>
-                      Válido até <strong>{formatDate(subscription.expiresAt)}</strong>
-                      {isExpiringSoon() && (
-                        <span className="ml-2 text-amber-600 font-medium">
-                          (Expira em breve!)
-                        </span>
-                      )}
-                    </>
-                  ) : subscription.status === 'pending_payment' ? (
-                    subscription.pixExpirationDate ? (
-                      <>
-                        PIX gerado. Expira em <strong>{getTimeRemaining(subscription.pixExpirationDate)}</strong>
-                        <span className="ml-2 text-slate-500">({formatDateTime(subscription.pixExpirationDate)})</span>
-                      </>
-                    ) : (
-                      'Complete o pagamento para ativar seu plano'
-                    )
-                  ) : subscription.status === 'expired' ? (
-                    'Seu plano expirou. Renove para continuar vendendo.'
-                  ) : (
-                    'Assinatura cancelada'
-                  )}
-                </p>
+                )}
               </div>
               
-              {subscription.planId !== 1 && subscription.status === 'active' && (
+              {/* Grid de informações */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
+                <div>
+                  <p className="text-xs text-slate-500">Mensalidade</p>
+                  <p className="font-semibold text-slate-900">{formatCurrency(currentUserPlan?.monthlyPrice || 0)}/mês</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Taxa por venda</p>
+                  <p className="font-semibold text-indigo-600">{formatCurrency(currentUserPlan?.feePerTransaction || 0.70)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Links monetizados</p>
+                  <p className="font-semibold text-slate-900">
+                    {currentUserPlan?.maxPaidLinks === Infinity ? 'Ilimitado' : `${currentUserPlan?.maxPaidLinks || 3} links`}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Período atual</p>
+                  <p className="font-semibold text-slate-900">
+                    {billingData?.cycle ? formatPeriod(billingData.cycle.startDate, billingData.cycle.endDate) : '-'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* CTA */}
+            <div className="lg:text-right">
+              {!hasPendingSubscription && (
                 <button
-                  onClick={() => setShowCancelModal(true)}
-                  className="text-sm text-slate-500 hover:text-rose-600 underline transition"
+                  onClick={scrollToPlans}
+                  className="inline-flex items-center px-5 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 transition shadow-sm"
                 >
-                  Cancelar assinatura
+                  Ver planos
+                  <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
                 </button>
               )}
+              
+              {subscription?.status === 'active' && subscription?.expiresAt && !hasPendingSubscription && (
+                <p className="text-xs text-slate-500 mt-2">
+                  Renova em {formatDate(subscription.expiresAt)}
+                  {isExpiringSoon() && <span className="text-amber-600 font-medium ml-1">(em breve!)</span>}
+                </p>
+              )}
             </div>
-            
-            {/* PIX Payment Info - Minimalista */}
-            {subscription.status === 'pending_payment' && subscription.pixCode && (
-              <div className="mt-4 pt-4 border-t border-amber-200">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={subscription.pixCode}
-                    readOnly
-                    className="flex-1 px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg"
-                  />
+          </div>
+        </div>
+      </section>
+
+      {/* SEÇÃO 2: Pagamento Pendente - Formulário de Pagamento */}
+      {hasPendingSubscription && pendingPlanId && (
+        <section className="bg-amber-50 rounded-2xl border-2 border-amber-200 overflow-hidden">
+          <div className="bg-amber-100 px-6 py-5 border-b border-amber-200">
+            <div className="flex items-center gap-3">
+              <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+              <h2 className="font-semibold text-amber-900 text-lg">
+                Pagamento Pendente - {PLAN_NAMES[pendingPlanId]}
+              </h2>
+            </div>
+          </div>
+          
+          <div className="p-6">
+            {/* Pagamento via PIX */}
+            {(subscription?.paymentMethod === 'pix' || !subscription?.paymentMethod) && (
+              <>
+                <p className="text-amber-800 mb-6">
+                  Complete o pagamento para ativar seu {PLAN_NAMES[pendingPlanId]}. 
+                  Escaneie o QR Code ou copie o código PIX abaixo:
+                </p>
+
+                {/* PIX Display */}
+                {pixData || (subscription?.pixCode && subscription?.pixQrCodeUrl) ? (
+              <div className="bg-white rounded-xl p-6 border border-slate-200">
+                <div className="text-center mb-4">
+                  <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-emerald-100 flex items-center justify-center">
+                    <svg className="w-8 h-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="font-semibold text-slate-900">Pagamento via PIX</h3>
+                  <p className="text-sm text-slate-500 mt-1">Escaneie o QR Code ou copie o código PIX</p>
+                </div>
+
+                {/* QR Code */}
+                {(pixData?.qrCodeUrl || subscription?.pixQrCodeUrl) && (
+                  <div className="flex justify-center mb-4">
+                    <img 
+                      src={pixData?.qrCodeUrl || subscription?.pixQrCodeUrl} 
+                      alt="QR Code PIX" 
+                      className="w-48 h-48 rounded-lg border border-slate-200"
+                    />
+                  </div>
+                )}
+
+                {/* Código PIX */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={pixData?.pixCode || subscription?.pixCode || ''}
+                      readOnly
+                      className="flex-1 px-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-lg font-mono"
+                    />
+                    <button
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(pixData?.pixCode || subscription?.pixCode || '');
+                          setMessage({ type: 'success', text: 'Código PIX copiado!' });
+                        } catch {
+                          setMessage({ type: 'error', text: 'Erro ao copiar código' });
+                        }
+                      }}
+                      className="px-4 py-3 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition"
+                    >
+                      Copiar
+                    </button>
+                  </div>
+                  {(pixData?.expirationDate || subscription?.pixExpirationDate) && (
+                    <p className="text-xs text-slate-500 text-center">
+                      Expira em: {new Date(pixData?.expirationDate || subscription?.pixExpirationDate || '').toLocaleString('pt-BR')}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white rounded-xl p-6 border border-slate-200 text-center">
+                <p className="text-slate-500">Carregando dados do pagamento...</p>
+              </div>
+            )}
+              </>
+            )}
+
+            {/* Pagamento via Cartão de Crédito */}
+            {subscription?.paymentMethod === 'credit_card' && (
+              <div className="bg-white rounded-xl p-6 border border-slate-200">
+                <div className="text-center mb-6">
+                  <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-indigo-100 flex items-center justify-center">
+                    <svg className="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                    </svg>
+                  </div>
+                  <h3 className="font-semibold text-slate-900">Pagamento com Cartão</h3>
+                  <p className="text-sm text-slate-500 mt-1">
+                    Sua assinatura está aguardando autorização do pagamento.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <p className="text-sm text-slate-600 text-center">
+                    O pagamento com cartão pode levar alguns minutos para ser processado.
+                  </p>
+
                   <button
-                    onClick={async () => {
-                      try {
-                        await navigator.clipboard.writeText(subscription.pixCode!);
-                        setMessage({ type: 'success', text: 'Código PIX copiado!' });
-                      } catch (err) {
-                        setMessage({ type: 'error', text: 'Erro ao copiar código' });
-                      }
+                    onClick={() => {
+                      // Cancela a assinatura pendente e permite criar uma nova
+                      cancelSubscription('retry_with_new_card').then(() => {
+                        refetchSubscription();
+                        setMessage({ 
+                          type: 'info', 
+                          text: 'Assinatura anterior cancelada. Você pode tentar novamente com outro cartão.' 
+                        });
+                      }).catch(() => {
+                        setMessage({ 
+                          type: 'error', 
+                          text: 'Erro ao cancelar assinatura anterior. Tente novamente.' 
+                        });
+                      });
                     }}
-                    className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-700 transition whitespace-nowrap"
+                    className="w-full py-3 px-4 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition"
                   >
-                    Copiar PIX
+                    Tentar com outro cartão
                   </button>
                 </div>
               </div>
             )}
-          </div>
-        )}
 
-        {/* Messages */}
-        {message && (
-          <div className={`mb-6 p-4 rounded-xl ${
-            message.type === 'success' ? 'bg-emerald-50 border border-emerald-200' :
-            message.type === 'error' ? 'bg-rose-50 border border-rose-200' :
-            'bg-blue-50 border border-blue-200'
-          }`}>
-            <p className={`font-medium text-sm ${
-              message.type === 'success' ? 'text-emerald-700' :
-              message.type === 'error' ? 'text-rose-700' :
-              'text-blue-700'
-            }`}>
-              {message.text}
-            </p>
+            <div className="mt-6 p-4 bg-amber-100 rounded-xl">
+              <p className="text-sm text-amber-800 text-center">
+                <strong>Importante:</strong> Se realizou o pagamento aguarde que o seu plano será atualizado em instantes.
+              </p>
+            </div>
           </div>
-        )}
+        </section>
+      )}
 
-        {/* Savings Calculator */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-8">
-          <h3 className="text-lg font-bold text-slate-900 mb-4">💰 Calculadora de Economia</h3>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-4">
-            <label className="text-sm text-slate-600">
-              Quantas vendas você faz por mês?
-            </label>
-            <input
-              type="range"
-              min="10"
-              max="1000"
-              step="10"
-              value={monthlySales}
-              onChange={(e) => setMonthlySales(parseInt(e.target.value))}
-              className="flex-1 max-w-xs"
-            />
-            <span className="font-semibold text-indigo-600">{monthlySales} vendas</span>
+      {/* SEÇÃO 3: Checkout Condicional (quando seleciona novo plano) */}
+      {selectedPlan && !hasPendingSubscription && (
+        <section id="finalizar-assinatura" className="bg-emerald-50 rounded-2xl border-2 border-emerald-200 overflow-hidden scroll-mt-6">
+          <div className="bg-emerald-100 px-6 py-5 border-b border-emerald-200">
+            <h2 className="font-semibold text-emerald-900 text-lg">
+              Finalizar {canUpgrade(selectedPlan) ? 'Upgrade' : 'Downgrade'}
+            </h2>
           </div>
           
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {plans.map((plan) => {
-              const totalCost = plan.monthlyPrice + (plan.feePerTransaction * monthlySales);
-              const savings = currentPlan ? calculateUpgradeSavings(plan.id, monthlySales) : 0;
-              return (
-                <div
-                  key={plan.id}
-                  className={`p-4 rounded-xl border ${
-                    isCurrentPlan(plan.id) ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200'
+          <div className="p-6">
+            <div className="flex flex-col md:flex-row md:items-center gap-6 mb-6">
+              <div className="flex items-center gap-3">
+                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${PLAN_COLORS[selectedPlan].gradient} flex items-center justify-center`}>
+                  <span className="text-white font-bold text-lg">
+                    {PLAN_NAMES[selectedPlan][0]}
+                  </span>
+                </div>
+                <div>
+                  <p className="font-semibold text-slate-900">{PLAN_NAMES[selectedPlan]}</p>
+                  <p className="text-sm text-slate-500">
+                    {formatCurrency(plans.find(p => p.id === selectedPlan)?.monthlyPrice || 0)}/mês
+                  </p>
+                </div>
+              </div>
+
+              <div className="md:ml-auto">
+                <button
+                  onClick={() => setSelectedPlan(null)}
+                  className="text-sm text-slate-500 hover:text-slate-700"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+
+            {/* Formas de pagamento */}
+            <div className="space-y-4 mb-6">
+              <p className="text-sm font-medium text-slate-700">Escolha como pagar:</p>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => handlePaymentMethodChange('pix')}
+                  className={`flex-1 py-3 px-4 rounded-xl border-2 text-sm font-medium transition ${
+                    paymentMethod === 'pix'
+                      ? 'border-emerald-500 bg-emerald-100 text-emerald-700'
+                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
                   }`}
                 >
-                  <p className="font-medium text-slate-900">{plan.name}</p>
-                  <p className="text-lg font-bold text-slate-900">
-                    {formatCurrency(totalCost)}
-                    <span className="text-xs font-normal text-slate-500">/mês</span>
-                  </p>
-                  {savings > 0 && (
-                    <p className="text-xs text-emerald-600 font-medium">
-                      Economia: {formatCurrency(savings)}
-                    </p>
-                  )}
+                  <div className="flex items-center justify-center gap-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                    </svg>
+                    Pagar com PIX
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => handlePaymentMethodChange('credit_card')}
+                  className={`flex-1 py-3 px-4 rounded-xl border-2 text-sm font-medium transition ${
+                    paymentMethod === 'credit_card'
+                      ? 'border-emerald-500 bg-emerald-100 text-emerald-700'
+                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                    </svg>
+                    Cartão de crédito
+                  </div>
+                </button>
+              </div>
+
+              {/* Instrução quando PIX está selecionado mas ainda não gerado */}
+              {paymentMethod === 'pix' && !pixData && (
+                <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+                  <div className="flex items-start gap-3">
+                    <svg className="w-5 h-5 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                      <p className="text-sm text-blue-800 font-medium">Como pagar com PIX</p>
+                      <p className="text-sm text-blue-600 mt-1">
+                        Confirme para gerar o QR Code e código PIX da fatura
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              );
-            })}
+              )}
+
+              {paymentMethod === 'credit_card' && (
+                <div className="bg-white rounded-xl p-4 border border-slate-200">
+                  <CreditCardForm 
+                    onCardTokenGenerated={handleCardTokenGenerated}
+                    onError={(error) => setMessage({ type: 'error', text: error })}
+                    onValidationChange={setIsCardTokenized}
+                    isProcessing={isCreatingSubscription}
+                    shouldTokenize={shouldTokenize}
+                    onTokenizationComplete={handleTokenizationComplete}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* PIX Code Display */}
+            {pixData && (
+              <div className="bg-white rounded-xl p-6 border border-slate-200 mb-6">
+                <div className="text-center mb-4">
+                  <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-emerald-100 flex items-center justify-center">
+                    <svg className="w-8 h-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="font-semibold text-slate-900">Pagamento via PIX</h3>
+                  <p className="text-sm text-slate-500 mt-1">Escaneie o QR Code ou copie o código PIX</p>
+                </div>
+
+                {pixData.qrCodeUrl && (
+                  <div className="flex justify-center mb-4">
+                    <img 
+                      src={pixData.qrCodeUrl} 
+                      alt="QR Code PIX" 
+                      className="w-48 h-48 rounded-lg border border-slate-200"
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={pixData.pixCode}
+                      readOnly
+                      className="flex-1 px-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-lg font-mono"
+                    />
+                    <button
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(pixData.pixCode);
+                          setMessage({ type: 'success', text: 'Código PIX copiado!' });
+                        } catch {
+                          setMessage({ type: 'error', text: 'Erro ao copiar código' });
+                        }
+                      }}
+                      className="px-4 py-3 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition"
+                    >
+                      Copiar
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-500 text-center">
+                    Expira em: {new Date(pixData.expirationDate).toLocaleString('pt-BR')}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Mensagem de erro específica do checkout */}
+            {checkoutError && (
+              <div className="mb-4 p-4 bg-rose-50 border border-rose-200 rounded-xl">
+                <div className="flex items-start gap-3">
+                  <svg className="w-5 h-5 text-rose-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-medium text-rose-800">Erro no pagamento</p>
+                    <p className="text-sm text-rose-600 mt-1">{checkoutError}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Botão de confirmação */}
+            <button
+              onClick={handleSubscribe}
+              disabled={isCreatingSubscription || shouldTokenize || (paymentMethod === 'credit_card' && !isCardTokenized && !shouldTokenize) || (paymentMethod === 'pix' && !!pixData)}
+              className="w-full py-3 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isCreatingSubscription 
+                ? 'Processando...' 
+                : shouldTokenize
+                ? 'Validando cartão...'
+                : paymentMethod === 'pix' && !pixData
+                ? 'Gerar Pagamento'
+                : 'Confirmar assinatura'
+              }
+            </button>
+
+            {paymentMethod === 'credit_card' && !isCardTokenized && !checkoutError && (
+              <p className="text-xs text-amber-600 mt-2 text-center">
+                Preencha os dados do cartão para continuar
+              </p>
+            )}
           </div>
+        </section>
+      )}
+
+      {/* SEÇÃO 4: Comparar Planos */}
+      <section id="comparar-planos" className="scroll-mt-6">
+        <div className="mb-6">
+          <h2 className="text-xl font-bold text-slate-900">Comparar Planos</h2>
+          <p className="text-slate-500 mt-1">Escolha o plano que faz mais sentido para seu volume de vendas</p>
         </div>
 
-        {/* Plans Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {plans.map((plan) => {
             const current = isCurrentPlan(plan.id);
             const upgrade = canUpgrade(plan.id);
             const downgrade = canDowngrade(plan.id);
             const selected = selectedPlan === plan.id;
+            const colors = PLAN_COLORS[plan.id];
+            const features = PLAN_FEATURES[plan.id];
 
             return (
               <div
                 key={plan.id}
-                className={`bg-white rounded-2xl border-2 p-6 flex flex-col relative transition-all ${
+                className={`bg-white rounded-2xl border-2 transition-all flex flex-col ${
                   current
-                    ? 'border-indigo-500 shadow-lg shadow-indigo-100'
+                    ? 'border-indigo-500 shadow-lg'
                     : selected
-                    ? 'border-emerald-500 shadow-lg shadow-emerald-100'
-                    : 'border-slate-200 hover:border-indigo-300'
+                    ? 'border-emerald-500 shadow-md'
+                    : 'border-slate-200 hover:border-slate-300'
                 }`}
               >
-                {/* Badges - Com prioridade estrita: Plano Atual > Aguardando Pagamento > Mais Popular */}
-                <div className="flex flex-col items-center gap-1 mb-3">
-                  {(() => {
-                    // Prioridade 1: Plano Atual (se assinatura ativa)
-                    if (current && subscription?.status === 'active') {
-                      return (
-                        <span className="bg-indigo-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm">
-                          Plano Atual
-                        </span>
-                      );
-                    }
-                    
-                    // Prioridade 2: Aguardando Pagamento (se tem subscription pendente para este plano)
-                    if (hasPendingSubscription && Number(plan.id) === pendingPlanId) {
-                      return (
-                        <span className="bg-amber-500 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm">
-                          Aguardando Pagamento
-                        </span>
-                      );
-                    }
-                    
-                    // Prioridade 3: Mais Popular (se for popular e não for atual nem pendente)
-                    if (plan.popular) {
-                      return (
-                        <span className="bg-emerald-500 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm">
-                          Mais Popular
-                        </span>
-                      );
-                    }
-                    
-                    return null;
-                  })()}
-                </div>
-
-                <div className="text-center mb-6">
-                  <div className={`w-12 h-12 mx-auto mb-3 rounded-xl bg-gradient-to-br ${PLAN_COLORS[plan.id]} flex items-center justify-center`}>
-                    <span className="text-white font-bold text-lg">{plan.name[0]}</span>
-                  </div>
-                  <h3 className="text-lg font-bold text-slate-900 mb-2">{plan.name}</h3>
-                  <div className="flex items-baseline justify-center gap-1">
-                    <span className="text-3xl font-black text-slate-900">
-                      {formatCurrency(plan.monthlyPrice)}
+                {/* Header */}
+                <div className={`${colors.bg} px-5 py-4 rounded-t-2xl border-b ${colors.border}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${colors.badge}`}>
+                      {PLAN_BADGES[plan.id]}
                     </span>
-                    {plan.monthlyPrice > 0 && <span className="text-slate-500 text-sm">/mês</span>}
+                    {current && subscription?.status === 'active' && (
+                      <span className="text-xs bg-indigo-600 text-white px-2 py-1 rounded-full">
+                        Seu plano
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="font-bold text-slate-900 text-lg">{plan.name}</h3>
+                  <div className="mt-1">
+                    <span className="text-3xl font-bold text-slate-900">{formatCurrency(plan.monthlyPrice)}</span>
+                    <span className="text-sm text-slate-500">/mês</span>
                   </div>
                 </div>
 
-                <div className="bg-slate-50 rounded-xl p-3 mb-4 text-center">
-                  <p className="text-xs text-slate-500">Taxa por venda:</p>
-                  <p className="text-lg font-bold text-indigo-600">
-                    {formatCurrency(plan.feePerTransaction)}
-                  </p>
-                </div>
+                {/* Features */}
+                <div className="p-5 flex-1">
+                  <div className="mb-4 p-3 bg-slate-50 rounded-lg">
+                    <p className="text-xs text-slate-500">Taxa por venda</p>
+                    <p className="font-bold text-indigo-600">{formatCurrency(plan.feePerTransaction)}</p>
+                  </div>
 
-                <div className="mb-4">
-                  <p className="text-sm font-medium text-slate-900 text-center">
-                    {plan.maxPaidLinks === null ? 'Links ilimitados' : `Até ${plan.maxPaidLinks} links`}
-                  </p>
-                </div>
-
-                <ul className="space-y-2 mb-6 flex-1">
-                  {plan.features.slice(0, 4).map((feature) => (
-                    <li key={feature} className="flex items-center gap-2 text-sm text-slate-600">
-                      <div className="w-4 h-4 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
-                        <svg className="w-2.5 h-2.5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  <ul className="space-y-2">
+                    {features.map((feature, idx) => (
+                      <li key={idx} className="flex items-start gap-2 text-sm text-slate-600">
+                        <svg className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
-                      </div>
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
 
-                {current && !hasPendingSubscription ? (
-                  <button
-                    disabled
-                    className="w-full py-2.5 rounded-xl bg-slate-100 text-slate-500 font-semibold cursor-default"
-                  >
-                    Plano Atual
-                  </button>
-                ) : hasPendingSubscription && plan.id === pendingPlanId ? (
-                  <button
-                    disabled
-                    className="w-full py-2.5 rounded-xl bg-amber-100 text-amber-700 font-semibold cursor-default"
-                  >
-                    Pagamento Pendente
-                  </button>
-                ) : canUpgrade(plan.id) || canSelectPlan(plan.id) ? (
-                  <button
-                    onClick={() => handleSelectPlan(plan.id)}
-                    className={`w-full py-2.5 rounded-xl font-semibold transition ${
-                      selected
-                        ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200'
-                        : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-200'
-                    }`}
-                  >
-                    {selected ? 'Selecionado' : hasPendingSubscription ? 'Alterar para este plano' : 'Fazer Upgrade'}
-                  </button>
-                ) : canDowngrade(plan.id) || canSelectPlan(plan.id) ? (
-                  <button
-                    onClick={() => handleSelectPlan(plan.id)}
-                    className={`w-full py-2.5 rounded-xl font-semibold transition ${
-                      selected
-                        ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200'
-                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                    }`}
-                  >
-                    {selected ? 'Selecionado' : hasPendingSubscription ? 'Alterar para este plano' : 'Fazer Downgrade'}
-                  </button>
-                ) : (
-                  <button
-                    disabled
-                    className="w-full py-2.5 rounded-xl bg-slate-100 text-slate-400 font-semibold cursor-default"
-                  >
-                    Indisponível
-                  </button>
-                )}
+                {/* CTA */}
+                <div className="p-5 pt-0">
+                  {current && !hasPendingSubscription ? (
+                    <button
+                      disabled
+                      className="w-full py-2.5 rounded-xl bg-indigo-100 text-indigo-700 text-sm font-semibold cursor-default"
+                    >
+                      Seu plano atual
+                    </button>
+                  ) : upgrade ? (
+                    <button
+                      onClick={() => handleSelectPlan(plan.id)}
+                      className={`w-full py-2.5 rounded-xl text-sm font-semibold transition ${
+                        selected
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                      }`}
+                    >
+                      {selected ? 'Selecionado' : 'Fazer upgrade'}
+                    </button>
+                  ) : downgrade ? (
+                    <button
+                      onClick={() => handleSelectPlan(plan.id)}
+                      className={`w-full py-2.5 rounded-xl text-sm font-semibold transition ${
+                        selected
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      }`}
+                    >
+                      {selected ? 'Selecionado' : 'Fazer downgrade'}
+                    </button>
+                  ) : (
+                    <button
+                      disabled
+                      className="w-full py-2.5 rounded-xl bg-slate-100 text-slate-400 text-sm font-semibold cursor-default"
+                    >
+                      Indisponível
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })}
         </div>
+      </section>
 
-        {/* Payment Section - Show when plan selected and different from current active plan */}
-        {selectedPlan && (
-          // Só mostra se:
-          // 1. Tem assinatura pendente para este plano, OU
-          // 2. Plano selecionado é diferente do plano atual ativo
-          (hasPendingSubscription && pendingPlanId === selectedPlan) ||
-          (!hasPendingSubscription && currentPlan?.id !== selectedPlan)
-        ) && (
-          <div className="bg-white rounded-2xl border-2 border-emerald-200 p-6 mb-8">
-            {/* Plano Grátis - Não requer pagamento */}
-            {selectedPlan === 1 ? (
-              <>
-                <div className="text-center mb-6">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-emerald-100 flex items-center justify-center">
-                    <svg className="w-8 h-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <h3 className="text-xl font-bold text-slate-900 mb-2">Plano Grátis Selecionado</h3>
-                  <p className="text-slate-600 max-w-md mx-auto">
-                    O plano Grátis não requer pagamento. Você pode criar até 3 links monetizados e paga apenas R$ 0,70 por venda realizada.
+      {/* SEÇÃO 5: Vendas Recentes */}
+      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="bg-slate-50 px-6 py-5 border-b border-slate-200">
+          <h2 className="font-semibold text-slate-900 text-lg">Vendas recentes</h2>
+        </div>
+        
+        <div className="p-6">
+          {(billingData?.usage.transactions || 0) > 0 ? (
+            <>
+              <p className="text-slate-600 mb-6">
+                Este mês você fez <strong>{billingData?.usage.transactions} vendas</strong>
+              </p>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+                <div className="bg-slate-50 rounded-xl p-4">
+                  <p className="text-xs text-slate-500 mb-1">Vendas</p>
+                  <p className="text-2xl font-bold text-slate-900">{billingData?.usage.transactions}</p>
+                </div>
+                <div className="bg-slate-50 rounded-xl p-4">
+                  <p className="text-xs text-slate-500 mb-1">Taxa por venda</p>
+                  <p className="text-2xl font-bold text-indigo-600">
+                    {formatCurrency(billingData?.usage.feePerTransaction || 0)}
                   </p>
                 </div>
-                <div className="flex gap-3">
-                  <button
-                    onClick={handleSubscribe}
-                    disabled={isCreatingSubscription}
-                    className="flex-1 h-12 rounded-xl bg-emerald-600 text-white font-semibold hover:bg-emerald-700 transition shadow-lg shadow-emerald-200 disabled:opacity-50"
-                  >
-                    {isCreatingSubscription ? 'Processando...' : 'Confirmar Plano Grátis'}
-                  </button>
+                <div className="bg-slate-50 rounded-xl p-4">
+                  <p className="text-xs text-slate-500 mb-1">Em taxas</p>
+                  <p className="text-2xl font-bold text-slate-900">
+                    {formatCurrency(billingData?.usage.totalFees || 0)}
+                  </p>
                 </div>
-              </>
-            ) : (
-              <>
-                <h3 className="text-lg font-bold text-slate-900 mb-4">💳 Finalizar Assinatura</h3>
-                
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-slate-700 mb-3">
-                    Forma de Pagamento
-                  </label>
-                  <div className="flex gap-4">
-                    <button
-                      type="button"
-                      onClick={() => handlePaymentMethodChange('pix')}
-                      className={`flex-1 p-4 rounded-xl border-2 text-left transition ${
-                        paymentMethod === 'pix'
-                          ? 'border-emerald-500 bg-emerald-50'
-                          : 'border-slate-200 hover:border-slate-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                          paymentMethod === 'pix' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-500'
-                        }`}>
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                          </svg>
-                        </div>
-                        <div>
-                          <p className="font-semibold text-slate-900">PIX</p>
-                          <p className="text-xs text-slate-500">Pagamento instantâneo</p>
-                        </div>
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handlePaymentMethodChange('credit_card')}
-                      className={`flex-1 p-4 rounded-xl border-2 text-left transition ${
-                        paymentMethod === 'credit_card'
-                          ? 'border-emerald-500 bg-emerald-50'
-                          : 'border-slate-200 hover:border-slate-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                          paymentMethod === 'credit_card' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-500'
-                        }`}>
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                          </svg>
-                        </div>
-                        <div>
-                          <p className="font-semibold text-slate-900">Cartão de Crédito</p>
-                          <p className="text-xs text-slate-500">Recorrência mensal</p>
-                        </div>
-                      </div>
-                    </button>
-                  </div>
+                <div className="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
+                  <p className="text-xs text-indigo-600 mb-1">Total estimado</p>
+                  <p className="text-2xl font-bold text-indigo-700">
+                    {formatCurrency(billingData?.cycle?.totalAmount || 0)}
+                  </p>
                 </div>
-
-                {/* Credit Card Form */}
-                {paymentMethod === 'credit_card' && (
-                  <div className="mb-6">
-                    <CreditCardForm
-                      onCardTokenGenerated={handleCardTokenGenerated}
-                      onError={handleCardError}
-                      onValidationChange={handleCardValidationChange}
-                      isProcessing={isCreatingSubscription}
-                    />
-                  </div>
-                )}
-
-                {/* PIX Info / QR Code */}
-                {paymentMethod === 'pix' && (
-                  <>
-                    {pixData ? (
-                      /* PIX Gerado - Mostra QR Code, código e chave PIX */
-                      <div className="mb-6 bg-slate-50 rounded-xl p-6">
-                        {/* Header simples */}
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="flex items-center gap-2 text-emerald-700">
-                            <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                            <span className="text-sm font-medium">Aguardando pagamento</span>
-                          </div>
-                          {timeRemaining && timeRemaining !== 'Expirado' && (
-                            <span className="text-sm text-slate-500">Expira em: <strong>{timeRemaining}</strong></span>
-                          )}
-                          {timeRemaining === 'Expirado' && (
-                            <span className="text-sm text-rose-600 font-medium">PIX expirado</span>
-                          )}
-                        </div>
-
-                        {/* QR Code */}
-                        <div className="flex justify-center mb-4">
-                          <div className="bg-white p-4 rounded-lg shadow-sm">
-                            {LINKEPAG_PIX_CONFIG.qrCodeImageUrl ? (
-                              <img 
-                                src={LINKEPAG_PIX_CONFIG.qrCodeImageUrl} 
-                                alt="QR Code PIX" 
-                                className="w-44 h-44 object-contain"
-                                onError={(e) => {
-                                  e.currentTarget.style.display = 'none';
-                                }}
-                              />
-                            ) : pixData.qrCodeUrl ? (
-                              <img 
-                                src={pixData.qrCodeUrl} 
-                                alt="QR Code PIX" 
-                                className="w-44 h-44 object-contain"
-                                onError={(e) => {
-                                  e.currentTarget.style.display = 'none';
-                                }}
-                              />
-                            ) : (
-                              <div className="w-44 h-44 flex items-center justify-center text-slate-400">
-                                <svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
-                                </svg>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Código Copia e Cola */}
-                        <div className="flex gap-2">
-                          <textarea
-                            value={pixData.pixCode}
-                            readOnly
-                            rows={2}
-                            className="flex-1 px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg resize-none"
-                          />
-                          <button
-                            onClick={handleCopyPixCode}
-                            className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
-                              copied
-                                ? 'bg-emerald-600 text-white'
-                                : 'bg-slate-800 text-white hover:bg-slate-700'
-                            }`}
-                          >
-                            {copied ? 'Copiado' : 'Copiar'}
-                          </button>
-                        </div>
-
-                        <p className="text-xs text-slate-500 text-center mt-4">
-                          Após o pagamento, sua assinatura será ativada em alguns minutos.
-                        </p>
-                      </div>
-                    ) : (
-                      /* PIX ainda não gerado */
-                      <div className="mb-6 p-4 bg-slate-50 rounded-xl">
-                        <p className="text-sm text-slate-600">
-                          Ao confirmar, você receberá as informações para pagamento via PIX. Use a chave <strong>{LINKEPAG_PIX_CONFIG.key}</strong> ou o código copia e cola.
-                        </p>
-                      </div>
-                    )}
-                  </>
-                )}
-
-                <div className="flex gap-3">
-                  <button
-                    onClick={handleSubscribe}
-                    disabled={isCreatingSubscription || (paymentMethod === 'credit_card' && !isCardTokenized) || (paymentMethod === 'pix' && !!pixData)}
-                    className="flex-1 h-12 rounded-xl bg-emerald-600 text-white font-semibold hover:bg-emerald-700 transition shadow-lg shadow-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isCreatingSubscription ? 'Processando...' : 
-                     paymentMethod === 'pix' && pixData ? 'PIX Gerado' : 
-                     paymentMethod === 'credit_card' && !isCardTokenized ? 'Preencha os dados do cartão' :
-                     'Confirmar Assinatura'}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* FAQ */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6">
-          <h3 className="text-lg font-bold text-slate-900 mb-4">❓ Dúvidas Frequentes</h3>
-          <div className="space-y-4">
-            {[
-              {
-                q: 'Posso trocar de plano quando quiser?',
-                a: 'Sim! Você pode fazer upgrade ou downgrade a qualquer momento. O valor é proporcional aos dias restantes.',
-              },
-              {
-                q: 'Como funciona o plano Grátis?',
-                a: 'O plano Grátis é 100% gratuito. Você pode criar até 3 links monetizados e paga apenas R$ 0,70 por venda realizada.',
-              },
-              {
-                q: 'O que acontece se meu plano expirar?',
-                a: 'Seu plano será automaticamente movido para o Grátis. Seus links monetizados existentes continuarão funcionando, mas você não poderá criar novos links pagos até renovar.',
-              },
-              {
-                q: 'Posso cancelar a qualquer momento?',
-                a: 'Sim, você pode cancelar sua assinatura quando quiser. O plano continuará ativo até o final do período pago.',
-              },
-            ].map((faq, idx) => (
-              <div key={idx} className="border-b border-slate-100 last:border-0 pb-4 last:pb-0">
-                <p className="font-medium text-slate-900 mb-1">{faq.q}</p>
-                <p className="text-sm text-slate-600">{faq.a}</p>
               </div>
-            ))}
-          </div>
-        </div>
-      </main>
 
-      {/* Cancel Modal */}
+              {/* Breakdown */}
+              <div className="border-t border-slate-100 pt-4">
+                <div className="max-w-md space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Mensalidade do plano</span>
+                    <span className="font-medium text-slate-900">{formatCurrency(billingData?.cycle?.monthlyFee || 0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">
+                      Taxas ({billingData?.usage.transactions || 0} × {formatCurrency(billingData?.usage.feePerTransaction || 0)})
+                    </span>
+                    <span className="font-medium text-slate-900">+ {formatCurrency(billingData?.usage.totalFees || 0)}</span>
+                  </div>
+                  <div className="flex justify-between pt-2 border-t border-slate-100">
+                    <span className="font-medium text-slate-900">Total do mês</span>
+                    <span className="font-bold text-lg text-slate-900">{formatCurrency(billingData?.cycle?.totalAmount || 0)}</span>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-8">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-100 flex items-center justify-center">
+                <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <p className="text-slate-600">Você ainda não fez vendas este mês.</p>
+              <p className="text-sm text-slate-500 mt-1">Assim que vender, aparecerá aqui.</p>
+              <Link 
+                href="/admin/links"
+                className="inline-flex items-center mt-4 text-indigo-600 font-medium hover:text-indigo-700"
+              >
+                Crie seu primeiro link pago →
+              </Link>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Modal de Cancelamento */}
       {showCancelModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 max-w-md w-full">

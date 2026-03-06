@@ -752,16 +752,27 @@ export async function getCurrentSubscription() {
   return response.json();
 }
 
-export async function createSubscription(planId: number, paymentMethod: 'credit_card' | 'pix', cardToken?: string) {
+export async function createSubscription(
+  planId: number, 
+  paymentMethod: 'credit_card' | 'pix', 
+  cardToken?: string,
+  cardHolderCpf?: string
+) {
   const response = await fetch(`${API_BASE_URL}/subscriptions`, {
     method: 'POST',
     headers: getAuthHeaders(),
-    body: JSON.stringify({ planId, paymentMethod, cardToken }),
+    body: JSON.stringify({ planId, paymentMethod, cardToken, cardHolderCpf }),
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || 'Erro ao criar assinatura');
+    let errorMessage = 'Erro ao criar assinatura';
+    try {
+      const error = await response.json();
+      errorMessage = error.message || errorMessage;
+    } catch (e) {
+      // Could not parse error response
+    }
+    throw new Error(errorMessage);
   }
 
   return response.json();
@@ -847,6 +858,11 @@ export interface CurrentInvoice {
   dueDate: string | null;
   pixCode?: string;
   qrCodeUrl?: string;
+  // Campos para sistema de alertas de billing
+  status?: 'draft' | 'pending' | 'processing' | 'paid' | 'overdue' | 'failed' | 'cancelled';
+  gracePeriodEnd?: string;
+  autoChargeAttempts?: number;
+  totalAmount?: number;
 }
 
 export interface BillingSummary {

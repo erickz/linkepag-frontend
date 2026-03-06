@@ -1,21 +1,27 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useMercadoPago, useCardValidation } from '@/hooks/useMercadoPago';
 import { useMask } from '@/hooks/useMask';
 
 interface CreditCardFormProps {
-  onCardTokenGenerated: (token: string) => void;
+  onCardTokenGenerated: (token: string, cardData?: { cpf: string }) => void;
   onError: (error: string) => void;
   onValidationChange?: (isValid: boolean) => void;
   isProcessing: boolean;
+  /** When true, triggers tokenization immediately */
+  shouldTokenize?: boolean;
+  /** Callback when tokenization is complete */
+  onTokenizationComplete?: () => void;
 }
 
 export function CreditCardForm({ 
   onCardTokenGenerated, 
   onError, 
   onValidationChange,
-  isProcessing 
+  isProcessing,
+  shouldTokenize,
+  onTokenizationComplete,
 }: CreditCardFormProps) {
   const { isLoading, isReady, createCardToken } = useMercadoPago();
   const { validateCardNumber, validateExpiry, validateCVV, validateCPF } = useCardValidation();
@@ -32,6 +38,8 @@ export function CreditCardForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isTokenizing, setIsTokenizing] = useState(false);
   const [hasTokenized, setHasTokenized] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const isTokenizingRef = useRef(false);
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -92,11 +100,47 @@ export function CreditCardForm({
     return Object.keys(newErrors).length === 0;
   }, [formData, validateCardNumber, validateExpiry, validateCVV, validateCPF]);
 
-  // Auto-tokenize when form is valid and all fields are filled
+  // Cleanup abort controller on unmount
   useEffect(() => {
-    const autoTokenize = async () => {
-      // Don't tokenize if already processing, not ready, or already tokenized
-      if (isTokenizing || !isReady || hasTokenized || isProcessing) return;
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
+  // Validate form in real-time (without tokenizing)
+  const prevValidationResultRef = useRef<boolean | null>(null);
+  
+  useEffect(() => {
+    const allFieldsFilled = 
+      formData.cardNumber && 
+      formData.cardholderName && 
+      formData.expiry && 
+      formData.cvv && 
+      formData.cpf;
+
+    const isValid = allFieldsFilled && Object.keys(errors).length === 0;
+    
+    // Only call onValidationChange if result changed
+    if (prevValidationResultRef.current !== isValid) {
+      prevValidationResultRef.current = isValid;
+      onValidationChange?.(isValid);
+    }
+  }, [formData, errors]); // Re-run when form data or errors change
+
+  // Tokenize when shouldTokenize is true (controlled by parent)
+  useEffect(() => {
+    const doTokenize = async () => {
+      // Only tokenize when explicitly requested
+      if (!shouldTokenize) {
+        return;
+      }
+
+      // Triple check to prevent duplicate tokenization
+      if (isTokenizingRef.current || isTokenizing || !isReady || hasTokenized || isProcessing) {
+        return;
+      }
 
       // Check if all fields are filled
       const allFieldsFilled = 
@@ -108,6 +152,7 @@ export function CreditCardForm({
 
       if (!allFieldsFilled) {
         onValidationChange?.(false);
+        onTokenizationComplete?.();
         return;
       }
 
@@ -115,9 +160,19 @@ export function CreditCardForm({
       const isValid = validateForm();
       onValidationChange?.(isValid);
 
-      if (!isValid) return;
+      if (!isValid) {
+        onTokenizationComplete?.();
+        return;
+      }
 
-      // All fields valid - tokenize automatically
+      // Cancel any pending tokenization
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+
+      // Create new abort controller
+      abortControllerRef.current = new AbortController();
+      isTokenizingRef.current = true;
       setIsTokenizing(true);
 
       try {
@@ -128,19 +183,27 @@ export function CreditCardForm({
         // Determine full year
         const fullYear = year.length === 2 ? `20${year}` : year;
 
-        const token = await createCardToken({
+        // Preparar dados para o MercadoPago
+        // IMPORTANTE: Passamos o mês com zero à esquerda, o hook vai formatar corretamente
+        const monthPadded = month.padStart(2, '0');
+
+        const cardData = {
           cardNumber: cleanCardNumber,
-          cardholderName: formData.cardholderName,
-          cardExpirationMonth: month,
-          cardExpirationYear: fullYear,
+          cardholderName: formData.cardholderName.trim(),
+          cardExpirationMonth: monthPadded, // Hook will handle formatting
+          cardExpirationYear: fullYear,     // Hook will convert to 2 digits
           securityCode: formData.cvv,
           identificationType: 'CPF',
           identificationNumber: cleanCPF,
-        });
+        };
+
+        const token = await createCardToken(cardData, abortControllerRef.current.signal);
 
         if (token) {
           setHasTokenized(true);
-          onCardTokenGenerated(token);
+          // Pass token + CPF for customer creation in backend
+          const cleanCPF = formData.cpf.replace(/[^\d]/g, '');
+          onCardTokenGenerated(token, { cpf: cleanCPF });
         } else {
           onError('Não foi possível processar o cartão. Verifique os dados e tente novamente.');
           setHasTokenized(false);
@@ -151,14 +214,16 @@ export function CreditCardForm({
         setHasTokenized(false);
         onValidationChange?.(false);
       } finally {
+        isTokenizingRef.current = false;
         setIsTokenizing(false);
+        abortControllerRef.current = null;
+        onTokenizationComplete?.();
       }
     };
 
-    // Debounce auto-tokenize to avoid calling while user is typing
-    const timeoutId = setTimeout(autoTokenize, 500);
-    return () => clearTimeout(timeoutId);
-  }, [formData, isReady, hasTokenized, isTokenizing, isProcessing, validateForm, createCardToken, onCardTokenGenerated, onError, onValidationChange]);
+    // Execute immediately when shouldTokenize becomes true
+    doTokenize();
+  }, [shouldTokenize]); // Only depend on shouldTokenize trigger
 
   if (isLoading) {
     return (

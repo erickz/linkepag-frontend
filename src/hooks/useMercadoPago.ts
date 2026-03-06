@@ -85,17 +85,63 @@ export function useMercadoPago(): UseMercadoPagoReturn {
     }
   };
 
-  const createCardToken = useCallback(async (cardData: CardTokenData): Promise<string | null> => {
+  const createCardToken = useCallback(async (cardData: CardTokenData, abortSignal?: AbortSignal): Promise<string | null> => {
     if (!mpInstanceRef.current) {
       setError('SDK do MercadoPago não inicializado');
       return null;
     }
 
+    if (!mpInstanceRef.current.createCardToken) {
+      setError('Método de tokenização não disponível');
+      return null;
+    }
+
+    // Check if aborted before starting
+    if (abortSignal?.aborted) {
+      return null;
+    }
+
     try {
-      const result = await mpInstanceRef.current.createCardToken(cardData);
+      // MercadoPago expects year in 2-digit format
+      const yearShort = cardData.cardExpirationYear.slice(-2);
+      
+      // Ensure month has leading zero
+      const monthPadded = cardData.cardExpirationMonth.padStart(2, '0');
+      
+      const formattedData = {
+        ...cardData,
+        cardExpirationMonth: monthPadded,
+        cardExpirationYear: yearShort,
+      };
+      
+      const result = await mpInstanceRef.current.createCardToken(formattedData);
+      
+      // Check if aborted after creation
+      if (abortSignal?.aborted) {
+        return null;
+      }
+      
       return result.id;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao criar token do cartão');
+    } catch (err: any) {
+      if (abortSignal?.aborted) {
+        return null;
+      }
+      
+      // Build a more descriptive error message
+      let errorMsg = 'Erro ao criar token do cartão';
+      if (err?.message) {
+        errorMsg = err.message;
+      }
+      if (err?.cause && Array.isArray(err.cause) && err.cause.length > 0) {
+        const firstCause = err.cause[0];
+        if (firstCause?.description) {
+          errorMsg = firstCause.description;
+        } else if (firstCause?.message) {
+          errorMsg = firstCause.message;
+        }
+      }
+      
+      setError(errorMsg);
       return null;
     }
   }, []);
