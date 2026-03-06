@@ -963,3 +963,106 @@ export async function getUserFees(
   const result = await response.json();
   return result.data;
 }
+
+// ============ SUBSCRIPTION HISTORY ============
+
+export interface SubscriptionHistoryFilters {
+  status?: string;
+  planId?: number;
+  startDate?: string;
+  endDate?: string;
+  paymentMethod?: string;
+}
+
+export interface SubscriptionHistoryItem {
+  _id: string;
+  planId: number;
+  planName: string;
+  status: string;
+  amount: number;
+  currency: string;
+  paymentMethod?: string;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  startedAt: string;
+  endedAt?: string;
+  cancelledAt?: string;
+  expiresAt?: string;
+  cancellationReason?: string;
+  createdAt: string;
+  autoRenew?: boolean;
+  cancelAtPeriodEnd?: boolean;
+}
+
+export interface ExportFormat {
+  format: 'csv' | 'json' | 'excel';
+  filters?: SubscriptionHistoryFilters;
+}
+
+export async function getSubscriptionHistory(
+  page = 1,
+  limit = 10,
+  filters?: SubscriptionHistoryFilters,
+  sortBy = 'createdAt',
+  order: 'asc' | 'desc' = 'desc'
+): Promise<{
+  subscriptions: SubscriptionHistoryItem[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+  summary: {
+    totalSpent: number;
+    totalSubscriptions: number;
+    activeSubscriptions: number;
+    cancelledSubscriptions: number;
+    expiredSubscriptions: number;
+    mostUsedPlan: {
+      planId: number;
+      planName: string;
+      count: number;
+    } | null;
+    averageAmount: number;
+  };
+}> {
+  const params = new URLSearchParams();
+  params.append('page', page.toString());
+  params.append('limit', limit.toString());
+  params.append('sortBy', sortBy);
+  params.append('order', order);
+
+  if (filters?.status) params.append('status', filters.status);
+  if (filters?.planId) params.append('planId', filters.planId.toString());
+  if (filters?.startDate) params.append('startDate', filters.startDate);
+  if (filters?.endDate) params.append('endDate', filters.endDate);
+  if (filters?.paymentMethod) params.append('paymentMethod', filters.paymentMethod);
+
+  const response = await fetch(`${API_BASE_URL}/subscriptions/history?${params.toString()}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Erro ao obter histórico de assinaturas');
+  }
+
+  return response.json();
+}
+
+export async function exportSubscriptionHistory(config: ExportFormat): Promise<Blob> {
+  const response = await fetch(`${API_BASE_URL}/subscriptions/history/export`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(config),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Erro ao exportar histórico');
+  }
+
+  return response.blob();
+}

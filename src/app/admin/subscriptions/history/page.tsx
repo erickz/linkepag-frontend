@@ -86,9 +86,9 @@ export default function SubscriptionHistoryPage() {
   // Update local filters when external filters change
   const applyFilters = useCallback(() => {
     setFilters({
-      status: localFilters.status.length > 0 ? localFilters.status : undefined,
-      planId: localFilters.planId.length > 0 ? localFilters.planId : undefined,
-      paymentMethod: localFilters.paymentMethod.length > 0 ? localFilters.paymentMethod : undefined,
+      status: localFilters.status.length > 0 ? localFilters.status[0] : undefined,
+      planId: localFilters.planId.length > 0 ? localFilters.planId[0] : undefined,
+      paymentMethod: localFilters.paymentMethod.length > 0 ? localFilters.paymentMethod[0] : undefined,
       startDate: localFilters.startDate || undefined,
       endDate: localFilters.endDate || undefined,
     });
@@ -136,7 +136,7 @@ export default function SubscriptionHistoryPage() {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | undefined) => {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleDateString('pt-BR', {
       day: '2-digit',
@@ -543,7 +543,7 @@ export default function SubscriptionHistoryPage() {
                   </tr>
                 ) : (
                   subscriptions.map((subscription) => (
-                    <tr key={subscription.id} className="hover:bg-slate-50 transition">
+                    <tr key={subscription._id} className="hover:bg-slate-50 transition">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-slate-900">{subscription.planName}</span>
