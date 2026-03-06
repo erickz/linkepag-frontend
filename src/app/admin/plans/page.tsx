@@ -524,7 +524,7 @@ export default function PlansPage() {
                   <p className="font-semibold text-indigo-600">{formatCurrency(currentUserPlan?.feePerTransaction || 0.70)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500">Links monetizados</p>
+                  <p className="text-xs text-slate-500">Máximo de Links monetizados</p>
                   <p className="font-semibold text-slate-900">
                     {currentUserPlan?.maxPaidLinks === Infinity ? 'Ilimitado' : `${currentUserPlan?.maxPaidLinks || 3} links`}
                   </p>
@@ -1006,83 +1006,6 @@ export default function PlansPage() {
         </div>
       </section>
 
-      {/* SEÇÃO 5: Vendas Recentes */}
-      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="bg-slate-50 px-6 py-5 border-b border-slate-200">
-          <h2 className="font-semibold text-slate-900 text-lg">Vendas recentes</h2>
-        </div>
-        
-        <div className="p-6">
-          {(billingData?.usage.transactions || 0) > 0 ? (
-            <>
-              <p className="text-slate-600 mb-6">
-                Este mês você fez <strong>{billingData?.usage.transactions} vendas</strong>
-              </p>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-                <div className="bg-slate-50 rounded-xl p-4">
-                  <p className="text-xs text-slate-500 mb-1">Vendas</p>
-                  <p className="text-2xl font-bold text-slate-900">{billingData?.usage.transactions}</p>
-                </div>
-                <div className="bg-slate-50 rounded-xl p-4">
-                  <p className="text-xs text-slate-500 mb-1">Taxa por venda</p>
-                  <p className="text-2xl font-bold text-indigo-600">
-                    {formatCurrency(billingData?.usage.feePerTransaction || 0)}
-                  </p>
-                </div>
-                <div className="bg-slate-50 rounded-xl p-4">
-                  <p className="text-xs text-slate-500 mb-1">Em taxas</p>
-                  <p className="text-2xl font-bold text-slate-900">
-                    {formatCurrency(billingData?.usage.totalFees || 0)}
-                  </p>
-                </div>
-                <div className="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
-                  <p className="text-xs text-indigo-600 mb-1">Total estimado</p>
-                  <p className="text-2xl font-bold text-indigo-700">
-                    {formatCurrency(billingData?.cycle?.totalAmount || 0)}
-                  </p>
-                </div>
-              </div>
-
-              {/* Breakdown */}
-              <div className="border-t border-slate-100 pt-4">
-                <div className="max-w-md space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Mensalidade do plano</span>
-                    <span className="font-medium text-slate-900">{formatCurrency(billingData?.cycle?.monthlyFee || 0)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">
-                      Taxas ({billingData?.usage.transactions || 0} × {formatCurrency(billingData?.usage.feePerTransaction || 0)})
-                    </span>
-                    <span className="font-medium text-slate-900">+ {formatCurrency(billingData?.usage.totalFees || 0)}</span>
-                  </div>
-                  <div className="flex justify-between pt-2 border-t border-slate-100">
-                    <span className="font-medium text-slate-900">Total do mês</span>
-                    <span className="font-bold text-lg text-slate-900">{formatCurrency(billingData?.cycle?.totalAmount || 0)}</span>
-                  </div>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="text-center py-8">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-100 flex items-center justify-center">
-                <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <p className="text-slate-600">Você ainda não fez vendas este mês.</p>
-              <p className="text-sm text-slate-500 mt-1">Assim que vender, aparecerá aqui.</p>
-              <Link 
-                href="/admin/links"
-                className="inline-flex items-center mt-4 text-indigo-600 font-medium hover:text-indigo-700"
-              >
-                Crie seu primeiro link pago →
-              </Link>
-            </div>
-          )}
-        </div>
-      </section>
 
       {/* Modal de Cancelamento */}
       {showCancelModal && (
