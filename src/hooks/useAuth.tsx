@@ -3,12 +3,13 @@
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 
-interface User {
+export interface User {
   id: string;
   fullName: string;
   email: string;
   cpf: string;
   username: string;
+  planId?: number;
 }
 
 interface AuthContextType {
