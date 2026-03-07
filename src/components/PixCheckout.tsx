@@ -174,15 +174,16 @@ export default function PixCheckout({
       const response = await checkPaymentStatus(paymentId);
 
       if (response.status === 'confirmed') {
-        setStatus('confirming');
-
-        if (response.linkUrl && response.accessToken) {
-          setStatus('confirmed');
-          onSuccess(response.accessToken, response.linkUrl);
-        } else if (response.linkUrl) {
-          setStatus('confirmed');
-          onSuccess(paymentId, response.linkUrl);
-        }
+        setStatus('confirmed');
+        
+        // Aguarda 2 segundos para mostrar a mensagem de sucesso antes de redirecionar
+        setTimeout(() => {
+          if (response.linkUrl && response.accessToken) {
+            onSuccess(response.accessToken, response.linkUrl);
+          } else if (response.linkUrl) {
+            onSuccess(paymentId, response.linkUrl);
+          }
+        }, 2000);
       } else if (response.status === 'expired') {
         setStatus('expired');
       } else {
@@ -723,6 +724,25 @@ export default function PixCheckout({
         <div className="py-6 text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-emerald-500 mx-auto mb-3"></div>
           <p className="text-slate-600 text-sm">Confirmando pagamento...</p>
+        </div>
+      )}
+
+      {/* Payment Confirmed - Success Screen */}
+      {status === 'confirmed' && (
+        <div className="py-8 text-center">
+          <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <h4 className="text-lg font-bold text-slate-900 mb-2">Pagamento confirmado!</h4>
+          <p className="text-slate-600 text-sm mb-4">
+            Seu pagamento foi recebido com sucesso.
+          </p>
+          <div className="flex items-center justify-center gap-2 text-emerald-600 text-sm font-medium">
+            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+            Redirecionando para o conteúdo...
+          </div>
         </div>
       )}
     </div>
