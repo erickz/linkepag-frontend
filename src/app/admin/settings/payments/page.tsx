@@ -238,6 +238,7 @@ export default function PaymentsSettingsPage() {
           <li>Vá em "Suas integrações" &gt; "Credenciais"</li>
           <li>Copie a Public Key e o Access Token</li>
           <li>Cole os valores nos campos acima</li>
+          <li className="font-medium text-indigo-700">Configure o Webhook: Na aba "Webhooks", adicione a URL <code className="bg-indigo-100 px-1.5 py-0.5 rounded text-indigo-800 font-mono text-xs">https://api.linkepag.com.br/payments/webhooks/mercadopago</code> e selecione os eventos <strong>payment</strong> e <strong>merchant_order</strong></li>
         </ol>
         <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
           <p className="text-sm text-amber-700">
