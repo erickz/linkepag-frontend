@@ -356,7 +356,7 @@ export default function PlansPage() {
         setPixData(result.pixData);
       } else {
         // Pagamento com cartão: aprovado ou pendente
-        setMessage({ type: 'success', text: 'Assinatura criada com sucesso!' });
+        setMessage({ type: 'success', text: 'Pagamento crado com sucesso, aguarde a confirmação para ativar seu plano!' });
         setSelectedPlan(null);
       }
       
