@@ -1,9 +1,20 @@
 'use client';
 
+/**
+ * VERSÃO ALTERNATIVA DO DASHBOARD COM INTEGRAÇÃO COMPLETA DO useBillingAlerts
+ * 
+ * Esta versão demonstra como seria o dashboard quando a API de billing
+ * estiver completamente integrada com o hook useBillingAlerts.
+ * 
+ * Para usar esta versão, renomeie este arquivo para 'page.tsx' ou
+ * copie as partes relevantes para o arquivo principal.
+ */
+
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useAuth, useProtectedRoute } from '@/hooks/useAuth';
 import { useApiParallel } from '@/hooks/useApi';
+import { useBillingAlerts } from '@/hooks/useBillingAlerts';
 import { getLinks, getProfile, getMercadoPagoCredentials, getSalesReport, CACHE_KEYS } from '@/lib/api';
 import { PageHeader } from '@/components/PageHeader';
 import { BillingAlerts } from '@/app/components/BillingAlerts';
@@ -50,6 +61,27 @@ export default function AdminDashboard() {
   
   useProtectedRoute('/login');
 
+  // ==========================================
+  // INTEGRAÇÃO COM BILLING ALERTS
+  // ==========================================
+  
+  /**
+   * Hook useBillingAlerts busca automaticamente:
+   * - Assinatura atual (/subscriptions/current)
+   * - Resumo de billing (/billing/summary)
+   * 
+   * E processa os dados para gerar alertas relevantes
+   */
+  const {
+    alerts,
+    hasAlerts,
+    isLoading: isLoadingBilling,
+    error: billingError,
+    userStatus,
+    invoice,
+    refetch: refetchBilling,
+  } = useBillingAlerts();
+
   // Memoizar queries para evitar recriação a cada render
   const queries = useMemo(() => ({
     links: { key: CACHE_KEYS.LINKS, fetchFn: getLinks },
@@ -65,16 +97,6 @@ export default function AdminDashboard() {
   }>(queries, options);
   const links = data?.links?.links || [];
   const profile = data?.profile;
-
-  // Dados para alertas de billing
-  const billingUserStatus = {
-    billingStatus: (profile?.planStatus === 'expired' ? 'grace_period' : 
-                   profile?.planStatus === 'pending_payment' ? 'grace_period' : 'active') as 'active' | 'grace_period' | 'suspended' | 'blocked',
-    planStatus: profile?.planStatus,
-  };
-  
-  // Aqui você pode integrar com dados reais da API de billing quando disponível
-  const billingInvoice = null; // Substituir por dados reais quando disponível
   const activeLinks = links.filter((l: LinkItem) => l.isActive).length;
   const paidLinks = links.filter((l: LinkItem) => l.isPaid).length;
 
@@ -135,6 +157,16 @@ export default function AdminDashboard() {
     return Infinity;
   };
 
+  // Recarrega dados de billing quando o usuário foca na página
+  useEffect(() => {
+    const handleFocus = () => {
+      refetchBilling();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [refetchBilling]);
+
   if (isLoading || isLoadingData) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -147,9 +179,53 @@ export default function AdminDashboard() {
 
   return (
     <div>
-      {/* Alertas de Billing */}
-      <BillingAlerts user={billingUserStatus} invoice={billingInvoice} />
+      {/* 
+        ==========================================
+        ALERTAS DE BILLING
+        ==========================================
+        
+        O componente BillingAlerts pode ser usado de duas formas:
+        
+        1. Com dados do hook (recomendado quando API estiver pronta):
+           <BillingAlerts user={userStatus} invoice={invoice} />
+        
+        2. Com dados do perfil (fallback atual):
+           <BillingAlerts 
+             user={{ billingStatus: ..., planStatus: ... }} 
+             invoice={...} 
+           />
+      */}
       
+      {/* Versão 1: Usando dados do hook (quando API estiver completa) */}
+      <BillingAlerts user={userStatus} invoice={invoice} />
+      
+      {/* 
+        Versão 2: Fallback usando apenas dados do perfil
+        Descomente se precisar usar sem o hook
+      
+      <BillingAlerts 
+        user={{
+          billingStatus: profile?.planStatus === 'expired' ? 'grace_period' : 
+                        profile?.planStatus === 'pending_payment' ? 'grace_period' : 'active',
+          planStatus: profile?.planStatus,
+        }} 
+        invoice={null}
+      />
+      */}
+
+      {/* Indicador de erro de billing (opcional) */}
+      {billingError && (
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm">
+          Não foi possível carregar alertas de faturamento. 
+          <button 
+            onClick={() => refetchBilling()}
+            className="ml-2 underline hover:no-underline"
+          >
+            Tentar novamente
+          </button>
+        </div>
+      )}
+
       <PageHeader
         title="Dashboard"
         description="Visão geral da sua conta e estatísticas"
