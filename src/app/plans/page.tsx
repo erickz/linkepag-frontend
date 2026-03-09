@@ -280,7 +280,7 @@ function PlansContent() {
 
                 {/* Fee per transaction */}
                 <div className="bg-slate-50 rounded-xl p-3 mb-6 text-center">
-                  <p className="text-sm text-slate-500 mb-1">Taxa por venda:</p>
+                  <p className="text-sm text-slate-500 mb-1">Taxa por venda realizada:</p>
                   <p className="text-xl font-bold text-indigo-600">
                     R$ {plan.feePerTransaction.toFixed(2)}
                   </p>

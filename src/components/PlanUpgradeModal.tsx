@@ -87,7 +87,7 @@ export function PlanUpgradeModal({ isOpen, onClose, currentPaidLinksCount }: Pla
                 <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
-                Taxa por venda: {formatCurrency(nextPlan.feePerTransaction)}
+                Taxa por venda realizada: {formatCurrency(nextPlan.feePerTransaction)}
               </li>
               {nextPlan.features.slice(0, 2).map((feature, idx) => (
                 <li key={idx} className="flex items-center gap-2 text-sm text-slate-700">

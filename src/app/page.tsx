@@ -35,97 +35,14 @@ export const metadata: Metadata = {
   },
 };
 
-// Componente do QR Code SVG - Realista como o da imagem
-function QRCodeSVG() {
+// Componente do QR Code - Usa imagem PNG real do site
+function QRCodeImage() {
   return (
-    <svg viewBox="0 0 100 100" className="w-20 h-20">
-      <rect width="100" height="100" fill="white"/>
-      {/* Position Detection Pattern - Top Left */}
-      <rect x="4" y="4" width="28" height="28" fill="black"/>
-      <rect x="8" y="8" width="20" height="20" fill="white"/>
-      <rect x="12" y="12" width="12" height="12" fill="black"/>
-      {/* Position Detection Pattern - Top Right */}
-      <rect x="68" y="4" width="28" height="28" fill="black"/>
-      <rect x="72" y="8" width="20" height="20" fill="white"/>
-      <rect x="76" y="12" width="12" height="12" fill="black"/>
-      {/* Position Detection Pattern - Bottom Left */}
-      <rect x="4" y="68" width="28" height="28" fill="black"/>
-      <rect x="8" y="72" width="20" height="20" fill="white"/>
-      <rect x="12" y="76" width="12" height="12" fill="black"/>
-      {/* Alignment Pattern - Center-ish */}
-      <rect x="64" y="64" width="18" height="18" fill="black"/>
-      <rect x="68" y="68" width="10" height="10" fill="white"/>
-      <rect x="71" y="71" width="4" height="4" fill="black"/>
-      {/* Data modules - padrão mais denso e realista */}
-      <g fill="black">
-        {/* Linha entre TL e TR */}
-        <rect x="36" y="6" width="4" height="4"/>
-        <rect x="44" y="6" width="4" height="4"/>
-        <rect x="52" y="6" width="4" height="4"/>
-        <rect x="60" y="6" width="4" height="4"/>
-        <rect x="40" y="10" width="4" height="4"/>
-        <rect x="48" y="10" width="4" height="4"/>
-        <rect x="56" y="10" width="4" height="4"/>
-        {/* Coluna entre TL e BL */}
-        <rect x="6" y="36" width="4" height="4"/>
-        <rect x="6" y="44" width="4" height="4"/>
-        <rect x="6" y="52" width="4" height="4"/>
-        <rect x="6" y="60" width="4" height="4"/>
-        <rect x="10" y="40" width="4" height="4"/>
-        <rect x="10" y="48" width="4" height="4"/>
-        <rect x="10" y="56" width="4" height="4"/>
-        {/* Centro - padrão variado */}
-        <rect x="36" y="36" width="4" height="4"/>
-        <rect x="44" y="36" width="4" height="4"/>
-        <rect x="52" y="36" width="4" height="4"/>
-        <rect x="36" y="44" width="4" height="4"/>
-        <rect x="48" y="44" width="4" height="4"/>
-        <rect x="56" y="44" width="4" height="4"/>
-        <rect x="40" y="52" width="4" height="4"/>
-        <rect x="52" y="52" width="4" height="4"/>
-        <rect x="36" y="56" width="4" height="4"/>
-        <rect x="44" y="56" width="4" height="4"/>
-        <rect x="56" y="56" width="4" height="4"/>
-        {/* Área direita */}
-        <rect x="68" y="36" width="4" height="4"/>
-        <rect x="76" y="36" width="4" height="4"/>
-        <rect x="84" y="36" width="4" height="4"/>
-        <rect x="72" y="40" width="4" height="4"/>
-        <rect x="80" y="40" width="4" height="4"/>
-        <rect x="88" y="40" width="4" height="4"/>
-        <rect x="68" y="44" width="4" height="4"/>
-        <rect x="76" y="44" width="4" height="4"/>
-        <rect x="84" y="48" width="4" height="4"/>
-        <rect x="88" y="52" width="4" height="4"/>
-        <rect x="72" y="56" width="4" height="4"/>
-        <rect x="80" y="56" width="4" height="4"/>
-        {/* Área inferior */}
-        <rect x="36" y="68" width="4" height="4"/>
-        <rect x="44" y="68" width="4" height="4"/>
-        <rect x="52" y="72" width="4" height="4"/>
-        <rect x="60" y="72" width="4" height="4"/>
-        <rect x="40" y="76" width="4" height="4"/>
-        <rect x="48" y="76" width="4" height="4"/>
-        <rect x="56" y="76" width="4" height="4"/>
-        <rect x="36" y="80" width="4" height="4"/>
-        <rect x="44" y="84" width="4" height="4"/>
-        <rect x="52" y="84" width="4" height="4"/>
-        <rect x="60" y="88" width="4" height="4"/>
-        <rect x="40" y="88" width="4" height="4"/>
-        <rect x="48" y="92" width="4" height="4"/>
-        {/* Inferior direito */}
-        <rect x="68" y="88" width="4" height="4"/>
-        <rect x="76" y="84" width="4" height="4"/>
-        <rect x="84" y="84" width="4" height="4"/>
-        <rect x="88" y="80" width="4" height="4"/>
-        <rect x="72" y="76" width="4" height="4"/>
-        <rect x="80" y="76" width="4" height="4"/>
-        <rect x="88" y="72" width="4" height="4"/>
-        <rect x="76" y="92" width="4" height="4"/>
-        <rect x="84" y="92" width="4" height="4"/>
-        <rect x="92" y="88" width="4" height="4"/>
-      </g>
-    </svg>
+    <img 
+      src="/images/qrcode-site.png" 
+      alt="QR Code para pagamento PIX"
+      className="w-20 h-20"
+    />
   );
 }
 
@@ -273,7 +190,7 @@ export default function Home() {
                           {/* Inline Checkout - Sem bordas arredondadas no topo para continuidade */}
                           <div className="bg-white border-x border-b border-slate-200 rounded-b-xl rounded-t-none p-3 shadow-md">
                             <div className="bg-white rounded-lg flex items-center justify-center py-2 mb-3">
-                              <QRCodeSVG />
+                              <QRCodeImage />
                             </div>
                             <button className="w-full h-9 rounded-lg bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition flex items-center justify-center gap-2">
                               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -479,7 +396,7 @@ export default function Home() {
               Escolha seu plano
             </h2>
             <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-              Comece grátis e faça upgrade quando quiser. Quanto maior o plano, menor a taxa por venda.
+              Comece grátis e faça upgrade quando quiser. Quanto maior o plano, menor a taxa por venda realizada.
             </p>
           </div>
 
@@ -546,7 +463,7 @@ export default function Home() {
                 </div>
 
                 <div className="bg-slate-50 rounded-xl p-3 mb-4 text-center">
-                  <p className="text-xs text-slate-500">Taxa por venda:</p>
+                  <p className="text-xs text-slate-500">Taxa por venda realizada:</p>
                   <p className="text-lg font-bold text-indigo-600">R$ {plan.fee.toFixed(2)}</p>
                 </div>
 
