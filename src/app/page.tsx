@@ -41,7 +41,9 @@ function QRCodeImage() {
     <img 
       src="/images/qrcode-site.png" 
       alt="QR Code para pagamento PIX"
-      className="w-20 h-20"
+      className="w-[120px] h-[120px]"
+      width={120}
+      height={120}
     />
   );
 }
