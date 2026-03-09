@@ -8,7 +8,15 @@ import { useApi } from '@/hooks/useApi';
 import { useSubscription } from '@/hooks/useSubscription';
 import { CreditCardForm } from '@/components/CreditCardForm';
 import { apiCache } from '@/lib/api';
-import { getBillingSummary, BillingSummary } from '@/lib/api';
+import { getBillingSummary, BillingSummary, getLinks } from '@/lib/api';
+
+// Types para Links
+interface LinkItem {
+  _id: string;
+  title: string;
+  isPaid?: boolean;
+  isActive?: boolean;
+}
 
 // Types para Billing Híbrido
 interface BillingCycle {
@@ -279,6 +287,26 @@ export default function PlansPage() {
     enabled: isAuthenticated,
   });
 
+  // Fetch links para contar links monetizados
+  const fetchLinksData = useCallback(async () => {
+    const response = await getLinks();
+    return response.data || [];
+  }, []);
+
+  const { 
+    data: linksData, 
+    isLoading: isLoadingLinks 
+  } = useApi<LinkItem[]>('user-links', fetchLinksData, {
+    ttl: 30 * 1000,
+    enabled: isAuthenticated,
+  });
+
+  // Contar links monetizados (isPaid = true)
+  const paidLinksCount = useMemo(() => {
+    if (!linksData) return 0;
+    return linksData.filter(link => link.isPaid === true).length;
+  }, [linksData]);
+
   // Carregar pixData da subscription pendente ou do estado
   useEffect(() => {
     if (subscription?.status === 'pending_payment' && subscription?.pixCode && subscription?.pixExpirationDate) {
@@ -530,9 +558,9 @@ export default function PlansPage() {
                   )}
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500">Máximo de Links monetizados</p>
+                  <p className="text-xs text-slate-500">Links monetizados</p>
                   <p className="font-semibold text-slate-900">
-                    {currentUserPlan?.maxPaidLinks === Infinity ? 'Ilimitado' : `${currentUserPlan?.maxPaidLinks || 3} links`}
+                    {isLoadingLinks ? '...' : `${paidLinksCount} ${currentUserPlan?.maxPaidLinks === Infinity ? '' : `/ ${currentUserPlan?.maxPaidLinks || 3}`}`}
                   </p>
                 </div>
                 <div>
