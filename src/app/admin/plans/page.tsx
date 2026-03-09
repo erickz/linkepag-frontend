@@ -8,6 +8,7 @@ import { useApi } from '@/hooks/useApi';
 import { useSubscription } from '@/hooks/useSubscription';
 import { CreditCardForm } from '@/components/CreditCardForm';
 import { apiCache } from '@/lib/api';
+import { getBillingSummary, BillingSummary } from '@/lib/api';
 
 // Types para Billing Híbrido
 interface BillingCycle {
@@ -234,6 +235,14 @@ export default function PlansPage() {
 
   // Fetch billing data
   const fetchBillingData = useCallback(async (): Promise<BillingData> => {
+    // Buscar dados reais do billing summary
+    let billingSummary: BillingSummary | null = null;
+    try {
+      billingSummary = await getBillingSummary();
+    } catch (error) {
+      console.error('Erro ao buscar billing summary:', error);
+    }
+
     const cycle: BillingCycle | null = subscription ? {
       id: subscription.id || 'current',
       planId: subscription.planId,
@@ -243,10 +252,10 @@ export default function PlansPage() {
       daysRemaining: subscription.expiresAt 
         ? Math.max(0, Math.ceil((new Date(subscription.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
         : 30,
-      transactionCount: 0,
-      totalTransactionFees: 0,
+      transactionCount: billingSummary?.currentInvoice?.transactionCount || 0,
+      totalTransactionFees: billingSummary?.currentInvoice?.totalFees || 0,
       monthlyFee: currentPlan?.monthlyPrice || 0,
-      totalAmount: (currentPlan?.monthlyPrice || 0),
+      totalAmount: (currentPlan?.monthlyPrice || 0) + (billingSummary?.currentInvoice?.totalFees || 0),
       status: subscription.status === 'active' ? 'open' : 'closed',
     } : null;
 
@@ -254,10 +263,10 @@ export default function PlansPage() {
       cycle,
       invoice: null,
       usage: {
-        transactions: 0,
-        totalFees: 0,
+        transactions: billingSummary?.currentInvoice?.transactionCount || 0,
+        totalFees: billingSummary?.currentInvoice?.totalFees || 0,
         feePerTransaction: currentPlan?.feePerTransaction || 0.70,
-        projectedTotal: (currentPlan?.monthlyPrice || 0),
+        projectedTotal: (currentPlan?.monthlyPrice || 0) + (billingSummary?.currentInvoice?.totalFees || 0),
       },
     };
   }, [subscription, currentPlan]);
@@ -510,8 +519,15 @@ export default function PlansPage() {
                   <p className="font-semibold text-slate-900">{formatCurrency(currentUserPlan?.monthlyPrice || 0)}/mês</p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500">Taxa por venda</p>
-                  <p className="font-semibold text-indigo-600">{formatCurrency(currentUserPlan?.feePerTransaction || 0.70)}</p>
+                  <p className="text-xs text-slate-500">Próxima cobrança</p>
+                  <p className="font-semibold text-indigo-600">
+                    {billingData?.cycle?.totalAmount ? formatCurrency(billingData.cycle.totalAmount) : formatCurrency(currentUserPlan?.monthlyPrice || 0)}
+                  </p>
+                  {(billingData?.cycle?.totalTransactionFees || 0) > 0 && (
+                    <p className="text-xs text-slate-400">
+                      {formatCurrency(currentUserPlan?.monthlyPrice || 0)} + {formatCurrency(billingData?.cycle?.totalTransactionFees || 0)} taxas
+                    </p>
+                  )}
                 </div>
                 <div>
                   <p className="text-xs text-slate-500">Máximo de Links monetizados</p>
