@@ -774,15 +774,6 @@ export default function PlansPage() {
                   </p>
                 </div>
               </div>
-
-              <div className="md:ml-auto">
-                <button
-                  onClick={() => setSelectedPlan(null)}
-                  className="text-sm text-slate-500 hover:text-slate-700"
-                >
-                  Cancelar
-                </button>
-              </div>
             </div>
 
             {/* Formas de pagamento */}
