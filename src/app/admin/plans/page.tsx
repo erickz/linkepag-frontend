@@ -290,7 +290,7 @@ export default function PlansPage() {
   // Fetch links para contar links monetizados
   const fetchLinksData = useCallback(async () => {
     const response = await getLinks();
-    return response.data || [];
+    return response.links || [];
   }, []);
 
   const { 
