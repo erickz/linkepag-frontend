@@ -344,6 +344,11 @@ export default function PlansPage() {
   };
 
   const handlePaymentMethodChange = (method: 'credit_card' | 'pix') => {
+    // Se já gerou PIX, não permite trocar de método de pagamento
+    if (pixData) {
+      return;
+    }
+    
     setPaymentMethod(method);
     // Limpa tokens ao trocar método de pagamento para evitar conflito
     setCardToken(null);
@@ -353,6 +358,10 @@ export default function PlansPage() {
     setIsCardTokenized(false);
     setShouldTokenize(false);
     setCheckoutError(null);
+    // Limpa pixData ao trocar para cartão (se estava em PIX)
+    if (method === 'credit_card') {
+      setPixData(null);
+    }
   };
 
   const handleCardTokenGenerated = (token: string) => {
@@ -403,9 +412,17 @@ export default function PlansPage() {
       
       // Melhorar mensagens de erro específicas
       if (errorMessage.includes('token') || errorMessage.includes('Token') || errorMessage.includes('card')) {
-        errorMessage = 'Erro ao processar o cartão. Os dados podem ter expirado. Por favor, atualize a página e preencha os dados do cartão novamente.';
+        errorMessage = 'Erro ao processar o cartão. Por favor, preencha os dados novamente.';
       } else if (errorMessage.includes('Card token service not found')) {
         errorMessage = 'O token do cartão expirou. Por favor, preencha os dados do cartão novamente.';
+      }
+      
+      // Limpa o estado do cartão para permitir tentar novamente
+      if (paymentMethod === 'credit_card') {
+        setCardToken(null);
+        cardTokenRef.current = null;
+        setIsCardTokenized(false);
+        setShouldTokenize(false);
       }
       
       setCheckoutError(errorMessage);
@@ -547,7 +564,7 @@ export default function PlansPage() {
                   <p className="font-semibold text-slate-900">{formatCurrency(currentUserPlan?.monthlyPrice || 0)}/mês</p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500">Próxima cobrança</p>
+                  <p className="text-xs text-slate-500">Taxa por vendas realizadas</p>
                   <p className="font-semibold text-indigo-600">
                     {billingData?.cycle?.totalAmount ? formatCurrency(billingData.cycle.totalAmount) : formatCurrency(currentUserPlan?.monthlyPrice || 0)}
                   </p>
@@ -775,11 +792,12 @@ export default function PlansPage() {
               <div className="flex gap-3">
                 <button
                   onClick={() => handlePaymentMethodChange('pix')}
+                  disabled={!!pixData}
                   className={`flex-1 py-3 px-4 rounded-xl border-2 text-sm font-medium transition ${
                     paymentMethod === 'pix'
                       ? 'border-emerald-500 bg-emerald-100 text-emerald-700'
                       : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
-                  }`}
+                  } ${!!pixData ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <div className="flex items-center justify-center gap-2">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -791,11 +809,12 @@ export default function PlansPage() {
 
                 <button
                   onClick={() => handlePaymentMethodChange('credit_card')}
+                  disabled={!!pixData}
                   className={`flex-1 py-3 px-4 rounded-xl border-2 text-sm font-medium transition ${
                     paymentMethod === 'credit_card'
                       ? 'border-emerald-500 bg-emerald-100 text-emerald-700'
                       : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
-                  }`}
+                  } ${!!pixData ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <div className="flex items-center justify-center gap-2">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -817,6 +836,23 @@ export default function PlansPage() {
                       <p className="text-sm text-blue-800 font-medium">Como pagar com PIX</p>
                       <p className="text-sm text-blue-600 mt-1">
                         Confirme para gerar o QR Code e código PIX da fatura
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Aviso quando PIX já foi gerado - método de pagamento travado */}
+              {pixData && (
+                <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
+                  <div className="flex items-start gap-3">
+                    <svg className="w-5 h-5 text-amber-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    <div>
+                      <p className="text-sm text-amber-800 font-medium">Pagamento em andamento</p>
+                      <p className="text-sm text-amber-600 mt-1">
+                        O PIX já foi gerado. Complete o pagamento ou cancele para escolher outro método.
                       </p>
                     </div>
                   </div>
@@ -988,7 +1024,7 @@ export default function PlansPage() {
                 {/* Features */}
                 <div className="p-5 flex-1">
                   <div className="mb-4 p-3 bg-slate-50 rounded-lg">
-                    <p className="text-xs text-slate-500">Taxa por venda</p>
+                    <p className="text-xs text-slate-500">Taxa por venda realizada</p>
                     <p className="font-bold text-indigo-600">{formatCurrency(plan.feePerTransaction)}</p>
                   </div>
 
