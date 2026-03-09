@@ -474,16 +474,6 @@ export default function PlansPage() {
         <p className="text-slate-500 mt-1">Acompanhe seus custos e escolha o melhor plano para suas vendas</p>
       </div>
 
-      {/* Messages */}
-      {message && (
-        <Alert 
-          variant={message.type === 'error' ? 'error' : message.type === 'success' ? 'success' : 'info'}
-          title={message.type === 'error' ? 'Erro' : message.type === 'success' ? 'Sucesso' : 'Informação'}
-        >
-          {message.text}
-        </Alert>
-      )}
-
       {/* SEÇÃO 1: Seu Plano Atual */}
       <section className={`bg-white rounded-2xl border-2 ${planColors.border} shadow-sm overflow-hidden`}>
         <div className={`${planColors.bg} px-6 py-5 border-b ${planColors.border}`}>
@@ -684,7 +674,7 @@ export default function PlansPage() {
                     }}
                     className="w-full py-3 px-4 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition"
                   >
-                    Tentar com outro cartão
+                    Tentar outra vez
                   </button>
                 </div>
               </div>
@@ -692,7 +682,7 @@ export default function PlansPage() {
 
             <div className="mt-6 p-4 bg-amber-100 rounded-xl">
               <p className="text-sm text-amber-800 text-center">
-                <strong>Importante:</strong> Se realizou o pagamento aguarde que o seu plano será atualizado em instantes.
+                <strong>Importante:</strong> Se já realizou o pagamento aguarde que o seu plano será atualizado em instantes.
               </p>
             </div>
           </div>
@@ -895,6 +885,16 @@ export default function PlansPage() {
         </section>
       )}
 
+      {/* Messages - Entre Plano Atual e Comparar Planos */}
+      {message && (
+        <Alert 
+          variant={message.type === 'error' ? 'error' : message.type === 'success' ? 'success' : 'info'}
+          title={message.type === 'error' ? 'Erro' : message.type === 'success' ? 'Sucesso' : 'Informação'}
+        >
+          {message.text}
+        </Alert>
+      )}
+
       {/* SEÇÃO 4: Comparar Planos */}
       <section id="comparar-planos" className="scroll-mt-6">
         <div className="mb-6">
@@ -968,6 +968,13 @@ export default function PlansPage() {
                       className="w-full py-2.5 rounded-xl bg-indigo-100 text-indigo-700 text-sm font-semibold cursor-default"
                     >
                       Seu plano atual
+                    </button>
+                  ) : hasPendingSubscription ? (
+                    <button
+                      disabled
+                      className="w-full py-2.5 rounded-xl bg-amber-100 text-amber-700 text-sm font-semibold cursor-default"
+                    >
+                      Pagamento pendente
                     </button>
                   ) : upgrade ? (
                     <button
