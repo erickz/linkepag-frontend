@@ -942,8 +942,15 @@ export default function PlansPage() {
 
             {/* Botão de confirmação */}
             <button
-              onClick={handleSubscribe}
-              disabled={isCreatingSubscription || shouldTokenize || (paymentMethod === 'credit_card' && !isCardTokenized && !shouldTokenize) || (paymentMethod === 'pix' && !!pixData)}
+              onClick={() => {
+                if (paymentMethod === 'pix' && pixData) {
+                  // PIX já gerado: apenas refresh da página
+                  window.location.reload();
+                } else {
+                  handleSubscribe();
+                }
+              }}
+              disabled={isCreatingSubscription || shouldTokenize || (paymentMethod === 'credit_card' && !isCardTokenized && !shouldTokenize)}
               className="w-full py-3 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isCreatingSubscription 
