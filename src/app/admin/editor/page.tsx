@@ -70,7 +70,7 @@ function PagePreview({ data, links }: { data: any, links: LinkItem[] }) {
             activeLinks.map(link => (
               <div key={link.id} className={`h-8 rounded-lg flex items-center px-3 text-xs ${link.isPaid ? `bg-gradient-to-r from-slate-800 to-slate-900 text-white ${accent.borderClass}` : 'bg-white text-slate-700 border border-slate-200'}`}>
                 <span className="flex-1 truncate">{link.title}</span>
-                {link.isPaid && <span className={`font-bold ${accent.textClass}`}>R$ {formatPrice(link.price)}</span>}
+                {link.isPaid && <span className={`font-bold ${accent.textClass}`}>R$ {formatPrice(link.price ?? 0)}</span>}
               </div>
             ))
           )}
@@ -285,7 +285,7 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
                     <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${link.isPaid ? 'bg-amber-100 text-amber-600' : 'bg-indigo-100 text-indigo-600'}`}>{link.isPaid ? '💰' : <Icon path={Icons.link} className="w-5 h-5" />}</div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-slate-900 truncate">{link.title}</p>
-                      <div className="flex items-center gap-2 text-xs">{link.isPaid ? <span className="font-bold text-amber-600">R$ {formatPrice(link.price)}</span> : <span className="text-slate-400">Gratuito</span>}<span className="text-slate-300">•</span><span className="text-slate-400 truncate">{link.url.replace(/^https?:\/\//, '').replace(/^www\./, '')}</span></div>
+                      <div className="flex items-center gap-2 text-xs">{link.isPaid ? <span className="font-bold text-amber-600">R$ {formatPrice(link.price ?? 0)}</span> : <span className="text-slate-400">Gratuito</span>}<span className="text-slate-300">•</span><span className="text-slate-400 truncate">{link.url.replace(/^https?:\/\//, '').replace(/^www\./, '')}</span></div>
                     </div>
                     <div className="flex items-center gap-1">
                       <button onClick={() => onToggle(link.id)} className={`p-2 rounded-lg transition ${link.isActive ? 'text-emerald-600 hover:bg-emerald-50' : 'text-slate-400 hover:bg-slate-100'}`}>{link.isActive ? '👁️' : '🚫'}</button>
