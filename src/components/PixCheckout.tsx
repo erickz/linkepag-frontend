@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { createPayment, createPixDirectPayment, uploadReceipt, checkPaymentStatus } from '@/lib/api';
+import { formatPrice } from '@/lib/masks';
 
 interface PixCheckoutProps {
   linkId: string;
@@ -360,7 +361,7 @@ export default function PixCheckout({
           {/* Mensagem informativa */}
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mt-4 mb-4">
             <p className="text-sm text-amber-800">
-              <span className="font-medium">⏳ Envie o pagamento no valor de <b>R$ {price.toFixed(2)}</b>, {name || 'cliente'}:</span> você receberá o link de acesso no email <strong>{email}</strong> assim que o pagamento for confirmado.
+              <span className="font-medium">⏳ Envie o pagamento no valor de <b>R$ {formatPrice(price)}</b>, {name || 'cliente'}:</span> você receberá o link de acesso no email <strong>{email}</strong> assim que o pagamento for confirmado.
             </p>
           </div>
 
@@ -591,7 +592,7 @@ export default function PixCheckout({
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-base font-semibold text-slate-900">{title}</h3>
-          <div className="text-2xl font-bold text-indigo-600">R$ {price.toFixed(2)}</div>
+          <div className="text-2xl font-bold text-indigo-600">R$ {formatPrice(price)}</div>
         </div>
         {(status === 'pending' || status === 'awaiting_confirmation') && (
           <div className="flex items-center gap-1 text-amber-600 text-sm font-medium">

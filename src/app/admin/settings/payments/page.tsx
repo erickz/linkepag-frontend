@@ -413,8 +413,7 @@ export default function PaymentsSettingsPage() {
           features={[
             'Dinheiro cai na sua conta MercadoPago',
             'Clientes recebem acesso do links/arquivos automaticamente',
-            'Webhook integrado para confirmação',
-            'Relatórios detalhados no painel MP',
+            'Confirmação de pagamento automatizada',
           ]}
           icon={IconCreditCard}
           isSelected={isMercadoPagoSelected}
@@ -430,8 +429,7 @@ export default function PaymentsSettingsPage() {
           features={[
             'Dinheiro cai direto na sua conta bancária',
             'Sem taxa do MercadoPago',
-            'Você confirma os pagamentos manualmente para enviar os links',
-            'Comprovante de pagamento via upload',
+            'Você confirma os pagamentos manualmente para enviar os links'
           ]}
           icon={IconSmartphone}
           isSelected={isPixDirectSelected}
