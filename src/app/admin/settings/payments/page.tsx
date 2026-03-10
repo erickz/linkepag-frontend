@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+
 import { useAuth, useProtectedRoute } from '@/hooks/useAuth';
 import { usePaymentSettings, PaymentMethod } from '@/hooks/usePaymentSettings';
 import { PageHeader } from '@/components/PageHeader';
@@ -133,10 +133,6 @@ function MercadoPagoForm({
   showCredentials,
   onChange,
   onToggleShow,
-  onTest,
-  isTesting,
-  testMessage,
-  onClearTestMessage,
 }: {
   publicKey: string;
   accessToken: string;
@@ -144,10 +140,6 @@ function MercadoPagoForm({
   showCredentials: boolean;
   onChange: (field: 'publicKey' | 'accessToken', value: string) => void;
   onToggleShow: () => void;
-  onTest: () => void;
-  isTesting: boolean;
-  testMessage: { type: 'success' | 'error'; text: string } | null;
-  onClearTestMessage: () => void;
 }) {
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-6">
@@ -160,20 +152,6 @@ function MercadoPagoForm({
           <p className="text-sm text-slate-500">Insira suas credenciais de integração</p>
         </div>
       </div>
-
-      {testMessage && (
-        <div className={`mb-4 p-3 rounded-lg ${testMessage.type === 'success' ? 'bg-emerald-50 border border-emerald-200' : 'bg-rose-50 border border-rose-200'}`}>
-          <p className={`text-sm ${testMessage.type === 'success' ? 'text-emerald-700' : 'text-rose-700'}`}>
-            {testMessage.text}
-          </p>
-          <button 
-            onClick={onClearTestMessage}
-            className="text-xs text-slate-400 hover:text-slate-600 mt-1"
-          >
-            Fechar
-          </button>
-        </div>
-      )}
 
       <div className="space-y-5">
         <div>
@@ -227,17 +205,6 @@ function MercadoPagoForm({
           </p>
         </div>
 
-        {/* Botões */}
-        <div className="flex flex-col sm:flex-row gap-3 pt-4">
-          <button
-            type="button"
-            onClick={onTest}
-            disabled={isTesting || !publicKey}
-            className="flex-1 h-11 px-4 bg-white border border-slate-200 text-slate-700 rounded-xl font-medium text-sm hover:bg-slate-50 hover:border-slate-300 transition disabled:opacity-50"
-          >
-            {isTesting ? 'Testando...' : 'Testar Conexão'}
-          </button>
-        </div>
       </div>
     </div>
   );
@@ -315,8 +282,6 @@ function PixDirectForm({
 // Main Page Component
 export default function PaymentsSettingsPage() {
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
-  const [isTesting, setIsTesting] = useState(false);
-  const [testMessage, setTestMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   
   const {
     state,
@@ -343,21 +308,6 @@ export default function PaymentsSettingsPage() {
   const isConfigured = state.activeMethod !== null;
   const isMercadoPagoSelected = state.selectedMethod === 'mercadopago';
   const isPixDirectSelected = state.selectedMethod === 'pix_direct';
-
-  const handleTestConnection = async () => {
-    setIsTesting(true);
-    setTestMessage(null);
-    
-    setTimeout(() => {
-      const isValid = state.mercadoPago.publicKey.startsWith('TEST-') || state.mercadoPago.publicKey.startsWith('APP_USR-');
-      if (isValid) {
-        setTestMessage({ type: 'success', text: 'Conexão testada com sucesso! Credenciais válidas.' });
-      } else {
-        setTestMessage({ type: 'error', text: 'Formato de credenciais inválido. Use TEST- ou APP_USR-' });
-      }
-      setIsTesting(false);
-    }, 1000);
-  };
 
   return (
     <div>
@@ -473,10 +423,6 @@ export default function PaymentsSettingsPage() {
           showCredentials={state.showCredentials}
           onChange={(field, value) => setMercadoPagoData({ [field]: value })}
           onToggleShow={toggleShowCredentials}
-          onTest={handleTestConnection}
-          isTesting={isTesting}
-          testMessage={testMessage}
-          onClearTestMessage={() => setTestMessage(null)}
         />
       )}
 

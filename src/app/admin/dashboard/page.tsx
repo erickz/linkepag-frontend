@@ -33,6 +33,7 @@ interface ProfileData {
   bio?: string;
   planId?: number;
   planStatus?: 'active' | 'expired' | 'cancelled' | 'pending_payment';
+  pixKey?: string;
 }
 
 interface SalesReport {
@@ -207,11 +208,11 @@ export default function AdminDashboard() {
             <span className="text-xl font-bold">{isLoadingSales ? '-' : salesReport?.confirmedOrders || 0}</span>
             <span className="text-emerald-100 text-sm">vendas confirmadas</span>
           </div>
-          {!isLoadingMP && !mercadoPagoConfigured && (
+          { (!isLoadingMP && !mercadoPagoConfigured) || !profile?.pixKey && (
             <div className="mt-4 p-3 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
-              <p className="text-sm text-white">Configure um gateway para automatizar o envio de links</p>
+              <p className="text-sm text-white">Configure uma forma de pagamento</p>
               <Link href="/admin/settings/payments" className="text-sm text-white/80 hover:text-white underline mt-1 inline-block">
-                Configurar Mercado Pago →
+                Configurar Pagamento →
               </Link>
             </div>
           )}
