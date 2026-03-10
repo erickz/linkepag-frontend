@@ -173,7 +173,7 @@ function LinkButtonComponent({
       return (
         <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1 sm:gap-3">
           <span className={`text-base sm:text-xl font-bold ${accentColor?.textClass || 'text-amber-400'}`}>
-            R$ {formatPrice(link.price)}
+            R$ {formatPrice(link.price ?? 0)}
           </span>
           <div className="px-3 sm:px-4 py-1.5 sm:py-2 bg-white text-slate-600 rounded-lg sm:rounded-xl font-bold text-xs sm:text-sm shadow-sm hover:bg-slate-50 transition whitespace-nowrap">
             {isExpanded ? 'Fechar' : 'Comprar'}
