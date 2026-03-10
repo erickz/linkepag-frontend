@@ -3,11 +3,13 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth, useProtectedRoute } from '@/hooks/useAuth';
+import { useSubscription } from '@/hooks/useSubscription';
 
 import { getLeads, getLeadsStats, deleteLead, exportLeads, Lead, LeadsStats } from '@/lib/api';
 
 export default function LeadsPage() {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
+  const { currentPlan } = useSubscription();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [stats, setStats] = useState<LeadsStats | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
@@ -227,26 +229,40 @@ export default function LeadsPage() {
                   />
                 </div>
 
-                {/* Export Button */}
-                <button
-                  onClick={handleExport}
-                  disabled={isExporting || leads.length === 0}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isExporting ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                      <span>Exportando...</span>
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                      </svg>
-                      <span>Exportar CSV</span>
-                    </>
-                  )}
-                </button>
+                {/* Export Button - Desabilitado para plano Grátis */}
+                {currentPlan?.id === 1 ? (
+                  <Link
+                    href="/admin/plans"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-100 text-slate-500 rounded-xl font-medium hover:bg-slate-200 transition"
+                    title="Faça upgrade para exportar leads"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    <span>Exportar CSV</span>
+                    <span className="ml-1 text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Creator</span>
+                  </Link>
+                ) : (
+                  <button
+                    onClick={handleExport}
+                    disabled={isExporting || leads.length === 0}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isExporting ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                        <span>Exportando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        <span>Exportar CSV</span>
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             </div>
 

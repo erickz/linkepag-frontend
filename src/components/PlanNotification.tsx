@@ -142,7 +142,7 @@ export function PlanNotification({ planInfo: externalPlanInfo }: PlanNotificatio
             </div>
             <div className="flex items-center gap-3">
               <Link
-                href="/plans"
+                href="/#pricing"
                 className="inline-flex items-center px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition"
               >
                 Ver pagamento
@@ -185,7 +185,7 @@ export function PlanNotification({ planInfo: externalPlanInfo }: PlanNotificatio
             </div>
             <div className="flex items-center gap-3">
               <Link
-                href="/plans"
+                href="/#pricing"
                 className="inline-flex items-center px-4 py-2 bg-rose-600 text-white text-sm font-medium rounded-lg hover:bg-rose-700 transition"
               >
                 Renovar plano
@@ -232,7 +232,7 @@ export function PlanNotification({ planInfo: externalPlanInfo }: PlanNotificatio
               </div>
               <div className="flex items-center gap-3">
                 <Link
-                  href="/plans"
+                  href="/#pricing"
                   className="inline-flex items-center px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition"
                 >
                   Renovar
@@ -279,7 +279,7 @@ export function PlanNotification({ planInfo: externalPlanInfo }: PlanNotificatio
               </div>
               <div className="flex items-center gap-3">
                 <Link
-                  href="/plans"
+                  href="/#pricing"
                   className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition"
                 >
                   Ver planos
@@ -372,7 +372,7 @@ export function PlanBadge({ planInfo: externalPlanInfo }: PlanBadgeProps = {}) {
   if (isPending) {
     return (
       <Link
-        href="/plans"
+        href="/#pricing"
         className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition bg-amber-100 text-amber-700 hover:bg-amber-200"
       >
         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -385,7 +385,7 @@ export function PlanBadge({ planInfo: externalPlanInfo }: PlanBadgeProps = {}) {
 
   return (
     <Link
-      href="/plans"
+      href="/#pricing"
       className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition ${
         isExpired
           ? 'bg-rose-100 text-rose-700 hover:bg-rose-200'

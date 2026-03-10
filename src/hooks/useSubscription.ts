@@ -16,8 +16,11 @@ export interface Plan {
   id: number;
   name: string;
   monthlyPrice: number;
+  monthlyPriceFormatted: string;
   feePerTransaction: number;
+  feePerTransactionFormatted: string;
   maxPaidLinks: number | null;
+  links: string;
   features: string[];
   popular?: boolean;
 }
@@ -50,8 +53,11 @@ const FALLBACK_PLAN: Plan = {
   id: DEFAULT_PLAN_ID,
   name: 'Grátis',
   monthlyPrice: 0,
+  monthlyPriceFormatted: '0,00',
   feePerTransaction: 0.70,
+  feePerTransactionFormatted: '0,70',
   maxPaidLinks: 3,
+  links: '3 links monetizados',
   features: ['3 links monetizados', 'Links gratuitos ilimitados', 'Relatório básico'],
 };
 

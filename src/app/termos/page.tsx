@@ -22,7 +22,7 @@ export default function TermosPage() {
             <Link href="/" className="text-sm text-slate-400 hover:text-white transition">
               Home
             </Link>
-            <Link href="/plans" className="text-sm text-slate-400 hover:text-white transition">
+            <Link href="/#pricing" className="text-sm text-slate-400 hover:text-white transition">
               Planos
             </Link>
             <Link href="/contato" className="text-sm text-slate-400 hover:text-white transition">

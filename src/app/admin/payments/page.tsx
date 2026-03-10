@@ -143,7 +143,7 @@ export default function PaymentsPage() {
         description="Gerencie seus pagamentos e confirme vendas PIX"
         breadcrumbs={[{ label: 'Vendas' }]}
         action={{
-          label: 'Configurar Pagamentos Automatizado',
+          label: 'Configurar pagamentos automatizados',
           href: '/admin/settings/payments',
           icon: <IconSettings className="w-4 h-4" />,
           variant: 'outline'

@@ -18,6 +18,14 @@ interface LinkItem {
   isActive?: boolean;
 }
 
+// Type para Plan (usado no helper)
+interface PlanType {
+  id: number;
+  name: string;
+  popular?: boolean;
+  features: string[];
+}
+
 // Types para Billing Híbrido
 interface BillingCycle {
   id: string;
@@ -91,25 +99,15 @@ const PLAN_COLORS: Record<number, { bg: string; border: string; gradient: string
   },
 };
 
-const PLAN_NAMES: Record<number, string> = {
-  1: 'Starter',
-  2: 'Creator',
-  3: 'Pro',
-  4: 'Ilimitado',
-};
-
-const PLAN_FEATURES: Record<number, string[]> = {
-  1: ['3 links monetizados', 'Taxa de R$ 0,70/venda', 'Relatórios básicos'],
-  2: ['10 links monetizados', 'Taxa de R$ 0,50/venda', 'Relatórios completos', 'Suporte por email'],
-  3: ['Links ilimitados', 'Taxa de R$ 0,35/venda', 'Relatórios avançados', 'Suporte prioritário'],
-  4: ['Tudo ilimitado', 'Taxa de R$ 0,20/venda', 'API e webhooks', 'Suporte VIP', 'Múltiplos usuários'],
-};
-
-const PLAN_BADGES: Record<number, string> = {
-  1: 'Grátis',
-  2: 'Mais popular',
-  3: 'Recomendado',
-  4: 'Top',
+// Helper para obter badge baseado no plano
+const getPlanBadge = (plan: PlanType): string => {
+  if (plan.popular) return 'Mais popular';
+  switch (plan.id) {
+    case 1: return 'Grátis';
+    case 3: return 'Recomendado';
+    case 4: return 'Top';
+    default: return '';
+  }
 };
 
 // Formatters
@@ -552,7 +550,7 @@ export default function PlansPage() {
                 <h3 className="text-2xl font-bold text-slate-900">{currentUserPlan?.name || 'Starter'}</h3>
                 {currentUserPlan && (
                   <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${PLAN_COLORS[currentUserPlan.id].badge}`}>
-                    {PLAN_BADGES[currentUserPlan.id]}
+                    {getPlanBadge(currentUserPlan)}
                   </span>
                 )}
               </div>
@@ -621,7 +619,7 @@ export default function PlansPage() {
             <div className="flex items-center gap-3">
               <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
               <h2 className="font-semibold text-amber-900 text-lg">
-                Pagamento Pendente - {PLAN_NAMES[pendingPlanId]}
+                Pagamento Pendente - {plans.find(p => p.id === pendingPlanId)?.name || 'Plano'}
               </h2>
             </div>
           </div>
@@ -631,7 +629,7 @@ export default function PlansPage() {
             {(subscription?.paymentMethod === 'pix' || !subscription?.paymentMethod) && (
               <>
                 <p className="text-amber-800 mb-6">
-                  Complete o pagamento para ativar seu {PLAN_NAMES[pendingPlanId]}. 
+                  Complete o pagamento para ativar seu {plans.find(p => p.id === pendingPlanId)?.name || 'Plano'}. 
                   Escaneie o QR Code ou copie o código PIX abaixo:
                 </p>
 
@@ -764,11 +762,11 @@ export default function PlansPage() {
               <div className="flex items-center gap-3">
                 <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${PLAN_COLORS[selectedPlan].gradient} flex items-center justify-center`}>
                   <span className="text-white font-bold text-lg">
-                    {PLAN_NAMES[selectedPlan][0]}
+                    {plans.find(p => p.id === selectedPlan)?.name || 'Plano'[0]}
                   </span>
                 </div>
                 <div>
-                  <p className="font-semibold text-slate-900">{PLAN_NAMES[selectedPlan]}</p>
+                  <p className="font-semibold text-slate-900">{plans.find(p => p.id === selectedPlan)?.name || 'Plano'}</p>
                   <p className="text-sm text-slate-500">
                     {formatCurrency(plans.find(p => p.id === selectedPlan)?.monthlyPrice || 0)}/mês
                   </p>
@@ -987,7 +985,7 @@ export default function PlansPage() {
             const downgrade = canDowngrade(plan.id);
             const selected = selectedPlan === plan.id;
             const colors = PLAN_COLORS[plan.id];
-            const features = PLAN_FEATURES[plan.id];
+            const features = plan.features;
 
             return (
               <div
@@ -1004,7 +1002,7 @@ export default function PlansPage() {
                 <div className={`${colors.bg} px-5 py-4 rounded-t-2xl border-b ${colors.border}`}>
                   <div className="flex items-center justify-between mb-2">
                     <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${colors.badge}`}>
-                      {PLAN_BADGES[plan.id]}
+                      {getPlanBadge(plan)}
                     </span>
                     {current && subscription?.status === 'active' && (
                       <span className="text-xs bg-indigo-600 text-white px-2 py-1 rounded-full">

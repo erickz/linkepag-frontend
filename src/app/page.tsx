@@ -3,6 +3,7 @@ import { Metadata } from "next";
 import { MobileMenu } from "./components/MobileMenu";
 import { Logo } from "@/components/Logo";
 import { AuthNavButton } from "@/components/AuthNavButton";
+import { PricingSection } from "./components/PricingSection";
 import {
   IconQRCode,
   IconInstant,
@@ -13,7 +14,6 @@ import {
   IconRocket,
   IconZap,
   IconTrendingUp,
-  IconGift,
   IconUser,
   IconBookOpen,
   IconGraduationCap,
@@ -68,9 +68,10 @@ export default function Home() {
           <a href="#pricing" className="text-sm font-medium text-slate-600 hover:text-emerald-600 transition">
             Planos
           </a>
-          <AuthNavButton className="inline-flex items-center justify-center h-9 px-5 rounded-full bg-emerald-500 text-white text-sm font-semibold hover:bg-emerald-600 transition shadow-md shadow-emerald-200">
-            Começar grátis
-          </AuthNavButton>
+          <Link
+              href="/login" className="inline-flex items-center justify-center h-9 px-5 rounded-full bg-emerald-500 text-white text-sm font-semibold hover:bg-emerald-600 transition shadow-md shadow-emerald-200">
+            Login
+          </Link>
         </div>
       </nav>
 
@@ -386,128 +387,8 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Pricing Section */}
-      <section id="pricing" className="py-24 bg-slate-50">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="text-center mb-12">
-            <span className="inline-flex items-center gap-2 bg-emerald-50 text-emerald-700 px-4 py-2 rounded-full text-sm font-semibold mb-4">
-              <IconGift className="w-4 h-4" />
-              Preço justo
-            </span>
-            <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-6">
-              Escolha seu plano
-            </h2>
-            <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-              Comece grátis e faça upgrade quando quiser. Quanto maior o plano, menor a taxa por venda realizada.
-            </p>
-          </div>
-
-          {/* Plans Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-            {[
-              {
-                name: 'Grátis',
-                price: 0,
-                fee: 0.70,
-                links: '3 links monetizados',
-                features: ['Links gratuitos ilimitados', 'Checkout PIX', 'Relatório básico'],
-                popular: false,
-              },
-              {
-                name: 'Creator',
-                price: 19.90,
-                fee: 0.50,
-                links: '10 links monetizados',
-                features: ['Exportação CSV', 'Suporte 24h', 'Personalização avançada'],
-                popular: true,
-              },
-              {
-                name: 'Pro',
-                price: 49.90,
-                fee: 0.35,
-                links: 'Links ilimitados',
-                features: ['Relatórios avançados', 'Suporte por chat', 'Personalização total'],
-                popular: false,
-              },
-              {
-                name: 'Ilimitado',
-                price: 99.90,
-                fee: 0.20,
-                links: 'Links ilimitados',
-                features: ['Webhooks', 'Múltiplos usuários', 'White-label', 'Suporte prioritário'],
-                popular: false,
-              },
-            ].map((plan) => (
-              <div
-                key={plan.name}
-                className={`bg-white rounded-3xl border-2 p-6 flex flex-col relative ${
-                  plan.popular
-                    ? 'border-indigo-500 shadow-xl shadow-indigo-100'
-                    : 'border-slate-200'
-                }`}
-              >
-                {plan.popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <span className="bg-indigo-600 text-white text-xs font-semibold px-4 py-1 rounded-full">
-                      Mais popular
-                    </span>
-                  </div>
-                )}
-
-                <div className="text-center mb-6">
-                  <h3 className="text-lg font-bold text-slate-900 mb-2">{plan.name}</h3>
-                  <div className="flex items-baseline justify-center gap-1">
-                    <span className="text-3xl font-black text-slate-900">
-                      R$ {plan.price.toFixed(2)}
-                    </span>
-                    {plan.price > 0 && <span className="text-slate-500 text-sm">/mês</span>}
-                  </div>
-                </div>
-
-                <div className="bg-slate-50 rounded-xl p-3 mb-4 text-center">
-                  <p className="text-xs text-slate-500">Taxa por venda realizada:</p>
-                  <p className="text-lg font-bold text-indigo-600">R$ {plan.fee.toFixed(2)}</p>
-                </div>
-
-                <div className="mb-4">
-                  <p className="text-sm font-medium text-slate-900 text-center">{plan.links}</p>
-                </div>
-
-                <ul className="space-y-2 mb-6 flex-1">
-                  {plan.features.map((feature) => (
-                    <li key={feature} className="flex items-center gap-2 text-sm text-slate-600">
-                      <div className="w-4 h-4 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
-                        <IconCheck className="w-2.5 h-2.5 text-emerald-600" />
-                      </div>
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
-
-                <AuthNavButton
-                  className={`block w-full py-2.5 rounded-xl text-center font-semibold text-sm transition ${
-                    plan.popular
-                      ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-200'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  }`}
-                >
-                  {plan.price === 0 ? 'Começar grátis' : 'Assinar'}
-                </AuthNavButton>
-              </div>
-            ))}
-          </div>
-
-          {/* CTA */}
-          {/* <div className="text-center">
-            <Link
-              href="/plans"
-              className="inline-flex items-center justify-center h-14 px-10 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold hover:shadow-lg hover:shadow-indigo-500/25 transition text-lg"
-            >
-              Ver todos os planos
-            </Link>
-          </div> */}
-        </div>
-      </section>
+      {/* Pricing Section - Busca dados dinamicamente da API */}
+      <PricingSection />
 
       {/* FAQ Section */}
       <section className="py-24 bg-white">
@@ -523,15 +404,15 @@ export default function Home() {
             {[
               {
                 q: "Como funciona o plano Grátis?",
-                a: "É 100% gratuito! Você pode criar até 3 links monetizados e paga apenas R$ 0,70 por venda realizada."
+                a: "Você pode cria vários links monetizados e paga R$0,70 APENAS se você vender."
               },
               {
                 q: "Posso trocar de plano depois?",
-                a: "Sim! Você pode fazer upgrade ou downgrade a qualquer momento. O valor é proporcional aos dias restantes."
+                a: "Sim! Você pode fazer upgrade ou downgrade a qualquer momento."
               },
               {
-                q: "Como recebo os pagamentos?",
-                a: "Os pagamentos via PIX caem direto na sua conta bancária, sem intermediários."
+                q: "Posso receber pagamentos DIRETO na minha conta?",
+                a: "Sim, você cadastra a sua chave PIX e o dinheiro cai direto na sua conta bancária, sem intermediários."
               },
               {
                 q: "Preciso de CNPJ?",
@@ -614,7 +495,7 @@ export default function Home() {
                 name: 'Julia Costa',
                 role: 'Designer',
                 image: 'JC',
-                text: 'Vendo templates e recursos para outros designers. A integração com MercadoPago é perfeita.',
+                text: 'Vendo templates e recursos para outros designers. A integração com Mercado Pago é perfeita.',
                 metric: 'R$ 8.200/mês',
               },
             ].map((testimonial, idx) => (
@@ -662,6 +543,8 @@ export default function Home() {
               </Link>
               <p className="text-slate-400 text-sm max-w-xs">
                 Crie uma página única para seus links e receba pagamentos via PIX. 
+              </p>
+              <p className="text-slate-400 text-sm max-w-xs mt-2">
                 A link-in-bio que vende mais.
               </p>
             </div>
