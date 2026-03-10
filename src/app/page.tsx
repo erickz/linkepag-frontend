@@ -537,7 +537,7 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
             {/* Logo e descrição */}
             <div>
-              <Link href="/" className="inline-flex items-center gap-2 mb-4">
+              <Link href="/" target="_blank" className="inline-flex items-center gap-2 mb-4">
                 <Logo size="sm" showText={false} />
                 <span className="text-white font-bold text-lg">LinkePag</span>
               </Link>
