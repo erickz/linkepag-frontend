@@ -116,6 +116,7 @@ interface PublicProfile {
   pixKey?: string;
   pixKeyType?: string;
   pixQRCodeImage?: string;
+  activePaymentMethod?: 'mercadopago' | 'pix_direct' | null;
   appearanceSettings?: {
     headerGradient?: string;
     backgroundColor?: string;
@@ -374,19 +375,47 @@ export default function PublicPage() {
   const isDarkBg = currentBg.textColor === 'text-white';
 
   // Memoizar dados do perfil
+  // Determinar configuração de pagamento ativa
+  // Regra: Usa o método que o usuário escolheu como ativo (activePaymentMethod)
+  // Se não houver preferência definida, verifica qual está configurado
+  const paymentConfig = useMemo(() => {
+    const hasMP = !!(profile?.mercadoPagoConfigured && profile?.mercadoPagoPublicKey);
+    const hasPix = !!(profile?.pixConfigured && profile?.pixKey);
+    const activeMethod = profile?.activePaymentMethod;
+
+    // Se o usuário tem uma preferência definida, use-a
+    // Caso contrário, use o que estiver configurado (MP tem preferência se ambos)
+    let useMP = false;
+    let usePix = false;
+
+    if (activeMethod === 'mercadopago' && hasMP) {
+      useMP = true;
+    } else if (activeMethod === 'pix_direct' && hasPix) {
+      usePix = true;
+    } else if (hasMP) {
+      useMP = true;
+    } else if (hasPix) {
+      usePix = true;
+    }
+
+    return {
+      mercadoPagoConfigured: useMP,
+      pixConfigured: usePix,
+      mercadoPagoPublicKey: useMP ? profile?.mercadoPagoPublicKey : undefined,
+      pixKey: usePix ? profile?.pixKey : undefined,
+      pixKeyType: usePix ? profile?.pixKeyType : undefined,
+      pixQRCodeImage: usePix ? profile?.pixQRCodeImage : undefined,
+    };
+  }, [profile]);
+
   const profileData = useMemo(() => ({
     displayName: profile?.displayName,
     bio: profile?.bio,
     location: profile?.location,
     profilePhoto: profile?.profilePhoto,
     socialLinks: profile?.socialLinks,
-    mercadoPagoPublicKey: profile?.mercadoPagoPublicKey,
-    mercadoPagoConfigured: profile?.mercadoPagoConfigured,
-    pixConfigured: profile?.pixConfigured,
-    pixKey: profile?.pixKey,
-    pixKeyType: profile?.pixKeyType,
-    pixQRCodeImage: profile?.pixQRCodeImage,
-  }), [profile]);
+    ...paymentConfig,
+  }), [profile, paymentConfig]);
 
   if (isLoading) {
     return (

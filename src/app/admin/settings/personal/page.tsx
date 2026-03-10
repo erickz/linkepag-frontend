@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/PageHeader';
-import { IconUser, IconMail, IconPhone, IconCreditCard, IconQrcode } from '@/components/icons';
+import { IconUser, IconMail, IconCreditCard, IconArrowRight, IconCreditCard as IconPayment } from '@/components/icons';
+import Link from 'next/link';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -19,9 +20,6 @@ export default function PersonalSettingsPage() {
     email: '',
     phone: '',
     cpf: '',
-    pixKey: '',
-    pixKeyType: 'CPF' as const,
-    pixQRCodeImage: '',
   });
 
   // Load profile data directly
@@ -58,9 +56,6 @@ export default function PersonalSettingsPage() {
           email: data.email || '',
           phone: data.phone || '',
           cpf: formatCPF(data.cpf || ''),
-          pixKey: data.pixKey || '',
-          pixKeyType: data.pixKeyType || 'CPF',
-          pixQRCodeImage: data.pixQRCodeImage || '',
         });
       } catch (err) {
         console.error('Error loading profile:', err);
@@ -90,9 +85,6 @@ export default function PersonalSettingsPage() {
           fullName: formData.fullName,
           phone: formData.phone,
           cpf: formData.cpf || undefined,
-          pixKey: formData.pixKey || undefined,
-          pixKeyType: formData.pixKeyType,
-          pixQRCodeImage: formData.pixQRCodeImage || undefined,
         })
       });
 
@@ -107,32 +99,6 @@ export default function PersonalSettingsPage() {
     } finally {
       setIsSaving(false);
     }
-  };
-
-  const handleQRUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      setMessage({ type: 'error', text: 'Imagem deve ter no máximo 2MB' });
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const MAX_SIZE = 400;
-        let { width, height } = img;
-        if (width > height) { if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; }}
-        else { if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; }}
-        canvas.width = width;
-        canvas.height = height;
-        canvas.getContext('2d')?.drawImage(img, 0, 0, width, height);
-        setFormData(prev => ({ ...prev, pixQRCodeImage: canvas.toDataURL('image/jpeg', 0.85) }));
-      };
-      img.src = event.target?.result as string;
-    };
-    reader.readAsDataURL(file);
   };
 
   const formatCPF = (value: string) => {
@@ -273,84 +239,26 @@ export default function PersonalSettingsPage() {
           </div>
         </div>
 
-        {/* PIX Settings Card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
-              <IconQrcode className="w-5 h-5 text-emerald-600" />
+        {/* Payment Settings Card - Link to new page */}
+        <Link 
+          href="/admin/settings/payments"
+          className="block bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl border border-indigo-200 p-6 hover:shadow-lg hover:border-indigo-300 transition-all group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+              <IconPayment className="w-6 h-6 text-white" />
             </div>
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">Configurações PIX</h2>
-              <p className="text-sm text-slate-500">Receba pagamentos diretamente</p>
-            </div>
-          </div>
-
-          <div className="space-y-5">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Chave PIX</label>
-                <input
-                  type="text"
-                  value={formData.pixKey}
-                  onChange={(e) => setFormData(prev => ({ ...prev, pixKey: e.target.value }))}
-                  className="w-full h-11 px-4 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition text-sm"
-                  placeholder="CPF, email, celular ou chave aleatória"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Tipo da Chave</label>
-                <select
-                  value={formData.pixKeyType}
-                  onChange={(e) => setFormData(prev => ({ ...prev, pixKeyType: e.target.value as any }))}
-                  className="w-full h-11 px-4 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition text-sm bg-white"
-                >
-                  <option value="CPF">CPF</option>
-                  <option value="CNPJ">CNPJ</option>
-                  <option value="EMAIL">Email</option>
-                  <option value="PHONE">Telefone</option>
-                  <option value="RANDOM">Chave Aleatória</option>
-                </select>
-              </div>
-            </div>
-
-            {/* QR Code Upload */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-3">Envie uma imagem do QR Code (opcional)</label>
-              <div className="flex items-start gap-4">
-                <div className="relative">
-                  <div className="w-32 h-32 rounded-xl overflow-hidden bg-slate-100 border-2 border-slate-200 flex items-center justify-center">
-                    {formData.pixQRCodeImage ? (
-                      <img src={formData.pixQRCodeImage} alt="QR Code" className="w-full h-full object-cover" />
-                    ) : (
-                      <IconQrcode className="w-10 h-10 text-slate-300" />
-                    )}
-                  </div>
-                </div>
-                <div className="flex-1 space-y-2">
-                  <div className="flex gap-2">
-                    <label className="inline-flex items-center gap-2 px-4 h-10 bg-indigo-600 text-white rounded-lg font-medium text-sm hover:bg-indigo-700 transition cursor-pointer">
-                      <span>{formData.pixQRCodeImage ? 'Trocar QR Code' : 'Adicionar QR Code'}</span>
-                      <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleQRUpload} className="hidden" />
-                    </label>
-                    {formData.pixQRCodeImage && (
-                      <button type="button" onClick={() => setFormData(prev => ({ ...prev, pixQRCodeImage: '' }))} className="px-4 h-10 border border-rose-200 text-rose-600 rounded-lg font-medium text-sm hover:bg-rose-50 transition">
-                        Remover
-                      </button>
-                    )}
-                  </div>
-                  <p className="text-xs text-slate-400">JPG, PNG ou WebP. Máx 2MB.</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-              <p className="text-sm text-blue-700">
-                <span className="font-medium">Como funciona?</span> Ao cadastrar sua chave PIX, seus clientes poderão pagar diretamente para você sem precisar do MercadoPago.
+            <div className="flex-1">
+              <h2 className="text-lg font-bold text-slate-900 group-hover:text-indigo-700 transition">Configurações de Pagamento</h2>
+              <p className="text-sm text-slate-600">
+                Configure seu MercadoPago ou PIX Direto para receber pagamentos
               </p>
             </div>
+            <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm group-hover:translate-x-1 transition-transform">
+              <IconArrowRight className="w-5 h-5 text-indigo-600" />
+            </div>
           </div>
-        </div>
+        </Link>
 
         <button type="submit" disabled={isSaving} className={`w-full h-12 rounded-xl text-white font-semibold text-sm shadow-lg transition-all ${
           isSaving ? 'bg-slate-400 cursor-not-allowed' : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 hover:shadow-xl active:scale-[0.98]'

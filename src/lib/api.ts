@@ -202,6 +202,7 @@ export async function updateProfile(data: {
   pixKey?: string;
   pixKeyType?: 'CPF' | 'CNPJ' | 'EMAIL' | 'PHONE' | 'RANDOM';
   pixQRCodeImage?: string;
+  activePaymentMethod?: 'mercadopago' | 'pix_direct' | null;
   appearanceSettings?: {
     headerGradient?: string;
     backgroundColor?: string;

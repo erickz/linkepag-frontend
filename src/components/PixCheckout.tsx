@@ -60,6 +60,8 @@ export default function PixCheckout({
   const DEBOUNCE_MS = 5000;
 
   // Determina qual método de pagamento usar
+  // Regra: MercadoPago tem prioridade se ambos estiverem configurados
+  // isPixDirect só é true se MP NÃO estiver configurado e PIX estiver
   const isPixDirect = !mercadoPagoConfigured && pixConfigured;
 
   const handleCreatePayment = async (e?: React.FormEvent) => {

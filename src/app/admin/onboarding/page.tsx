@@ -775,7 +775,7 @@ export default function OnboardingPage() {
                       </div>
                       <h3 className="font-bold text-slate-900 mb-2">Chave PIX Direta</h3>
                       <p className="text-sm text-slate-500">
-                        Cadastre sua chave PIX e opcionalmente um QR Code. Simples e direto.
+                        Cadastre sua chave PIX e receba direto na sua conta. Simples e direto.
                       </p>
                       <span className="inline-flex items-center gap-1 text-sm font-medium text-emerald-600 mt-3">
                         Usar PIX
@@ -795,7 +795,7 @@ export default function OnboardingPage() {
                       </div>
                       <h3 className="font-bold text-slate-900 mb-2">MercadoPago</h3>
                       <p className="text-sm text-slate-500">
-                        Integração completa com geração automática de QR Codes e webhooks.
+                        Receba seus pagamentos automaticamente através do MercadoPago.
                       </p>
                       <span className="inline-flex items-center gap-1 text-sm font-medium text-indigo-600 mt-3">
                         Usar MercadoPago
