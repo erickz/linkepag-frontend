@@ -288,60 +288,6 @@ export default function AdminDashboard() {
         </div>
 
       </div>
-
-      {/* Recent Activity */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-bold text-slate-900">Atividade Recente</h2>
-            <p className="text-sm text-slate-500">Últimas atualizações da sua conta</p>
-          </div>
-          <Link href="/admin/payments" className="text-sm text-indigo-600 hover:text-indigo-700 font-medium">
-            Ver tudo →
-          </Link>
-        </div>
-        <div className="p-6">
-          {links.length === 0 ? (
-            <div className="text-center py-8">
-              <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <IconCheck className="w-6 h-6 text-slate-400" />
-              </div>
-              <p className="text-slate-500">Bem-vindo! Comece criando seu primeiro link.</p>
-              <Link href="/admin/links" className="inline-flex items-center gap-2 mt-3 px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium text-sm hover:bg-indigo-700 transition">
-                Criar meu primeiro link
-                <IconArrowRight className="w-4 h-4" />
-              </Link>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
-                <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                  <IconCheck className="w-5 h-5 text-emerald-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-slate-900">Conta configurada</p>
-                  <p className="text-xs text-slate-500">Seu perfil está ativo e pronto para receber visitas</p>
-                </div>
-                <Link href={publicUrl} target="_blank" className="text-sm text-indigo-600 hover:text-indigo-700 font-medium">
-                  Ver página
-                </Link>
-              </div>
-              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
-                <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center">
-                  <IconLink className="w-5 h-5 text-indigo-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-slate-900">{links.length} link{links.length !== 1 ? 's' : ''} criado{links.length !== 1 ? 's' : ''}</p>
-                  <p className="text-xs text-slate-500">{activeLinks} ativo{activeLinks !== 1 ? 's' : ''} • {paidLinks} pago{paidLinks !== 1 ? 's' : ''}</p>
-                </div>
-                <Link href="/admin/links" className="text-sm text-indigo-600 hover:text-indigo-700 font-medium">
-                  Gerenciar
-                </Link>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
     </div>
   );
 }

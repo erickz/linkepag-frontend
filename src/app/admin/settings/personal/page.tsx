@@ -57,7 +57,7 @@ export default function PersonalSettingsPage() {
           fullName: data.fullName || '',
           email: data.email || '',
           phone: data.phone || '',
-          cpf: data.cpf || '',
+          cpf: formatCPF(data.cpf || ''),
           pixKey: data.pixKey || '',
           pixKeyType: data.pixKeyType || 'CPF',
           pixQRCodeImage: data.pixQRCodeImage || '',
@@ -136,6 +136,7 @@ export default function PersonalSettingsPage() {
   };
 
   const formatCPF = (value: string) => {
+    if (!value) return '';
     let v = value.replace(/\D/g, '');
     if (v.length > 11) v = v.slice(0, 11);
     if (v.length > 9) v = v.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
@@ -206,7 +207,7 @@ export default function PersonalSettingsPage() {
                 <p className="text-xs text-slate-400 mt-1">Email não pode ser alterado</p>
               </div>
 
-              <div>
+              {/* <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   <IconPhone className="w-4 h-4 inline mr-1" />
                   Telefone (WhatsApp)
@@ -218,10 +219,34 @@ export default function PersonalSettingsPage() {
                   className="w-full h-11 px-4 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition text-sm"
                   placeholder="(11) 99999-9999"
                 />
+              </div> */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  <IconCreditCard className="w-4 h-4 inline mr-1" />
+                  CPF {profileData?.cpf && <span className="text-slate-400 font-normal">(cadastrado)</span>}
+                </label>
+                <input
+                  type="text"
+                  value={formData.cpf}
+                  onChange={(e) => setFormData(prev => ({ ...prev, cpf: formatCPF(e.target.value) }))}
+                  disabled={!!profileData?.cpf}
+                  maxLength={14}
+                  className={`w-full h-11 px-4 rounded-lg border transition text-sm ${
+                    profileData?.cpf 
+                      ? 'border-slate-200 bg-slate-50 text-slate-500 cursor-not-allowed' 
+                      : 'border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none'
+                  }`}
+                  placeholder="000.000.000-00"
+                />
+                {profileData?.cpf ? (
+                  <p className="text-xs text-slate-400 mt-1">CPF não pode ser alterado após cadastrado</p>
+                ) : (
+                  <p className="text-xs text-slate-400 mt-1">CPF necessário para receber pagamentos via PIX</p>
+                )}
               </div>
             </div>
 
-            <div>
+            {/* <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
                 <IconCreditCard className="w-4 h-4 inline mr-1" />
                 CPF {profileData?.cpf && <span className="text-slate-400 font-normal">(cadastrado)</span>}
@@ -244,7 +269,7 @@ export default function PersonalSettingsPage() {
               ) : (
                 <p className="text-xs text-slate-400 mt-1">CPF necessário para receber pagamentos via PIX</p>
               )}
-            </div>
+            </div> */}
           </div>
         </div>
 
@@ -291,7 +316,7 @@ export default function PersonalSettingsPage() {
 
             {/* QR Code Upload */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-3">QR Code para Pagamento (opcional)</label>
+              <label className="block text-sm font-medium text-slate-700 mb-3">Envie uma imagem do QR Code (opcional)</label>
               <div className="flex items-start gap-4">
                 <div className="relative">
                   <div className="w-32 h-32 rounded-xl overflow-hidden bg-slate-100 border-2 border-slate-200 flex items-center justify-center">

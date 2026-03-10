@@ -347,7 +347,7 @@ export default function PaymentsPage() {
               </div>
               <h3 className="text-lg font-medium text-slate-900 mb-2">Configurações de Pagamento</h3>
               <p className="text-slate-500 mb-6 max-w-md mx-auto">
-                Configure o MercadoPago para receber pagamentos automáticos ou gerencie sua chave PIX para recebimento direto.
+                Configure o MercadoPago para enviar os links ou gerencie sua chave PIX para recebimento direto.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <Link

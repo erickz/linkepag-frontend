@@ -97,7 +97,7 @@ export default function Home() {
               </h1>
 
               <p className="text-lg text-slate-600 leading-relaxed mb-8">
-                Crie uma página única para seus links, produtos e receba pagamentos via <strong>PIX</strong> — sua audiência compra sem sair do instagram.
+                Crie uma página única para seus links, produtos e receba pagamentos via <strong>PIX</strong> — sua audiência compra sem sair do instagram/tik tok.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 mb-8">
@@ -358,7 +358,7 @@ export default function Home() {
               {
                 number: "03",
                 title: "Compartilhe e venda",
-                description: "Cole seu link na bio do Instagram e comece a receber pagamentos.",
+                description: "Cole seu link na bio do Instagram/Tik Tok e comece a receber pagamentos.",
                 icon: IconRocket,
                 color: "amber"
               }

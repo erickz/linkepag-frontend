@@ -17,6 +17,7 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  isLoggingOut: boolean;
   login: (token: string, user: User, isNewUser?: boolean) => void;
   logout: () => void;
 }
@@ -51,6 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -136,8 +138,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
+    setIsLoggingOut(true);
     clearAuth();
-    router.push('/login');
+    router.push('/');
   }, [clearAuth, router]);
 
   // Valor memoizado para evitar re-renders desnecessários
@@ -146,6 +149,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     token,
     isLoading,
     isAuthenticated: !!token && !!user,
+    isLoggingOut,
     login,
     logout,
   };
@@ -167,7 +171,7 @@ export function useAuth() {
 
 // Custom hook to protect routes
 export function useProtectedRoute(redirectTo: string = '/login') {
-  const { isAuthenticated, isLoading, token } = useAuth();
+  const { isAuthenticated, isLoading, token, isLoggingOut } = useAuth();
   const router = useRouter();
   const [hasMounted, setHasMounted] = useState(false);
 
@@ -180,10 +184,11 @@ export function useProtectedRoute(redirectTo: string = '/login') {
     // 1. Componente ter montado (evita hydration mismatch)
     // 2. Auth check ter completado (isLoading = false)
     // 3. Não estar autenticado
-    if (hasMounted && !isLoading && !isAuthenticated && typeof window !== 'undefined') {
+    // 4. NÃO está em processo de logout manual (isLoggingOut = false)
+    if (hasMounted && !isLoading && !isAuthenticated && !isLoggingOut && typeof window !== 'undefined') {
       router.push(redirectTo);
     }
-  }, [hasMounted, isAuthenticated, isLoading, router, redirectTo]);
+  }, [hasMounted, isAuthenticated, isLoading, isLoggingOut, router, redirectTo]);
 
   // Verificação adicional: se tem token mas está expirado, força logout
   useEffect(() => {
