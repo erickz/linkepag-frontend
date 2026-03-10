@@ -28,7 +28,7 @@ export function PlanUpgradeModal({ isOpen, onClose, currentPaidLinksCount }: Pla
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl p-6 max-w-lg w-full shadow-2xl">
+      <div className="bg-white rounded-2xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl relative">
         {/* Header */}
         <div className="text-center mb-6">
           <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
@@ -164,46 +164,35 @@ export function PlanLimitWarning({ currentCount, maxCount }: PlanLimitWarningPro
   
   const percentage = Math.round((currentCount / maxCount) * 100);
   const isNearLimit = percentage >= 80;
-  const isAtLimit = currentCount >= maxCount;
 
   if (!isNearLimit) return null;
 
   return (
-    <div className={`rounded-xl p-4 mb-6 ${
-      isAtLimit 
-        ? 'bg-rose-50 border border-rose-200' 
-        : 'bg-amber-50 border border-amber-200'
-    }`}>
+    <div className="rounded-xl p-4 mb-6 bg-amber-50 border border-amber-200">
       <div className="flex items-start gap-3">
-        <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-          isAtLimit ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'
-        }`}>
+        <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-amber-100 text-amber-600">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
         </div>
         <div className="flex-1">
-          <h4 className={`font-semibold ${isAtLimit ? 'text-rose-900' : 'text-amber-900'}`}>
-            {isAtLimit ? 'Limite de links atingido' : 'Você está próximo do limite'}
+          <h4 className="font-semibold text-amber-900">
+            Limite de links atingido
           </h4>
-          <p className={`text-sm mt-1 ${isAtLimit ? 'text-rose-700' : 'text-amber-700'}`}>
+          <p className="text-sm mt-1 text-amber-700">
             Você está usando {currentCount} de {maxCount} links monetizados disponíveis no seu plano.
           </p>
           <div className="mt-3">
-            <div className={`h-2 rounded-full ${isAtLimit ? 'bg-rose-200' : 'bg-amber-200'}`}>
+            <div className="h-2 rounded-full bg-amber-200">
               <div 
-                className={`h-full rounded-full transition-all ${
-                  isAtLimit ? 'bg-rose-500' : 'bg-amber-500'
-                }`}
+                className="h-full rounded-full transition-all bg-amber-500"
                 style={{ width: `${Math.min(100, percentage)}%` }}
               />
             </div>
           </div>
           <Link
             href="/admin/plans"
-            className={`inline-flex items-center gap-1 text-sm font-medium mt-3 ${
-              isAtLimit ? 'text-rose-700 hover:text-rose-800' : 'text-amber-700 hover:text-amber-800'
-            }`}
+            className="inline-flex items-center gap-1 text-sm font-medium mt-3 text-amber-700 hover:text-amber-800"
           >
             Fazer upgrade do plano
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

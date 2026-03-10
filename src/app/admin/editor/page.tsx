@@ -255,7 +255,6 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
               </div>
               {formData.isPaid && (
                 <div className="space-y-3">
-                  {!canCreatePaid.allowed && <div className="bg-rose-50 border border-rose-200 rounded-lg p-3"><p className="text-sm text-rose-700">{canCreatePaid.message}</p><button type="button" onClick={() => setShowUpgradeModal(true)} className="text-sm text-rose-600 underline mt-1">Fazer upgrade</button></div>}
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">Preço (R$)</label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">R$</span><input type="text" inputMode="decimal" value={formData.price > 0 ? maskPriceInput((formData.price * 100).toString()) : ''} onChange={e => setFormData(p => ({ ...p, price: parsePrice(maskPriceInput(e.target.value)) }))} required={formData.isPaid} className="w-full h-10 pl-10 pr-3 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm" placeholder="0,00" /></div></div>
                 </div>
               )}
