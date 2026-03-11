@@ -22,7 +22,7 @@ interface PlanBadgeProps {
 }
 
 const PLANS = {
-  1: { name: 'Grátis', maxPaidLinks: 3 },
+  1: { name: 'Starter', maxPaidLinks: 3 },
   2: { name: 'Creator', maxPaidLinks: 10 },
   3: { name: 'Pro', maxPaidLinks: Infinity },
   4: { name: 'Ilimitado', maxPaidLinks: Infinity },

@@ -68,6 +68,9 @@ export default function Home() {
           <a href="#pricing" className="text-sm font-medium text-slate-600 hover:text-emerald-600 transition">
             Planos
           </a>
+          <a href="#faq" className="text-sm font-medium text-slate-600 hover:text-emerald-600 transition">
+            FAQ
+          </a>
           <Link
               href="/login" className="inline-flex items-center justify-center h-9 px-5 rounded-full bg-emerald-500 text-white text-sm font-semibold hover:bg-emerald-600 transition shadow-md shadow-emerald-200">
             Login
@@ -294,7 +297,7 @@ export default function Home() {
                 </div>
                 <h3 className="text-xl font-bold text-slate-900 mb-3">Preço Justo</h3>
                 <p className="text-slate-600 leading-relaxed">
-                  Comece grátis com 3 links monetizados. Upgrade a partir de R$ 19,90/mês para mais links e taxas menores.
+                  Você só paga se você vender!
                 </p>
               </div>
             </div>
@@ -391,7 +394,7 @@ export default function Home() {
       <PricingSection />
 
       {/* FAQ Section */}
-      <section className="py-24 bg-white">
+      <section id="faq" className="py-24 bg-white">
         <div className="max-w-3xl mx-auto px-6">
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold text-slate-900 mb-4">
@@ -403,7 +406,7 @@ export default function Home() {
           <div className="space-y-4">
             {[
               {
-                q: "Como funciona o plano Grátis?",
+                q: "Como funciona o plano Starter?",
                 a: "Você pode cria vários links monetizados e paga R$0,70 APENAS se você vender."
               },
               {
@@ -439,7 +442,7 @@ export default function Home() {
             Pronto para começar a vender?
           </h2>
           <p className="text-lg text-slate-400 mb-10 max-w-2xl mx-auto">
-            Crie sua página em menos de 2 minutos. É grátis e você só paga quando vender.
+            Crie sua página em menos de 2 minutos. Links comuns são grátis, você só paga quando vender com links monetizados.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">

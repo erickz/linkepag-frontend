@@ -122,12 +122,12 @@ export default function AdminDashboard() {
     : '';
 
   const getPlanName = () => {
-    if (profile?.planStatus === 'pending_payment') return 'Grátis';
-    if (profile?.planId === 1 || !profile?.planId) return 'Grátis';
+    if (profile?.planStatus === 'pending_payment') return 'Starter';
+    if (profile?.planId === 1 || !profile?.planId) return 'Starter';
     if (profile?.planId === 2) return 'Creator';
     if (profile?.planId === 3) return 'Pro';
     if (profile?.planId === 4) return 'Ilimitado';
-    return 'Grátis';
+    return 'Starter';
   };
 
   const getPlanLimit = () => {

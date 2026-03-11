@@ -103,7 +103,7 @@ const PLAN_COLORS: Record<number, { bg: string; border: string; gradient: string
 const getPlanBadge = (plan: PlanType): string => {
   if (plan.popular) return 'Mais popular';
   switch (plan.id) {
-    case 1: return 'Grátis';
+    case 1: return 'Starter';
     case 3: return 'Recomendado';
     case 4: return 'Top';
     default: return '';
@@ -461,7 +461,7 @@ export default function PlansPage() {
       await cancelSubscription(cancelReason);
       setShowCancelModal(false);
       setCancelReason('');
-      setMessage({ type: 'success', text: 'Assinatura cancelada. Você foi movido para o plano Grátis.' });
+      setMessage({ type: 'success', text: 'Assinatura cancelada. Você foi movido para o plano Starter.' });
       apiCache.clear();
     } catch (error: any) {
       setMessage({ 
@@ -1096,7 +1096,7 @@ export default function PlansPage() {
           <div className="bg-white rounded-2xl p-6 max-w-md w-full">
             <h3 className="text-lg font-bold text-slate-900 mb-2">Cancelar Assinatura</h3>
             <p className="text-slate-600 mb-4">
-              Tem certeza que deseja cancelar? Você será movido para o plano Grátis.
+              Tem certeza que deseja cancelar? Você será movido para o plano Starter.
             </p>
             
             <div className="mb-4">

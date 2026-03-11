@@ -229,7 +229,7 @@ export default function LeadsPage() {
                   />
                 </div>
 
-                {/* Export Button - Desabilitado para plano Grátis */}
+                {/* Export Button - Desabilitado para plano Starter */}
                 {currentPlan?.id === 1 ? (
                   <Link
                     href="/admin/plans"

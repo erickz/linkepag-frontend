@@ -365,7 +365,7 @@ export default function ContatoPage() {
                     </div>
                     <div>
                       <p className="font-medium text-indigo-300 text-sm mb-1">Como funciona o período de teste?</p>
-                      <p className="text-slate-300 text-sm">O plano Grátis é ilimitado no tempo, com 3 links monetizados.</p>
+                      <p className="text-slate-300 text-sm">O plano Starter é ilimitado no tempo, com 3 links monetizados.</p>
                     </div>
                   </div>
                 </div>

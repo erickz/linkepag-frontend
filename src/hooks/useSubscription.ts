@@ -45,13 +45,13 @@ export interface Subscription {
   };
 }
 
-// Plano padrão (Grátis) quando não há assinatura
+// Plano padrão (Starter) quando não há assinatura
 const DEFAULT_PLAN_ID = 1;
 
 // Plano de fallback quando os planos ainda não foram carregados
 const FALLBACK_PLAN: Plan = {
   id: DEFAULT_PLAN_ID,
-  name: 'Grátis',
+  name: 'Starter',
   monthlyPrice: 0,
   monthlyPriceFormatted: '0,00',
   feePerTransaction: 0.70,
@@ -106,7 +106,7 @@ export function useSubscription() {
       return FALLBACK_PLAN;
     }
     
-    // Se não tem assinatura, usa o plano Grátis como padrão
+    // Se não tem assinatura, usa o plano Starter como padrão
     if (!subscription) {
       return plans.find(p => p.id === DEFAULT_PLAN_ID) || FALLBACK_PLAN;
     }
@@ -115,7 +115,7 @@ export function useSubscription() {
     const subPlanId = Number(subscription.planId);
     const subStatus = subscription.status;
     
-    // Se expirou ou cancelou, volta para Grátis
+    // Se expirou ou cancelou, volta para Starter
     if (subStatus === 'expired' || subStatus === 'cancelled') {
       return plans.find(p => p.id === DEFAULT_PLAN_ID) || FALLBACK_PLAN;
     }
@@ -144,13 +144,13 @@ export function useSubscription() {
     // O plano fallback permite até 3 links
     const plan = currentPlan;
 
-    // Se não tem assinatura, usa o plano atual (que será o Grátis por padrão)
+    // Se não tem assinatura, usa o plano atual (que será o Starter por padrão)
     if (!subscription) {
-      // Plano Grátis permite criar links até o limite
+      // Plano Starter permite criar links até o limite
       if (plan.maxPaidLinks !== null && currentPaidLinksCount >= plan.maxPaidLinks) {
         return {
           allowed: false,
-          message: `Limite de ${plan.maxPaidLinks} links monetizados atingido no plano Grátis. Faça upgrade para criar mais.`,
+          message: `Limite de ${plan.maxPaidLinks} links monetizados atingido no plano Starter. Faça upgrade para criar mais.`,
         };
       }
       return { allowed: true };

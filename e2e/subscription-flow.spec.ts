@@ -42,7 +42,7 @@ test.describe('Subscription Flow - Plans and Upgrade', () => {
     await expect(page.getByText(/Plano|Plan|Assinatura/i).first()).toBeVisible({ timeout: 10000 });
 
     // Check for plan names
-    const planNames = ['Grátis', 'Starter', 'Creator', 'Pro', 'Ilimitado'];
+    const planNames = ['Starter', 'Creator', 'Pro', 'Ilimitado'];
     let foundPlan = false;
     for (const name of planNames) {
       if (await page.getByText(name).first().isVisible().catch(() => false)) {

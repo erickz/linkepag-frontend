@@ -37,7 +37,7 @@ const statusOptions = [
 ];
 
 const planOptions = [
-  { value: 1, label: 'Grátis' },
+  { value: 1, label: 'Starter' },
   { value: 2, label: 'Creator' },
   { value: 3, label: 'Pro' },
   { value: 4, label: 'Ilimitado' },
