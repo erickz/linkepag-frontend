@@ -203,24 +203,32 @@ export function usePageEditor(isAuthenticated: boolean) {
     setAppearanceDraft(prev => ({ ...prev, [field]: value }));
   }, []);
 
-  const saveProfile = useCallback(async () => {
+  // Unified save function - saves all settings at once (profile + social + appearance)
+  const saveAll = useCallback(async () => {
     const dataToSave = {
       displayName: profileDraft.displayName,
       bio: profileDraft.bio,
       profilePhoto: profileDraft.profilePhoto,
       location: profileDraft.location,
       socialLinks: profileDraft.socialLinks,
+      appearanceSettings: appearanceDraft,
     };
     await updateProfileMutation.mutate(dataToSave);
     await refetch();
-  }, [profileDraft, updateProfileMutation, refetch]);
+  }, [profileDraft, appearanceDraft, updateProfileMutation, refetch]);
+
+  // All save functions now use saveAll to ensure consistency
+  const saveProfile = useCallback(async () => {
+    await saveAll();
+  }, [saveAll]);
 
   const saveAppearance = useCallback(async () => {
-    await updateProfileMutation.mutate({
-      appearanceSettings: appearanceDraft,
-    });
-    await refetch();
-  }, [appearanceDraft, updateProfileMutation, refetch]);
+    await saveAll();
+  }, [saveAll]);
+
+  const saveSocialLinks = useCallback(async () => {
+    await saveAll();
+  }, [saveAll]);
 
   // Links actions
   const handleCreateLink = useCallback(async (linkData: Omit<LinkItem, 'id'>) => {
@@ -331,6 +339,7 @@ export function usePageEditor(isAuthenticated: boolean) {
     updateAppearance,
     saveProfile,
     saveAppearance,
+    saveSocialLinks,
     saveUsername,
     
     // Links actions
