@@ -297,7 +297,7 @@ export default function Home() {
                 </div>
                 <h3 className="text-xl font-bold text-slate-900 mb-3">Preço Justo</h3>
                 <p className="text-slate-600 leading-relaxed">
-                  Você só paga se você vender!
+                  Sem mensalidade obrigatória. Você só paga quando vender!
                 </p>
               </div>
             </div>
@@ -566,7 +566,10 @@ export default function Home() {
                   <a href="#pricing" className="text-slate-400 hover:text-white transition">Planos</a>
                 </li>
                 <li>
-                  <Link href="/contato" className="text-slate-400 hover:text-white transition">Contato</Link>
+                  <a href="#faq" className="text-slate-400 hover:text-white transition">FAQ</a>
+                </li>
+                <li>
+                  <Link href="/contato" className="text-slate-400 hover:text-white transition">Redes Sociais</Link>
                 </li>
               </ul>
             </div>

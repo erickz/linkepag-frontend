@@ -1,104 +1,56 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
 import { Logo } from '@/components/Logo';
 import { AuthNavButton } from '@/components/AuthNavButton';
 import { MobileMenu } from '../components/MobileMenu';
-import { IconMail, IconUser, IconMessageSquare, IconSend, IconCheck, IconAlert } from '@/components/icons';
-import { submitContactForm } from '@/lib/api';
+import { IconMail, IconMessageSquare } from '@/components/icons';
+
+// Ícones de redes sociais
+function IconInstagram({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+    </svg>
+  );
+}
+
+function IconTikTok({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-5.2 1.74 2.89 2.89 0 012.31-4.64 2.93 2.93 0 01.88.13V9.4a6.84 6.84 0 00-1-.05A6.33 6.33 0 005 20.1a6.34 6.34 0 0010.86-4.43v-7a8.16 8.16 0 004.77 1.52v-3.4a4.85 4.85 0 01-1-.1z"/>
+    </svg>
+  );
+}
 
 export default function ContatoPage() {
-  const [form, setForm] = useState({
-    name: '',
-    email: '',
-    subject: '',
-    message: ''
-  });
-  const [focused, setFocused] = useState<string | null>(null);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false);
-  const [submitError, setSubmitError] = useState('');
-
-  const validateField = (field: string, value: string): string => {
-    switch (field) {
-      case 'name':
-        if (!value.trim()) return 'Nome é obrigatório';
-        if (value.trim().length < 2) return 'Nome deve ter pelo menos 2 caracteres';
-        return '';
-      case 'email':
-        if (!value.trim()) return 'Email é obrigatório';
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(value)) return 'Digite um email válido';
-        return '';
-      case 'subject':
-        if (!value.trim()) return 'Assunto é obrigatório';
-        return '';
-      case 'message':
-        if (!value.trim()) return 'Mensagem é obrigatória';
-        if (value.trim().length < 10) return 'Mensagem deve ter pelo menos 10 caracteres';
-        return '';
-      default:
-        return '';
+  const socialLinks = [
+    {
+      name: 'Instagram',
+      handle: '@linkepag',
+      url: 'https://instagram.com/linkepag',
+      icon: IconInstagram,
+      color: 'from-purple-500 via-pink-500 to-orange-400',
+      bgColor: 'bg-gradient-to-br from-purple-50 to-pink-50',
+      borderColor: 'border-purple-100',
+      iconBg: 'bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400',
+      description: 'Siga-nos para novidades e dicas'
+    },
+    {
+      name: 'TikTok',
+      handle: '@linkepag',
+      url: 'https://tiktok.com/@linkepag',
+      icon: IconTikTok,
+      color: 'from-black to-gray-800',
+      bgColor: 'bg-gray-50',
+      borderColor: 'border-gray-200',
+      iconBg: 'bg-black',
+      description: 'Conteúdo exclusivo e tutoriais'
     }
-  };
-
-  const handleChange = (field: string, value: string) => {
-    setForm(prev => ({ ...prev, [field]: value }));
-    
-    if (errors[field]) {
-      const error = validateField(field, value);
-      setErrors(prev => ({ ...prev, [field]: error }));
-    }
-  };
-
-  const handleBlur = (field: string) => {
-    setFocused(null);
-    const error = validateField(field, form[field as keyof typeof form]);
-    setErrors(prev => ({ ...prev, [field]: error }));
-  };
-
-  const isFormValid = (): boolean => {
-    return (
-      form.name.trim() !== '' &&
-      form.email.trim() !== '' &&
-      form.subject.trim() !== '' &&
-      form.message.trim() !== '' &&
-      !Object.values(errors).some(error => error !== '')
-    );
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    // Validar todos os campos
-    const newErrors: Record<string, string> = {};
-    Object.keys(form).forEach(key => {
-      const error = validateField(key, form[key as keyof typeof form]);
-      if (error) newErrors[key] = error;
-    });
-
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
-
-    setIsSubmitting(true);
-    setSubmitError('');
-
-    try {
-      await submitContactForm(form);
-      setIsSubmitted(true);
-    } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : 'Ocorreu um erro ao enviar sua mensagem. Tente novamente.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  ];
 
   return (
-    <main className="min-h-screen bg-slate-50">
+    <main className="min-h-screen bg-slate-50 flex flex-col">
       {/* Navbar Fixa e Centralizada - Desktop */}
       <nav className="hidden lg:block fixed top-6 left-1/2 -translate-x-1/2 z-50 bg-white/95 backdrop-blur-sm rounded-full shadow-lg px-6 py-2 border border-slate-200">
         <div className="flex items-center gap-6">
@@ -115,12 +67,13 @@ export default function ContatoPage() {
           <Link href="/#pricing" className="text-sm font-medium text-slate-600 hover:text-emerald-600 transition">
             Planos
           </Link>
-          <Link href="/contato" className="text-sm font-medium text-emerald-600">
-            Contato
+          <Link href="/faq" className="text-sm font-medium text-slate-600">
+            FAQ
           </Link>
-          <AuthNavButton className="inline-flex items-center justify-center h-9 px-5 rounded-full bg-emerald-500 text-white text-sm font-semibold hover:bg-emerald-600 transition shadow-md shadow-emerald-200">
-            Começar grátis
-          </AuthNavButton>
+          <Link
+              href="/login" className="inline-flex items-center justify-center h-9 px-5 rounded-full bg-emerald-500 text-white text-sm font-semibold hover:bg-emerald-600 transition shadow-md shadow-emerald-200">
+            Login
+          </Link>
         </div>
       </nav>
 
@@ -129,303 +82,85 @@ export default function ContatoPage() {
 
       <div className="lg:hidden h-16" />
 
-      {/* Header da Página */}
-      <section className="pt-32 pb-12 lg:pt-40 lg:pb-16">
-        <div className="max-w-7xl mx-auto px-6 text-center">
-          <span className="inline-flex items-center gap-2 bg-emerald-50 text-emerald-700 px-4 py-2 rounded-full text-sm font-semibold mb-4">
-            <IconMessageSquare className="w-4 h-4" />
-            Fale conosco
-          </span>
-          <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
-            Entre em <span className="text-indigo-600">contato</span>
-          </h1>
-          <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-            Tem dúvidas, sugestões ou precisa de ajuda? Nossa equipe está pronta para atender você.
-          </p>
-        </div>
-      </section>
+      {/* Conteúdo Principal */}
+      <section className="flex-1 flex items-center justify-center pt-24 pb-12 lg:pt-32 lg:pb-16 px-6">
+        <div className="max-w-2xl w-full">
+          {/* Header */}
+          <div className="text-center mb-12">
+            <span className="inline-flex items-center gap-2 bg-emerald-50 text-emerald-700 px-4 py-2 rounded-full text-sm font-semibold mb-4">
+              <IconMessageSquare className="w-4 h-4" />
+              Fale conosco
+            </span>
+            <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
+              Entre em <span className="text-indigo-600">contato</span>
+            </h1>
+            <p className="text-lg text-slate-600 max-w-lg mx-auto">
+              Tem dúvidas ou precisa de ajuda? Nossa equipe está pronta para atender você pelas nossas redes sociais.
+            </p>
+          </div>
 
-      {/* Formulário de Contato */}
-      <section className="pb-24">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
-            
-            {/* Formulário */}
-            <div className="bg-white rounded-3xl p-8 md:p-10 shadow-xl shadow-slate-200/50 border border-slate-100">
-              {isSubmitted ? (
-                <div className="text-center py-12">
-                  <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <IconCheck className="w-10 h-10 text-emerald-600" />
+          {/* Cards de Redes Sociais */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
+            {socialLinks.map((social) => (
+              <a
+                key={social.name}
+                href={social.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`group relative ${social.bgColor} ${social.borderColor} border rounded-2xl p-6 transition-all duration-300 hover:shadow-lg hover:-translate-y-1`}
+              >
+                <div className="flex items-start gap-4">
+                  <div className={`w-12 h-12 ${social.iconBg} rounded-xl flex items-center justify-center flex-shrink-0 shadow-md group-hover:scale-110 transition-transform duration-300`}>
+                    <social.icon className="w-6 h-6 text-white" />
                   </div>
-                  <h2 className="text-2xl font-bold text-slate-900 mb-3">
-                    Mensagem enviada!
-                  </h2>
-                  <p className="text-slate-600 mb-8">
-                    Obrigado por entrar em contato. Responderemos em breve no email {form.email}.
-                  </p>
-                  <button
-                    onClick={() => {
-                      setIsSubmitted(false);
-                      setForm({ name: '', email: '', subject: '', message: '' });
-                    }}
-                    className="inline-flex items-center justify-center h-12 px-8 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition"
-                  >
-                    Enviar outra mensagem
-                  </button>
-                </div>
-              ) : (
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  {submitError && (
-                    <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-3">
-                      <IconAlert className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
-                      <p className="text-rose-700 font-medium text-sm">{submitError}</p>
-                    </div>
-                  )}
-
-                  {/* Nome */}
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Nome
-                    </label>
-                    <div className="relative">
-                      <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                        <IconUser className="w-5 h-5" />
-                      </div>
-                      <input
-                        type="text"
-                        placeholder="Seu nome completo"
-                        value={form.name}
-                        onChange={(e) => handleChange('name', e.target.value)}
-                        onFocus={() => setFocused('name')}
-                        onBlur={() => handleBlur('name')}
-                        className={`w-full h-12 pl-11 pr-4 rounded-xl border transition text-sm text-slate-900 placeholder:text-slate-400 bg-white
-                          ${errors.name
-                            ? 'border-rose-500 focus:border-rose-500 focus:ring-2 focus:ring-rose-200'
-                            : focused === 'name'
-                              ? 'border-indigo-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200'
-                              : 'border-slate-200 hover:border-slate-300'
-                          } focus:outline-none`}
-                      />
-                    </div>
-                    {errors.name && <p className="text-rose-500 text-xs mt-1.5 ml-1">{errors.name}</p>}
-                  </div>
-
-                  {/* Email */}
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Email
-                    </label>
-                    <div className="relative">
-                      <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                        <IconMail className="w-5 h-5" />
-                      </div>
-                      <input
-                        type="email"
-                        placeholder="seu@email.com"
-                        value={form.email}
-                        onChange={(e) => handleChange('email', e.target.value)}
-                        onFocus={() => setFocused('email')}
-                        onBlur={() => handleBlur('email')}
-                        className={`w-full h-12 pl-11 pr-4 rounded-xl border transition text-sm text-slate-900 placeholder:text-slate-400 bg-white
-                          ${errors.email
-                            ? 'border-rose-500 focus:border-rose-500 focus:ring-2 focus:ring-rose-200'
-                            : focused === 'email'
-                              ? 'border-indigo-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200'
-                              : 'border-slate-200 hover:border-slate-300'
-                          } focus:outline-none`}
-                      />
-                    </div>
-                    {errors.email && <p className="text-rose-500 text-xs mt-1.5 ml-1">{errors.email}</p>}
-                  </div>
-
-                  {/* Assunto */}
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Assunto
-                    </label>
-                    <select
-                      value={form.subject}
-                      onChange={(e) => handleChange('subject', e.target.value)}
-                      onFocus={() => setFocused('subject')}
-                      onBlur={() => handleBlur('subject')}
-                      className={`w-full h-12 px-4 rounded-xl border transition text-sm text-slate-900 bg-white appearance-none cursor-pointer
-                        ${errors.subject
-                          ? 'border-rose-500 focus:border-rose-500 focus:ring-2 focus:ring-rose-200'
-                          : focused === 'subject'
-                            ? 'border-indigo-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200'
-                            : 'border-slate-200 hover:border-slate-300'
-                        } focus:outline-none`}
-                      style={{
-                        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236B7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E")`,
-                        backgroundPosition: 'right 12px center',
-                        backgroundRepeat: 'no-repeat',
-                        backgroundSize: '20px'
-                      }}
-                    >
-                      <option value="">Selecione um assunto</option>
-                      <option value="suporte">Suporte técnico</option>
-                      <option value="vendas">Dúvidas sobre planos</option>
-                      <option value="parceria">Parcerias</option>
-                      <option value="sugestao">Sugestões</option>
-                      <option value="outro">Outro</option>
-                    </select>
-                    {errors.subject && <p className="text-rose-500 text-xs mt-1.5 ml-1">{errors.subject}</p>}
-                  </div>
-
-                  {/* Mensagem */}
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Mensagem
-                    </label>
-                    <textarea
-                      placeholder="Digite sua mensagem aqui..."
-                      rows={5}
-                      value={form.message}
-                      onChange={(e) => handleChange('message', e.target.value)}
-                      onFocus={() => setFocused('message')}
-                      onBlur={() => handleBlur('message')}
-                      className={`w-full px-4 py-3 rounded-xl border transition text-sm text-slate-900 placeholder:text-slate-400 bg-white resize-none
-                        ${errors.message
-                          ? 'border-rose-500 focus:border-rose-500 focus:ring-2 focus:ring-rose-200'
-                          : focused === 'message'
-                            ? 'border-indigo-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200'
-                            : 'border-slate-200 hover:border-slate-300'
-                        } focus:outline-none`}
-                    />
-                    {errors.message && <p className="text-rose-500 text-xs mt-1.5 ml-1">{errors.message}</p>}
-                  </div>
-
-                  {/* Botão Enviar */}
-                  <button
-                    type="submit"
-                    disabled={!isFormValid() || isSubmitting}
-                    className={`w-full h-12 rounded-xl text-white font-semibold text-sm shadow-sm transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2
-                      ${isFormValid() && !isSubmitting
-                        ? 'bg-indigo-600 hover:bg-indigo-700 hover:shadow-lg hover:shadow-indigo-600/25'
-                        : 'bg-slate-300 cursor-not-allowed'
-                      }`}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                        Enviando...
-                      </>
-                    ) : (
-                      <>
-                        <IconSend className="w-4 h-4" />
-                        Enviar mensagem
-                      </>
-                    )}
-                  </button>
-                </form>
-              )}
-            </div>
-
-            {/* Informações de Contato */}
-            <div className="lg:pl-8">
-              <div className="space-y-8">
-                {/* Cards de Informação */}
-                <div className="space-y-4">
-                  <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-                    <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center mb-4">
-                      <IconMail className="w-6 h-6 text-indigo-600" />
-                    </div>
-                    <h3 className="font-semibold text-slate-900 mb-1">Email</h3>
-                    <p className="text-slate-600 text-sm mb-2">Respondemos em até 24 horas</p>
-                    <a href="mailto:suporte@linkepag.com" className="text-indigo-600 font-medium hover:text-indigo-700 transition">
-                      suporte@linkepag.com
-                    </a>
-                  </div>
-
-                  <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-                    <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center mb-4">
-                      <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <h3 className="font-semibold text-slate-900 mb-1">Horário de Atendimento</h3>
-                    <p className="text-slate-600 text-sm">
-                      Segunda a Sexta<br />
-                      9h às 18h (horário de Brasília)
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-slate-900 mb-0.5">
+                      {social.name}
+                    </h3>
+                    <p className="text-sm font-medium text-slate-500 mb-1.5">
+                      {social.handle}
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      {social.description}
                     </p>
                   </div>
+                  <svg 
+                    className="w-5 h-5 text-slate-300 group-hover:text-slate-400 transition-colors flex-shrink-0" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
                 </div>
+              </a>
+            ))}
+          </div>
 
-                {/* FAQ Rápido */}
-                <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-6 text-white">
-                  <h3 className="font-semibold mb-4">Perguntas frequentes</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <p className="font-medium text-indigo-300 text-sm mb-1">Quanto tempo leva para receber resposta?</p>
-                      <p className="text-slate-300 text-sm">Geralmente respondemos em até 48 horas úteis.</p>
-                    </div>
-                    <div>
-                      <p className="font-medium text-indigo-300 text-sm mb-1">Posso alterar meu plano depois?</p>
-                      <p className="text-slate-300 text-sm">Sim! Você pode fazer upgrade ou downgrade a qualquer momento.</p>
-                    </div>
-                    <div>
-                      <p className="font-medium text-indigo-300 text-sm mb-1">Como funciona o período de teste?</p>
-                      <p className="text-slate-300 text-sm">O plano Starter é ilimitado no tempo, com 3 links monetizados.</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* CTA */}
-                <div className="text-center lg:text-left">
-                  <p className="text-slate-600 mb-4">Ainda não tem uma conta?</p>
-                  <AuthNavButton className="inline-flex items-center justify-center h-12 px-8 rounded-xl bg-emerald-500 text-white font-semibold hover:bg-emerald-600 transition shadow-lg shadow-emerald-200">
-                    Criar conta grátis
-                  </AuthNavButton>
-                </div>
-              </div>
-            </div>
+          {/* CTA */}
+          <div className="text-center mt-10">
+            <p className="text-slate-500 text-sm mb-4">Ainda não tem uma conta?</p>
+            <AuthNavButton className="inline-flex items-center justify-center h-12 px-8 rounded-xl bg-emerald-500 text-white font-semibold hover:bg-emerald-600 transition shadow-lg shadow-emerald-200">
+              Criar conta grátis
+            </AuthNavButton>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="py-12 bg-slate-900 border-t border-slate-800">
+      <footer className="py-8 bg-slate-900 border-t border-slate-800">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-            {/* Logo e descrição */}
-            <div>
-              <Link href="/" className="inline-flex items-center gap-2 mb-4">
-                <Logo size="sm" showText={false} />
-                <span className="text-white font-bold text-lg">LinkePag</span>
-              </Link>
-              <p className="text-slate-400 text-sm max-w-xs">
-                Crie uma página única para seus links e receba pagamentos via PIX. 
-                A link-in-bio que vende mais.
-              </p>
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <Logo size="sm" showText={false} />
+              <span className="text-white font-bold">LinkePag</span>
             </div>
-            
-            {/* Navegação */}
-            <div className="md:text-right">
-              <h4 className="text-white font-semibold mb-4 md:justify-end">Navegação</h4>
-              <ul className="space-y-2 text-sm">
-                <li>
-                  <Link href="/" className="text-slate-400 hover:text-white transition">Início</Link>
-                </li>
-                <li>
-                  <a href="/#how-it-works" className="text-slate-400 hover:text-white transition">Como funciona</a>
-                </li>
-                <li>
-                  <a href="/#pricing" className="text-slate-400 hover:text-white transition">Planos</a>
-                </li>
-                <li>
-                  <Link href="/contato" className="text-slate-400 hover:text-white transition">Contato</Link>
-                </li>
-              </ul>
-            </div>
-          </div>
-          
-          <div className="pt-8 border-t border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-slate-500 text-sm">
               © 2026 LinkePag - Monetize sua audiência.
             </p>
-            <div className="flex items-center gap-6 text-xs text-slate-500">
-              <Link href="/termos" className="hover:text-slate-300 transition">Termos de uso</Link>
-            </div>
+            <Link href="/termos" className="text-slate-500 hover:text-slate-300 transition text-sm">
+              Termos de uso
+            </Link>
           </div>
         </div>
       </footer>

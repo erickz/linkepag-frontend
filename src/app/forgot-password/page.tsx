@@ -11,6 +11,7 @@ export default function ForgotPassword() {
   const [focused, setFocused] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
+  const [errorType, setErrorType] = useState<'error' | 'warning'>('error');
   const [isLoading, setIsLoading] = useState(false);
 
   const validateEmail = (email: string): string => {
@@ -35,12 +36,20 @@ export default function ForgotPassword() {
 
     setIsLoading(true);
     setError('');
+    setErrorType('error');
 
     try {
       await forgotPassword({ email });
       setSubmitted(true);
     } catch (err: any) {
-      setError(err.message || 'Erro ao enviar email. Tente novamente.');
+      const message = err.message || 'Erro ao enviar email. Tente novamente.';
+      setError(message);
+      // Se for erro de timeout, mostra como warning (amarelo) em vez de erro (vermelho)
+      if (message.includes('Aguarde') && message.includes('minutos')) {
+        setErrorType('warning');
+      } else {
+        setErrorType('error');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -116,9 +125,17 @@ export default function ForgotPassword() {
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-4 mb-4">
               {error && (
-                <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-3">
-                  <IconAlert className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
-                  <p className="text-rose-700 font-medium text-sm">{error}</p>
+                <div className={`p-4 rounded-xl flex items-start gap-3 ${
+                  errorType === 'warning' 
+                    ? 'bg-amber-50 border border-amber-200' 
+                    : 'bg-rose-50 border border-rose-200'
+                }`}>
+                  <IconAlert className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
+                    errorType === 'warning' ? 'text-amber-600' : 'text-rose-600'
+                  }`} />
+                  <p className={`font-medium text-sm ${
+                    errorType === 'warning' ? 'text-amber-700' : 'text-rose-700'
+                  }`}>{error}</p>
                 </div>
               )}
 
@@ -137,12 +154,15 @@ export default function ForgotPassword() {
                     onChange={(e) => {
                       setEmail(e.target.value);
                       setError('');
+                      setErrorType('error');
                     }}
                     onFocus={() => setFocused(true)}
                     onBlur={() => setFocused(false)}
                     className={`w-full h-12 pl-11 pr-4 rounded-xl border transition text-sm text-slate-900 placeholder:text-slate-400 bg-white
                       ${error && !focused
-                        ? 'border-rose-500 focus:border-rose-500 focus:ring-2 focus:ring-rose-200'
+                        ? errorType === 'warning'
+                          ? 'border-amber-500 focus:border-amber-500 focus:ring-2 focus:ring-amber-200'
+                          : 'border-rose-500 focus:border-rose-500 focus:ring-2 focus:ring-rose-200'
                         : focused
                           ? 'border-indigo-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200'
                           : 'border-slate-200 hover:border-slate-300'
@@ -150,7 +170,13 @@ export default function ForgotPassword() {
                     style={{ color: '#0f172a' }}
                   />
                 </div>
-                {error && <p className="text-rose-500 text-xs mt-1.5 ml-1">{error}</p>}
+                {error && (
+                  <p className={`text-xs mt-1.5 ml-1 ${
+                    errorType === 'warning' ? 'text-amber-500' : 'text-rose-500'
+                  }`}>
+                    {error}
+                  </p>
+                )}
               </div>
 
               <button
