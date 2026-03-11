@@ -561,7 +561,7 @@ export default function PublicPage() {
           {/* Footer */}
           <div className="mt-8 text-center">
             <Link 
-              href="/" 
+              href="/" target="_blank" rel="noopener noreferrer"
               className={`inline-flex items-center gap-2 text-sm transition group ${isDarkBg ? 'text-white/70 hover:text-white' : 'text-slate-500 hover:text-slate-700'}`}
             >
               <span className="font-medium">LinkePag</span>
