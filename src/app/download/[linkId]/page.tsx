@@ -1,14 +1,16 @@
 'use client';
 
 import { useEffect, useState, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useParams } from 'next/navigation';
 
 // URL da API
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.linkepag.com.br';
 
-function DownloadContent({ linkId }: { linkId: string }) {
+function DownloadContent() {
   const searchParams = useSearchParams();
+  const params = useParams();
   const token = searchParams.get('token');
+  const linkId = params?.linkId as string;
   
   const [status, setStatus] = useState<'checking' | 'downloading' | 'error'>('checking');
   const [message, setMessage] = useState('Verificando link de download...');
@@ -16,9 +18,15 @@ function DownloadContent({ linkId }: { linkId: string }) {
   const [fileName, setFileName] = useState<string>('');
 
   useEffect(() => {
+    if (!linkId || linkId === 'undefined') {
+      setStatus('error');
+      setError('Link de download inválido. Tente novamente ou entre em contato com o vendedor.');
+      return;
+    }
+    
     if (!token) {
       setStatus('error');
-      setError('Não foi possível processar seu download. Tente novamente ou entre em contato com o vendedor.');
+      setError('Token de acesso não fornecido. Verifique o link no seu email.');
       return;
     }
 
@@ -149,10 +157,10 @@ function Loading() {
   );
 }
 
-export default function DownloadPage({ params }: { params: { linkId: string } }) {
+export default function DownloadPage() {
   return (
     <Suspense fallback={<Loading />}>
-      <DownloadContent linkId={params.linkId} />
+      <DownloadContent />
     </Suspense>
   );
 }
