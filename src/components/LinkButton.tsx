@@ -97,17 +97,14 @@ function LinkButtonComponent({
 }: LinkButtonProps) {
   // Memoizar handlers para evitar recriação a cada render
   const handleLinkClick = useCallback(() => {
-    if (link.isPaid && isExpanded) {
-      // Se já está expandido (checkout visível), não faz nada
-      return;
-    }
-    
+    // Links gratuitos com URL abrem direto
     if (!link.isPaid && link.url) {
       window.open(link.url, link.openInNewTab ? '_blank' : '_self');
     }
     
+    // Sempre chama onToggle (para abrir/fechar checkout de links pagos)
     onToggle();
-  }, [link.isPaid, link.url, link.openInNewTab, isExpanded, onToggle]);
+  }, [link.isPaid, link.url, link.openInNewTab, onToggle]);
 
   // Memoizar ícone para evitar re-computação
   const IconComponent = useMemo(() => {
@@ -169,13 +166,17 @@ function LinkButtonComponent({
   // Memoizar conteúdo do lado direito
   const rightSideContent = useMemo(() => {
     if (link.isPaid) {
-      // Sempre mostra o preço e botão Comprar, independente de expandido ou não
+      // Sempre mostra o preço e botão Comprar/Fechar
       return (
-        <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1 sm:gap-3">
-          <span className={`text-base sm:text-xl font-bold ${accentColor?.textClass || 'text-amber-400'}`}>
+        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+          <span className={`text-sm sm:text-xl font-bold ${accentColor?.textClass || 'text-amber-400'}`}>
             R$ {formatPrice(link.price ?? 0)}
           </span>
-          <div className="px-3 sm:px-4 py-1.5 sm:py-2 bg-white text-slate-600 rounded-lg sm:rounded-xl font-bold text-xs sm:text-sm shadow-sm hover:bg-slate-50 transition whitespace-nowrap">
+          <div className={`px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl font-bold text-xs shadow-sm transition whitespace-nowrap ${
+            isExpanded 
+              ? 'bg-slate-600 text-white hover:bg-slate-500' 
+              : 'bg-white text-slate-600 hover:bg-slate-50'
+          }`}>
             {isExpanded ? 'Fechar' : 'Comprar'}
           </div>
         </div>
@@ -184,7 +185,7 @@ function LinkButtonComponent({
     
     return (
       <div className={`
-        w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center
+        w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0
         ${link.buttonColor || link.textColor ? 'bg-black/5' : 'bg-slate-100 text-slate-400'}
       `}>
         <IconExternalLink className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -197,7 +198,7 @@ function LinkButtonComponent({
       <button
         onClick={handleLinkClick}
         className={`
-          flex items-center gap-3 sm:gap-4 w-full px-4 sm:px-5 py-3 sm:py-4 rounded-2xl 
+          flex items-center gap-2 sm:gap-4 w-full px-3 sm:px-5 py-3 sm:py-4 rounded-2xl 
           transition-all duration-200 active:scale-[0.98] cursor-pointer
           ${buttonClasses}
         `}
@@ -205,19 +206,19 @@ function LinkButtonComponent({
       >
         {/* Icon Container */}
         <div className={`
-          flex items-center justify-center flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-xl
+          flex items-center justify-center flex-shrink-0 w-9 h-9 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl
           ${iconContainerClasses}
         `}>
-          <IconComponent className="w-5 h-5" />
+          <IconComponent className="w-4 h-4 sm:w-5 sm:h-5" />
         </div>
         
         {/* Content */}
-        <div className="flex-1 text-left min-w-0">
-          <div className="font-semibold text-sm sm:text-base truncate">
+        <div className="flex-1 text-left min-w-0 overflow-hidden">
+          <div className="font-semibold text-sm sm:text-base truncate leading-tight">
             {link.title}
           </div>
           {link.description && (
-            <div className={`text-xs sm:text-sm mt-0.5 truncate ${link.isPaid ? 'text-white/80' : 'text-slate-500'}`}>
+            <div className={`text-xs mt-0.5 truncate ${link.isPaid ? 'text-white/70' : 'text-slate-500'}`}>
               {link.description}
             </div>
           )}
