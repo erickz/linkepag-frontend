@@ -3,9 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 
-// URL base da aplicação (frontend)
-const APP_BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://linkepag.com.br';
-// URL da API para verificações
+// URL da API
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.linkepag.com.br';
 
 function DownloadContent({ linkId }: { linkId: string }) {
@@ -59,9 +57,8 @@ function DownloadContent({ linkId }: { linkId: string }) {
       setStatus('downloading');
       setMessage(`Iniciando download de ${data.fileName || 'arquivo'}...`);
       
-      // Redireciona para o endpoint de download do próprio frontend (proxy)
-      // URL: linkepag.com.br/baixar/:linkId?token=xxx (proxy para API)
-      window.location.href = `${APP_BASE_URL}/baixar/${linkId}?token=${token}`;
+      // Redireciona para a API direta para fazer o download do arquivo
+      window.location.href = `${API_BASE_URL}/download/${linkId}?token=${token}`;
       
     } catch (err) {
       setStatus('error');
@@ -71,8 +68,8 @@ function DownloadContent({ linkId }: { linkId: string }) {
 
   const tryAgain = () => {
     if (token && fileName) {
-      // Tentar download direto via frontend (proxy /baixar/:linkId)
-      window.location.href = `${APP_BASE_URL}/baixar/${linkId}?token=${token}`;
+      // Tentar download direto via API
+      window.location.href = `${API_BASE_URL}/download/${linkId}?token=${token}`;
     } else {
       window.location.reload();
     }

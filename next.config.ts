@@ -72,17 +72,7 @@ const nextConfig: NextConfig = {
     pagesBufferLength: 5,
   },
   
-  // Rewrites para proxy de download (mantém URL limpa)
-  async rewrites() {
-    return [
-      {
-        // Redireciona /baixar/:linkId?token=xxx para /api/download/:linkId?token=xxx
-        // Usamos /baixar em vez de /download para não conflitar com a página de UI
-        source: '/baixar/:linkId*',
-        destination: '/api/download/:linkId*',
-      },
-    ];
-  },
+
   
   // Headers de cache e segurança
   async headers() {
