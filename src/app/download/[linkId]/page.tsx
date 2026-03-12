@@ -16,16 +16,9 @@ function DownloadContent({ linkId }: { linkId: string }) {
   const [fileName, setFileName] = useState<string>('');
 
   useEffect(() => {
-    // Validar linkId
-    if (!linkId || linkId === 'undefined' || linkId === 'null') {
-      setStatus('error');
-      setError('Link de download inválido. Verifique o link no seu email ou entre em contato com o vendedor.');
-      return;
-    }
-    
     if (!token) {
       setStatus('error');
-      setError('Token de acesso não fornecido. Verifique o link no seu email.');
+      setError('Não foi possível processar seu download. Tente novamente ou entre em contato com o vendedor.');
       return;
     }
 
@@ -40,22 +33,7 @@ function DownloadContent({ linkId }: { linkId: string }) {
 
       if (!data.allowed) {
         setStatus('error');
-        switch (data.reason) {
-          case 'token_expired':
-            setError('Este link de download expirou. Entre em contato com o vendedor.');
-            break;
-          case 'download_limit_exceeded':
-            setError(`Limite de downloads atingido (${data.downloadsUsed}/${data.downloadsLimit}). Entre em contato com o vendedor.`);
-            break;
-          case 'invalid_token':
-            setError('Link de download inválido. Verifique o link no seu email.');
-            break;
-          case 'file_not_found':
-            setError('Arquivo não encontrado. Entre em contato com o vendedor.');
-            break;
-          default:
-            setError(data.message || 'Não foi possível realizar o download.');
-        }
+        setError('Não foi possível processar seu download. Tente novamente ou entre em contato com o vendedor.');
         return;
       }
 
