@@ -552,26 +552,51 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
               {localLinks.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE).map((link, index) => {
                 const actualIndex = (currentPage - 1) * ITEMS_PER_PAGE + index;
                 return (
-                  <div key={link.id} className={`group flex items-center gap-2 p-3 rounded-xl border transition-all ${link.isPaid ? 'border-slate-200 bg-slate-50/30' : 'border-slate-200 hover:border-indigo-300'} ${!link.isActive ? 'opacity-50' : ''}`}>
-                    <div className="flex flex-col">
-                      <button onClick={() => handleMove(actualIndex, 'up')} disabled={actualIndex === 0 || isReorderingLocal} className="p-0.5 text-slate-300 hover:text-slate-600 disabled:opacity-20">▲</button>
-                      <span className="text-[10px] text-slate-400 text-center">{actualIndex + 1}</span>
-                      <button onClick={() => handleMove(actualIndex, 'down')} disabled={actualIndex === localLinks.length - 1 || isReorderingLocal} className="p-0.5 text-slate-300 hover:text-slate-600 disabled:opacity-20">▼</button>
+                  <div key={link.id} className={`group flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-xl border transition-all ${link.isPaid ? 'border-slate-200 bg-slate-50/30' : 'border-slate-200 hover:border-indigo-300'} ${!link.isActive ? 'opacity-50' : ''}`}>
+                    {/* Ordenação - mais compacto no mobile */}
+                    <div className="flex flex-col flex-shrink-0">
+                      <button onClick={() => handleMove(actualIndex, 'up')} disabled={actualIndex === 0 || isReorderingLocal} className="p-0.5 text-slate-300 hover:text-slate-600 disabled:opacity-20 text-xs sm:text-sm">▲</button>
+                      <span className="text-[9px] sm:text-[10px] text-slate-400 text-center leading-none py-0.5">{actualIndex + 1}</span>
+                      <button onClick={() => handleMove(actualIndex, 'down')} disabled={actualIndex === localLinks.length - 1 || isReorderingLocal} className="p-0.5 text-slate-300 hover:text-slate-600 disabled:opacity-20 text-xs sm:text-sm">▼</button>
                     </div>
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${link.isPaid ? 'bg-amber-100 text-amber-600' : 'bg-indigo-100 text-indigo-600'}`}>{link.isPaid ? '💰' : <Icon path={Icons.link} className="w-5 h-5" />}</div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium text-slate-900 truncate">{link.title}</p>
+                    
+                    {/* Ícone */}
+                    <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0 text-sm sm:text-base ${link.isPaid ? 'bg-amber-100 text-amber-600' : 'bg-indigo-100 text-indigo-600'}`}>{link.isPaid ? '💰' : <Icon path={Icons.link} className="w-4 h-4 sm:w-5 sm:h-5" />}</div>
+                    
+                    {/* Conteúdo */}
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      <div className="flex items-center gap-1.5 sm:gap-2">
+                        <p className="font-medium text-slate-900 truncate text-sm sm:text-base">{link.title}</p>
                         {(link as LinkItem & { hasDeliverableFile?: boolean }).hasDeliverableFile && (
-                          <span title="Possui arquivo para download" className="text-indigo-500 text-sm">📎</span>
+                          <span title="Possui arquivo para download" className="text-indigo-500 text-xs sm:text-sm flex-shrink-0">📎</span>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 text-xs">{link.isPaid ? <span className="font-bold text-amber-600">R$ {formatPrice(link.price ?? 0)}</span> : <span className="text-slate-400">Gratuito</span>}<span className="text-slate-300">•</span><span className="text-slate-400 truncate">{link.url.replace(/^https?:\/\//, '').replace(/^www\./, '')}</span></div>
+                      <div className="flex items-center gap-1.5 sm:gap-2 text-xs mt-0.5">
+                        {link.isPaid ? (
+                          <span className="font-bold text-amber-600 flex-shrink-0">R$ {formatPrice(link.price ?? 0)}</span>
+                        ) : (
+                          <span className="text-slate-400 flex-shrink-0">Gratuito</span>
+                        )}
+                        {link.url && (
+                          <>
+                            <span className="text-slate-300 flex-shrink-0">•</span>
+                            <span className="text-slate-400 truncate">{link.url.replace(/^https?:\/\//, '').replace(/^www\./, '').substring(0, 25)}{link.url.length > 30 ? '...' : ''}</span>
+                          </>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => onToggle(link.id)} className={`p-2 rounded-lg transition ${link.isActive ? 'text-emerald-600 hover:bg-emerald-50' : 'text-slate-400 hover:bg-slate-100'}`}>{link.isActive ? '👁️' : '🚫'}</button>
-                      <button onClick={() => handleEdit(link)} className="p-2 rounded-lg text-indigo-600 hover:bg-indigo-50 transition">✏️</button>
-                      <button onClick={() => handleDelete(link.id)} className="p-2 rounded-lg text-rose-500 hover:bg-rose-50 transition">🗑️</button>
+                    
+                    {/* Ações - ícones menores no mobile */}
+                    <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
+                      <button onClick={() => onToggle(link.id)} className={`p-1.5 sm:p-2 rounded-lg transition ${link.isActive ? 'text-emerald-600 hover:bg-emerald-50' : 'text-slate-400 hover:bg-slate-100'}`}>
+                        <span className="text-sm sm:text-base">{link.isActive ? '👁️' : '🚫'}</span>
+                      </button>
+                      <button onClick={() => handleEdit(link)} className="p-1.5 sm:p-2 rounded-lg text-indigo-600 hover:bg-indigo-50 transition">
+                        <span className="text-sm sm:text-base">✏️</span>
+                      </button>
+                      <button onClick={() => handleDelete(link.id)} className="p-1.5 sm:p-2 rounded-lg text-rose-500 hover:bg-rose-50 transition">
+                        <span className="text-sm sm:text-base">🗑️</span>
+                      </button>
                     </div>
                   </div>
                 );
