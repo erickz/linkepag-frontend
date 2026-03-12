@@ -199,33 +199,33 @@ function LinkButtonComponent({
         onClick={handleLinkClick}
         className={`
           flex items-center gap-2 sm:gap-4 w-full px-3 sm:px-5 py-3 sm:py-4 rounded-2xl 
-          transition-all duration-200 active:scale-[0.98] cursor-pointer
+          transition-all duration-200 active:scale-[0.98] cursor-pointer text-left
           ${buttonClasses}
         `}
         style={buttonStyle}
       >
-        {/* Icon Container */}
+        {/* Icon Container - centralizado verticalmente */}
         <div className={`
-          flex items-center justify-center flex-shrink-0 w-9 h-9 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl
+          flex items-center justify-center flex-shrink-0 w-9 h-9 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl self-center
           ${iconContainerClasses}
         `}>
           <IconComponent className="w-4 h-4 sm:w-5 sm:h-5" />
         </div>
         
-        {/* Content */}
-        <div className="flex-1 text-left min-w-0 overflow-hidden">
-          <div className="font-semibold text-sm sm:text-base truncate leading-tight">
+        {/* Content - texto completo com quebra automática */}
+        <div className="flex-1 min-w-0 py-0.5">
+          <div className="font-semibold text-sm sm:text-base leading-snug break-words">
             {link.title}
           </div>
           {link.description && (
-            <div className={`text-xs mt-0.5 truncate ${link.isPaid ? 'text-white/70' : 'text-slate-500'}`}>
+            <div className={`text-xs mt-1 leading-relaxed break-words ${link.isPaid ? 'text-white/70' : 'text-slate-500'}`}>
               {link.description}
             </div>
           )}
         </div>
         
-        {/* Right Side */}
-        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+        {/* Right Side - centralizado verticalmente */}
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 self-center">
           {rightSideContent}
         </div>
       </button>
