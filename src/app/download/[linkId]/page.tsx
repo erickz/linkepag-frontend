@@ -19,13 +19,13 @@ function DownloadContent() {
   useEffect(() => {
     if (!linkId || linkId === 'undefined') {
       setStatus('error');
-      setError('Link de download inválido. Tente novamente ou entre em contato com o vendedor.');
+      setError('Link de download inválido.');
       return;
     }
     
     if (!token) {
       setStatus('error');
-      setError('Token de acesso não fornecido. Verifique o link no seu email.');
+      setError('Token de acesso não fornecido.');
       return;
     }
 
@@ -41,9 +41,9 @@ function DownloadContent() {
       if (!data.allowed) {
         setStatus('error');
         if (data.reason === 'download_limit_exceeded') {
-          setError(`Limite de downloads atingido (${data.downloadsUsed}/${data.downloadsLimit}). Entre em contato com o vendedor para solicitar um novo link.`);
+          setError(`Limite de downloads atingido (${data.downloadsUsed}/${data.downloadsLimit}).`);
         } else {
-          setError('Não foi possível processar seu download. Tente novamente ou entre em contato com o vendedor.');
+          setError('Não foi possível processar seu download.');
         }
         return;
       }
@@ -57,7 +57,7 @@ function DownloadContent() {
       
     } catch (err) {
       setStatus('error');
-      setError('Erro ao verificar disponibilidade do download. Tente novamente.');
+      setError('Erro ao verificar disponibilidade do download.');
     }
   };
 
