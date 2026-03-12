@@ -240,8 +240,9 @@ export function usePageEditor(isAuthenticated: boolean) {
 
   // Links actions
   const handleCreateLink = useCallback(async (linkData: Omit<LinkItem, 'id'>) => {
-    await createLinkMutation.mutate(linkData);
+    const result = await createLinkMutation.mutate(linkData);
     await refetch();
+    return result;
   }, [createLinkMutation, refetch]);
 
   const handleUpdateLink = useCallback(async (id: string, linkData: Partial<LinkItem>) => {
