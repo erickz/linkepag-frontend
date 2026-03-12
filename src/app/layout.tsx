@@ -126,7 +126,7 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.linkepag.com.br";
   const enablePreconnect = shouldPreconnect(apiUrl);
   
   // Verifica se está em desenvolvimento

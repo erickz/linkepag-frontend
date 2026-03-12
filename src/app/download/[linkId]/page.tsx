@@ -3,13 +3,16 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+// URL base da aplicação (frontend)
+const APP_BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://linkepag.com.br';
+// URL da API para verificações
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.linkepag.com.br';
 
 function DownloadContent({ linkId }: { linkId: string }) {
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
   
-  const [status, setStatus] = useState<'checking' | 'downloading' | 'success' | 'error'>('checking');
+  const [status, setStatus] = useState<'checking' | 'downloading' | 'error'>('checking');
   const [message, setMessage] = useState('Verificando link de download...');
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>('');
@@ -51,15 +54,14 @@ function DownloadContent({ linkId }: { linkId: string }) {
         return;
       }
 
-      // Download permitido, inicia o download
+      // Download permitido, redireciona diretamente para a API
       setFileName(data.fileName || 'arquivo');
       setStatus('downloading');
-      setMessage(`Preparando download de ${data.fileName || 'arquivo'}...`);
+      setMessage(`Iniciando download de ${data.fileName || 'arquivo'}...`);
       
-      // Aguarda um momento para mostrar a mensagem
-      setTimeout(() => {
-        startDownload();
-      }, 1000);
+      // Redireciona para o endpoint de download do próprio frontend (proxy)
+      // URL: linkepag.com.br/baixar/:linkId?token=xxx (proxy para API)
+      window.location.href = `${APP_BASE_URL}/baixar/${linkId}?token=${token}`;
       
     } catch (err) {
       setStatus('error');
@@ -67,47 +69,12 @@ function DownloadContent({ linkId }: { linkId: string }) {
     }
   };
 
-  const startDownload = async () => {
-    try {
-      // Faz o download via fetch
-      const response = await fetch(`${API_BASE_URL}/download/${linkId}?token=${token}`);
-      
-      if (!response.ok) {
-        throw new Error('Erro ao baixar arquivo');
-      }
-
-      // Pega o nome do arquivo do header Content-Disposition se disponível
-      const contentDisposition = response.headers.get('content-disposition');
-      let downloadFileName = fileName;
-      if (contentDisposition) {
-        const match = contentDisposition.match(/filename="(.+)"/);
-        if (match) {
-          downloadFileName = decodeURIComponent(match[1]);
-        }
-      }
-
-      // Converte a resposta para blob
-      const blob = await response.blob();
-      
-      // Cria o link de download temporário
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = url;
-      a.download = downloadFileName;
-      document.body.appendChild(a);
-      a.click();
-      
-      // Limpa
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      
-      setStatus('success');
-      setMessage('Download iniciado com sucesso!');
-      
-    } catch (err) {
-      setStatus('error');
-      setError('Erro ao baixar o arquivo. Tente novamente ou entre em contato com o vendedor.');
+  const tryAgain = () => {
+    if (token && fileName) {
+      // Tentar download direto via frontend (proxy /baixar/:linkId)
+      window.location.href = `${APP_BASE_URL}/baixar/${linkId}?token=${token}`;
+    } else {
+      window.location.reload();
     }
   };
 
@@ -126,11 +93,6 @@ function DownloadContent({ linkId }: { linkId: string }) {
               📥
             </div>
           )}
-          {status === 'success' && (
-            <div className="w-16 h-16 mx-auto rounded-full bg-emerald-100 flex items-center justify-center text-3xl">
-              ✅
-            </div>
-          )}
           {status === 'error' && (
             <div className="w-16 h-16 mx-auto rounded-full bg-rose-100 flex items-center justify-center text-3xl">
               ❌
@@ -141,8 +103,7 @@ function DownloadContent({ linkId }: { linkId: string }) {
         {/* Título */}
         <h1 className="text-2xl font-bold text-slate-900 mb-2">
           {status === 'checking' && 'Verificando...'}
-          {status === 'downloading' && 'Preparando Download'}
-          {status === 'success' && 'Download Concluído!'}
+          {status === 'downloading' && 'Iniciando Download'}
           {status === 'error' && 'Ops! Algo deu errado'}
         </h1>
 
@@ -154,25 +115,16 @@ function DownloadContent({ linkId }: { linkId: string }) {
         {/* Botões de ação */}
         <div className="space-y-3">
           {status === 'error' && (
-            <button
-              onClick={() => window.location.reload()}
-              className="w-full py-3 px-4 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition"
-            >
-              Tentar Novamente
-            </button>
-          )}
-          
-          {status === 'success' && (
             <>
-              <p className="text-xs text-slate-500 mb-3">
-                O download deve ter iniciado automaticamente. Se não iniciou, verifique sua pasta de downloads.
-              </p>
               <button
-                onClick={() => window.close()}
-                className="w-full py-3 px-4 bg-slate-100 text-slate-700 rounded-xl font-medium hover:bg-slate-200 transition"
+                onClick={tryAgain}
+                className="w-full py-3 px-4 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition"
               >
-                Fechar
+                Tentar Novamente
               </button>
+              <p className="text-xs text-slate-500 mt-2">
+                Se o problema persistir, entre em contato com o vendedor.
+              </p>
             </>
           )}
           
@@ -180,6 +132,12 @@ function DownloadContent({ linkId }: { linkId: string }) {
             <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
               <div className="bg-indigo-600 h-full rounded-full animate-pulse w-full" />
             </div>
+          )}
+          
+          {status === 'checking' && (
+            <p className="text-xs text-slate-400">
+              Aguarde enquanto verificamos seu acesso...
+            </p>
           )}
         </div>
 
