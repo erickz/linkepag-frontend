@@ -40,7 +40,11 @@ function DownloadContent() {
 
       if (!data.allowed) {
         setStatus('error');
-        setError('Não foi possível processar seu download. Tente novamente ou entre em contato com o vendedor.');
+        if (data.reason === 'download_limit_exceeded') {
+          setError(`Limite de downloads atingido (${data.downloadsUsed}/${data.downloadsLimit}). Entre em contato com o vendedor para solicitar um novo link.`);
+        } else {
+          setError('Não foi possível processar seu download. Tente novamente ou entre em contato com o vendedor.');
+        }
         return;
       }
 
