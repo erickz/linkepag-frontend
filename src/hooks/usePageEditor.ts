@@ -31,6 +31,14 @@ export interface LinkItem {
   isPaid?: boolean;
   price?: number;
   paymentTimeoutMinutes?: number;
+  hasDeliverableFile?: boolean;
+  deliverableFile?: {
+    originalName: string;
+    size: number;
+    extension: string;
+    isImage: boolean;
+    uploadedAt: string;
+  } | null;
 }
 
 export interface ProfileData {

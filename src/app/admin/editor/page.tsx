@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useAuth, useProtectedRoute } from '@/hooks/useAuth';
 import { usePageEditor, LinkItem, headerGradients, backgroundOptions, paidLinkAccentColors } from '@/hooks/usePageEditor';
+import { uploadLinkFile, deleteLinkFile } from '@/lib/api';
 import { maskPriceInput, parsePrice, formatPrice, formatUrl } from '@/lib/masks';
 import { useSubscription } from '@/hooks/useSubscription';
 import { PlanLimitWarning, PlanUpgradeModal } from '@/components/PlanUpgradeModal';
@@ -228,9 +229,23 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
   const [isReorderingLocal, setIsReorderingLocal] = useState(false);
   const [formData, setFormData] = useState({ title: '', description: '', url: '', openInNewTab: true, isPaid: false, price: 0, type: 'free' as 'free' | 'paid', paymentTimeoutMinutes: 30 });
   
+  // Upload de arquivo
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
+  
   // Paginação
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
+  
+  // Formatadores de tamanho
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
 
   useEffect(() => { setLocalLinks(links); setCurrentPage(1); }, [links]);
 
@@ -238,27 +253,119 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
   const paidLinksUsage = currentPlan ? getPaidLinksUsage(paidLinksCount) : { used: 0, limit: null, percentage: 0 };
   const canCreatePaid = canCreatePaidLink(paidLinksCount);
 
-  const resetForm = () => setFormData({ title: '', description: '', url: '', openInNewTab: true, isPaid: false, price: 0, type: 'free', paymentTimeoutMinutes: 30 });
+  const resetForm = () => {
+    setFormData({ title: '', description: '', url: '', openInNewTab: true, isPaid: false, price: 0, type: 'free', paymentTimeoutMinutes: 30 });
+    setSelectedFile(null);
+    setFileError(null);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage(null);
-    if (formData.isPaid && !canCreatePaid.allowed) {
+    setFileError(null);
+    
+    // Só valida limite de links monetizados quando está CRIANDO um novo link
+    // Não valida quando está EDITANDO um link existente
+    if (!editingLink && formData.isPaid && !canCreatePaid.allowed) {
       setMessage({ type: 'error', text: canCreatePaid.message || 'Não é possível criar link monetizado' });
       if (paidLinksUsage.limit !== null && paidLinksCount >= paidLinksUsage.limit) setShowUpgradeModal(true);
       return;
     }
+    
+    // Validação do arquivo
+    if (selectedFile && selectedFile.size > 300 * 1024 * 1024) {
+      setFileError('Arquivo deve ter no máximo 300MB');
+      return;
+    }
+    
     const linkData = { title: formData.title, description: formData.description, url: formatUrl(formData.url), openInNewTab: formData.openInNewTab, type: formData.type, isPaid: formData.isPaid, price: formData.isPaid ? formData.price : 0, paymentTimeoutMinutes: formData.paymentTimeoutMinutes };
+    
     try {
-      if (editingLink) { await onUpdate(editingLink.id, linkData); setMessage({ type: 'success', text: 'Link atualizado!' }); }
-      else { await onCreate(linkData); setMessage({ type: 'success', text: 'Link criado!' }); }
-      setShowForm(false); setEditingLink(null); resetForm();
-    } catch (err: any) { setMessage({ type: 'error', text: err.message || 'Erro ao salvar' }); }
+      let linkId: string;
+      
+      if (editingLink) {
+        await onUpdate(editingLink.id, linkData);
+        linkId = editingLink.id;
+        setMessage({ type: 'success', text: 'Link atualizado!' });
+      } else {
+        const result = await onCreate(linkData);
+        linkId = result.link?.id || result.id;
+        setMessage({ type: 'success', text: 'Link criado!' });
+      }
+      
+      // Upload do arquivo se selecionado (apenas para links monetizados)
+      if (selectedFile && linkId && formData.isPaid) {
+        setIsUploadingFile(true);
+        try {
+          await uploadLinkFile(linkId, selectedFile);
+          setMessage({ type: 'success', text: editingLink ? 'Link e arquivo atualizados!' : 'Link criado com arquivo!' });
+        } catch (err: any) {
+          setMessage({ type: 'error', text: 'Link salvo, mas erro no upload: ' + (err.message || 'Erro ao fazer upload') });
+        } finally {
+          setIsUploadingFile(false);
+        }
+      }
+      
+      setShowForm(false);
+      setEditingLink(null);
+      resetForm();
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || 'Erro ao salvar' });
+    }
+  };
+  
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Só permite arquivo em links monetizados
+    if (!formData.isPaid) {
+      setFileError('Apenas links monetizados podem ter arquivos para download');
+      return;
+    }
+    
+    // Validações
+    const allowedTypes = [
+      'application/pdf',
+      'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel', 'text/csv',
+      'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'video/mp4', 'video/quicktime', 'video/x-matroska', 'video/webm', 'video/x-msvideo', 'video/mpeg',
+      'audio/mpeg', 'audio/wav', 'audio/aac', 'audio/ogg', 'audio/mp4', 'audio/flac',
+    ];
+    
+    if (!allowedTypes.includes(file.type)) {
+      setFileError('Tipo de arquivo não permitido. Use: PDF, imagens, vídeos, áudios, planilhas ou documentos.');
+      return;
+    }
+    
+    if (file.size > 300 * 1024 * 1024) {
+      setFileError('Arquivo deve ter no máximo 300MB');
+      return;
+    }
+    
+    setFileError(null);
+    setSelectedFile(file);
+  };
+  
+  const handleRemoveFile = async (linkId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm('Remover arquivo deste link?')) return;
+    
+    try {
+      await deleteLinkFile(linkId);
+      setMessage({ type: 'success', text: 'Arquivo removido!' });
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || 'Erro ao remover arquivo' });
+    }
   };
 
-  const handleEdit = (link: LinkItem) => {
+  const handleEdit = (link: LinkItem & { hasDeliverableFile?: boolean; deliverableFile?: { originalName: string; size: number; extension: string } | null }) => {
     setEditingLink(link);
     setFormData({ title: link.title, description: link.description || '', url: link.url, openInNewTab: link.openInNewTab ?? true, isPaid: link.isPaid || false, price: link.price || 0, type: (link.type as 'free' | 'paid') || 'free', paymentTimeoutMinutes: link.paymentTimeoutMinutes || 30 });
+    setSelectedFile(null);
+    setFileError(null);
     setShowForm(true);
   };
 
@@ -287,23 +394,132 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Título *</label><input type="text" value={formData.title} onChange={e => setFormData(p => ({ ...p, title: e.target.value }))} required className="w-full h-10 px-3 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm" placeholder="Ex: Meu Curso" /></div>
-              <div><label className="block text-sm font-medium text-slate-700 mb-1">URL *</label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">https://</span><input type="text" value={formData.url.replace(/^https?:\/\//, '')} onChange={e => setFormData(p => ({ ...p, url: `https://${e.target.value.replace(/^https?:\/\//, '')}` }))} required className="w-full h-10 pl-14 pr-3 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm" placeholder="seusite.com" /></div></div>
+              <div><label className="block text-sm font-medium text-slate-700 mb-1">URL {formData.isPaid ? '(opcional)' : '*'}</label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">https://</span><input type="text" value={formData.url?.replace(/^https?:\/\//, '') || ''} onChange={e => setFormData(p => ({ ...p, url: `https://${e.target.value.replace(/^https?:\/\//, '')}` }))} required={!formData.isPaid} className="w-full h-10 pl-14 pr-3 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm" placeholder={formData.isPaid ? 'Opcional para links com arquivo' : 'seusite.com'} /></div></div>
             </div>
             <div><label className="block text-sm font-medium text-slate-700 mb-1">Descrição (opcional)</label><input type="text" value={formData.description} onChange={e => setFormData(p => ({ ...p, description: e.target.value }))} className="w-full h-10 px-3 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm" placeholder="Breve descrição" /></div>
             <div className="bg-slate-50 rounded-xl p-4 space-y-3">
               <div className="flex items-center gap-3 p-1 bg-slate-200 rounded-lg w-fit">
-                <button type="button" onClick={() => setFormData(p => ({ ...p, type: 'free', isPaid: false }))} className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${formData.type === 'free' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'}`}>Link Comum</button>
-                <button type="button" onClick={() => setFormData(p => ({ ...p, type: 'paid', isPaid: true }))} className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${formData.type === 'paid' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600'}`}>Link Monetizado</button>
+                <button 
+                  type="button" 
+                  onClick={() => {
+                    setFormData(p => ({ ...p, type: 'free', isPaid: false }));
+                    // Limpar arquivo selecionado ao mudar para link comum
+                    setSelectedFile(null);
+                    setFileError(null);
+                  }} 
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${formData.type === 'free' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'}`}
+                >
+                  Link Comum
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => setFormData(p => ({ ...p, type: 'paid', isPaid: true }))} 
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${formData.type === 'paid' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600'}`}
+                >
+                  Link Monetizado
+                </button>
               </div>
+              
               {formData.isPaid && (
-                <div className="space-y-3">
-                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Preço (R$)</label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">R$</span><input type="text" inputMode="decimal" value={formData.price > 0 ? maskPriceInput((formData.price * 100).toString()) : ''} onChange={e => setFormData(p => ({ ...p, price: parsePrice(maskPriceInput(e.target.value)) }))} required={formData.isPaid} className="w-full h-10 pl-10 pr-3 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm" placeholder="0,00" /></div></div>
+                <div className="space-y-4">
+                  {/* Preço */}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Preço (R$)</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">R$</span>
+                      <input 
+                        type="text" 
+                        inputMode="decimal" 
+                        value={formData.price > 0 ? maskPriceInput((formData.price * 100).toString()) : ''} 
+                        onChange={e => setFormData(p => ({ ...p, price: parsePrice(maskPriceInput(e.target.value)) }))} 
+                        required={formData.isPaid} 
+                        className="w-full h-10 pl-10 pr-3 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm" 
+                        placeholder="0,00" 
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Upload de Arquivo - APENAS para links monetizados */}
+                  <div className="bg-indigo-50 rounded-xl p-4 space-y-3 border border-indigo-100">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-sm font-medium text-indigo-900">Arquivo para Download (opcional)</label>
+                      <span className="text-xs text-indigo-600">Máx 300MB</span>
+                    </div>
+                    
+                    {editingLink?.hasDeliverableFile && editingLink.deliverableFile && !selectedFile && (
+                      <div className="bg-white rounded-lg p-3 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-2xl">📎</span>
+                          <div>
+                            <p className="text-sm font-medium text-slate-900">{editingLink.deliverableFile.originalName}</p>
+                            <p className="text-xs text-slate-500">{formatFileSize(editingLink.deliverableFile.size)} • {editingLink.deliverableFile.extension.toUpperCase()}</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => handleRemoveFile(editingLink.id, e)}
+                          className="text-rose-500 hover:text-rose-700 text-sm font-medium"
+                        >
+                          Remover
+                        </button>
+                      </div>
+                    )}
+                    
+                    {selectedFile && (
+                      <div className="bg-white rounded-lg p-3 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-2xl">📎</span>
+                          <div>
+                            <p className="text-sm font-medium text-slate-900">{selectedFile.name}</p>
+                            <p className="text-xs text-slate-500">{formatFileSize(selectedFile.size)} • Novo arquivo</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedFile(null)}
+                          className="text-rose-500 hover:text-rose-700 text-sm font-medium"
+                        >
+                          Remover
+                        </button>
+                      </div>
+                    )}
+                    
+                    {!selectedFile && (!editingLink?.hasDeliverableFile) && (
+                      <label className="block">
+                        <span className="sr-only">Escolher arquivo</span>
+                        <input
+                          type="file"
+                          onChange={handleFileChange}
+                          className="block w-full text-sm text-slate-500
+                            file:mr-4 file:py-2 file:px-4
+                            file:rounded-lg file:border-0
+                            file:text-sm file:font-medium
+                            file:bg-indigo-100 file:text-indigo-700
+                            hover:file:bg-indigo-200
+                            cursor-pointer
+                          "
+                        />
+                      </label>
+                    )}
+                    
+                    {fileError && (
+                      <p className="text-xs text-rose-600">{fileError}</p>
+                    )}
+                    
+                    <p className="text-xs text-indigo-700">
+                      PDF, imagens, vídeos (MP4, MOV), áudios (MP3), planilhas e documentos.
+                      O arquivo será enviado ao comprador após o pagamento.
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
+            
             <div className="flex items-center gap-2"><input type="checkbox" id="openInNewTab" checked={formData.openInNewTab} onChange={e => setFormData(p => ({ ...p, openInNewTab: e.target.checked }))} className="w-4 h-4 rounded border-slate-300 text-indigo-600" /><label htmlFor="openInNewTab" className="text-sm text-slate-700">Abrir em nova aba</label></div>
             <div className="flex gap-3 pt-2">
-              <button type="submit" disabled={isCreating || isUpdating} className="flex-1 h-10 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition disabled:opacity-50">{isCreating || isUpdating ? 'Salvando...' : (editingLink ? 'Salvar' : 'Criar')}</button>
+              <button type="submit" disabled={isCreating || isUpdating || isUploadingFile} className="flex-1 h-10 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition disabled:opacity-50">
+                {isUploadingFile ? 'Enviando arquivo...' : (isCreating || isUpdating ? 'Salvando...' : (editingLink ? 'Salvar' : 'Criar'))}
+              </button>
               <button type="button" onClick={() => { setShowForm(false); setEditingLink(null); resetForm(); }} className="flex-1 h-10 rounded-lg border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 transition">Cancelar</button>
             </div>
           </form>
@@ -317,7 +533,7 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
               {localLinks.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE).map((link, index) => {
                 const actualIndex = (currentPage - 1) * ITEMS_PER_PAGE + index;
                 return (
-                  <div key={link.id} className={`group flex items-center gap-2 p-3 rounded-xl border transition-all ${link.isPaid ? 'border-amber-200 bg-amber-50/30' : 'border-slate-200 hover:border-indigo-300'} ${!link.isActive ? 'opacity-50' : ''}`}>
+                  <div key={link.id} className={`group flex items-center gap-2 p-3 rounded-xl border transition-all ${link.isPaid ? 'border-slate-200 bg-slate-50/30' : 'border-slate-200 hover:border-indigo-300'} ${!link.isActive ? 'opacity-50' : ''}`}>
                     <div className="flex flex-col">
                       <button onClick={() => handleMove(actualIndex, 'up')} disabled={actualIndex === 0 || isReorderingLocal} className="p-0.5 text-slate-300 hover:text-slate-600 disabled:opacity-20">▲</button>
                       <span className="text-[10px] text-slate-400 text-center">{actualIndex + 1}</span>
@@ -325,7 +541,12 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
                     </div>
                     <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${link.isPaid ? 'bg-amber-100 text-amber-600' : 'bg-indigo-100 text-indigo-600'}`}>{link.isPaid ? '💰' : <Icon path={Icons.link} className="w-5 h-5" />}</div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-slate-900 truncate">{link.title}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-slate-900 truncate">{link.title}</p>
+                        {(link as LinkItem & { hasDeliverableFile?: boolean }).hasDeliverableFile && (
+                          <span title="Possui arquivo para download" className="text-indigo-500 text-sm">📎</span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2 text-xs">{link.isPaid ? <span className="font-bold text-amber-600">R$ {formatPrice(link.price ?? 0)}</span> : <span className="text-slate-400">Gratuito</span>}<span className="text-slate-300">•</span><span className="text-slate-400 truncate">{link.url.replace(/^https?:\/\//, '').replace(/^www\./, '')}</span></div>
                     </div>
                     <div className="flex items-center gap-1">

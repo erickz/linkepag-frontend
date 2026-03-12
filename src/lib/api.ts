@@ -419,7 +419,51 @@ export async function toggleLinkActive(id: string) {
     throw new Error(error.message || 'Erro ao alterar status do link');
   }
 
-  // Invalida cache dos links após toggle
+  // Invalida cache dos links
+  apiCache.invalidate(CACHE_KEYS.LINKS);
+  
+  return response.json();
+}
+
+export async function uploadLinkFile(linkId: string, file: File) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const token = localStorage.getItem('token');
+  const headers: HeadersInit = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_BASE_URL}/links/${linkId}/file`, {
+    method: 'POST',
+    headers,
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Erro ao fazer upload do arquivo');
+  }
+
+  // Invalida cache dos links após upload
+  apiCache.invalidate(CACHE_KEYS.LINKS);
+  
+  return response.json();
+}
+
+export async function deleteLinkFile(linkId: string) {
+  const response = await fetch(`${API_BASE_URL}/links/${linkId}/file`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Erro ao remover arquivo');
+  }
+
+  // Invalida cache dos links
   apiCache.invalidate(CACHE_KEYS.LINKS);
   
   return response.json();
