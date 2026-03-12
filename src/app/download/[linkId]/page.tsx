@@ -16,6 +16,13 @@ function DownloadContent({ linkId }: { linkId: string }) {
   const [fileName, setFileName] = useState<string>('');
 
   useEffect(() => {
+    // Validar linkId
+    if (!linkId || linkId === 'undefined' || linkId === 'null') {
+      setStatus('error');
+      setError('Link de download inválido. Verifique o link no seu email ou entre em contato com o vendedor.');
+      return;
+    }
+    
     if (!token) {
       setStatus('error');
       setError('Token de acesso não fornecido. Verifique o link no seu email.');
