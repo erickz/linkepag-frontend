@@ -13,7 +13,6 @@ function DownloadContent() {
   const linkId = params?.linkId as string;
   
   const [status, setStatus] = useState<'checking' | 'downloading' | 'error'>('checking');
-  const [message, setMessage] = useState('Verificando link de download...');
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>('');
 
@@ -48,7 +47,6 @@ function DownloadContent() {
       // Download permitido, redireciona diretamente para a API
       setFileName(data.fileName || 'arquivo');
       setStatus('downloading');
-      setMessage(`Iniciando download de ${data.fileName || 'arquivo'}...`);
       
       // Redireciona para a API direta para fazer o download do arquivo
       window.location.href = `${API_BASE_URL}/download/${linkId}?token=${token}`;
@@ -98,9 +96,11 @@ function DownloadContent() {
         </h1>
 
         {/* Mensagem */}
-        <p className={`text-sm mb-6 ${status === 'error' ? 'text-rose-600' : 'text-slate-600'}`}>
-          {error || message}
-        </p>
+        {error && (
+          <p className="text-sm mb-6 text-rose-600">
+            {error}
+          </p>
+        )}
 
         {/* Botões de ação */}
         <div className="space-y-3">
