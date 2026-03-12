@@ -311,7 +311,7 @@ export async function getLinks() {
 export async function createLink(data: {
   title: string;
   description?: string;
-  url: string;
+  url?: string;
   icon?: string;
   openInNewTab?: boolean;
   type?: 'free' | 'paid';

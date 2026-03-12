@@ -278,7 +278,26 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
       return;
     }
     
-    const linkData = { title: formData.title, description: formData.description, url: formatUrl(formData.url), openInNewTab: formData.openInNewTab, type: formData.type, isPaid: formData.isPaid, price: formData.isPaid ? formData.price : 0, paymentTimeoutMinutes: formData.paymentTimeoutMinutes };
+    // Para links monetizados, URL é opcional (pode ter apenas arquivo)
+    const formattedUrl = formatUrl(formData.url);
+    const linkData: any = { 
+      title: formData.title, 
+      description: formData.description, 
+      openInNewTab: formData.openInNewTab, 
+      type: formData.type, 
+      isPaid: formData.isPaid, 
+      price: formData.isPaid ? formData.price : 0, 
+      paymentTimeoutMinutes: formData.paymentTimeoutMinutes 
+    };
+    
+    // Só inclui URL se tiver valor (evita enviar string vazia)
+    if (formattedUrl && formattedUrl.trim() !== '' && formattedUrl !== 'https://') {
+      linkData.url = formattedUrl;
+    } else if (!formData.isPaid) {
+      // Link gratuito precisa de URL
+      linkData.url = '';
+    }
+    // Links monetizados sem URL não recebem o campo (undefined)
     
     try {
       let linkId: string;
