@@ -47,6 +47,7 @@ interface UsePaymentSettingsReturn {
   handleSave: () => Promise<void>;
   clearMessage: () => void;
   refreshData: () => Promise<void>;
+  selectAndSaveMethod: (method: PaymentMethod) => Promise<void>;
 }
 
 // Validações
@@ -188,6 +189,73 @@ export function usePaymentSettings(): UsePaymentSettingsReturn {
     setState(prev => ({ ...prev, selectedMethod: method }));
   }, []);
 
+  // Seleciona e salva o método de pagamento imediatamente
+  const selectAndSaveMethod = useCallback(async (method: PaymentMethod) => {
+    if (!method) return;
+
+    setState(prev => ({ ...prev, selectedMethod: method, isSaving: true, message: null }));
+
+    try {
+      // Verifica se o método tem credenciais configuradas
+      const [profileData, mpData] = await Promise.all([
+        getProfile(),
+        getMercadoPagoCredentials(),
+      ]);
+
+      const hasMP = mpData.isConfigured && mpData.mercadoPagoPublicKey;
+      const hasPix = !!profileData.pixKey;
+
+      if (method === 'mercadopago' && !hasMP) {
+        // MercadoPago não configurado, apenas seleciona sem salvar como ativo
+        setState(prev => ({
+          ...prev,
+          selectedMethod: method,
+          isSaving: false,
+          message: { type: 'error', text: 'Configure suas credenciais do MercadoPago primeiro' },
+        }));
+        return;
+      }
+
+      if (method === 'pix_direct' && !hasPix) {
+        // PIX não configurado, apenas seleciona sem salvar como ativo
+        setState(prev => ({
+          ...prev,
+          selectedMethod: method,
+          isSaving: false,
+          message: { type: 'error', text: 'Configure sua chave PIX primeiro' },
+        }));
+        return;
+      }
+
+      // Salva o método ativo no backend
+      await updateProfile({
+        activePaymentMethod: method,
+      });
+
+      setState(prev => ({
+        ...prev,
+        activeMethod: method,
+        selectedMethod: method,
+        isSaving: false,
+        message: { 
+          type: 'success', 
+          text: method === 'mercadopago' 
+            ? 'MercadoPago ativado como método de recebimento! 🎉' 
+            : 'PIX Direto ativado como método de recebimento! 🎉' 
+        },
+      }));
+
+      // Invalida cache do perfil
+      invalidateProfileCache();
+    } catch (error: any) {
+      setState(prev => ({
+        ...prev,
+        isSaving: false,
+        message: { type: 'error', text: error.message || 'Erro ao salvar método de pagamento' },
+      }));
+    }
+  }, []);
+
   const setMercadoPagoData = useCallback((data: Partial<MercadoPagoData>) => {
     setState(prev => ({
       ...prev,
@@ -308,5 +376,6 @@ export function usePaymentSettings(): UsePaymentSettingsReturn {
     handleSave,
     clearMessage,
     refreshData,
+    selectAndSaveMethod,
   };
 }

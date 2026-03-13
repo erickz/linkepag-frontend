@@ -268,7 +268,7 @@ export default function AdminDashboard() {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-slate-900">Seus Links</p>
               <p className="text-xs text-slate-400 mt-0.5">
-                {activeLinks} ativos • {paidLinks} pagos
+                {activeLinks} ativos • {paidLinks} monetizados
               </p>
             </div>
             <div className="text-right">

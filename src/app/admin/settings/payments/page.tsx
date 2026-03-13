@@ -22,6 +22,7 @@ function PaymentMethodCard({
   icon: Icon,
   isSelected,
   isActive,
+  isSaving,
   onSelect,
 }: {
   method: PaymentMethod;
@@ -32,6 +33,7 @@ function PaymentMethodCard({
   icon: React.ElementType;
   isSelected: boolean;
   isActive: boolean;
+  isSaving?: boolean;
   onSelect: () => void;
 }) {
   return (
@@ -101,15 +103,22 @@ function PaymentMethodCard({
       <div className="mt-4 pt-4 border-t border-slate-200/60">
         <div className={`
           flex items-center justify-center gap-2 py-2 rounded-xl font-medium text-sm transition-all
-          ${isSelected || isActive
-            ? 'text-white ' + (isActive ? 'bg-emerald-500' : 'bg-indigo-500')
-            : 'text-slate-600 bg-slate-100 hover:bg-slate-200'
+          ${isActive
+            ? 'text-white bg-emerald-500'
+            : isSelected
+              ? 'text-white bg-indigo-500'
+              : 'text-slate-600 bg-slate-100 hover:bg-slate-200'
           }
         `}>
-          {isActive ? (
+          {isSaving ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+              Salvando...
+            </>
+          ) : isActive ? (
             <>
               <IconCheck className="w-4 h-4" />
-              Configurado
+              Ativo
             </>
           ) : isSelected ? (
             <>
@@ -317,12 +326,12 @@ export default function PaymentsSettingsPage() {
   
   const {
     state,
-    setSelectedMethod,
     setMercadoPagoData,
     setPixDirectData,
     toggleShowCredentials,
     handleSave,
     clearMessage,
+    selectAndSaveMethod,
   } = usePaymentSettings();
 
   useProtectedRoute('/login');
@@ -377,8 +386,8 @@ export default function PaymentsSettingsPage() {
               <p className="font-medium text-blue-900">Dois métodos configurados</p>
               <p className="text-sm text-blue-600">
                 {state.activeMethod === 'mercadopago' 
-                  ? 'MercadoPago está ativo. Selecione PIX Direto e salve para alternar.'
-                  : 'PIX Direto está ativo. Selecione MercadoPago e salve para alternar.'}
+                  ? 'MercadoPago está ativo. Clique em PIX Direto para alternar.'
+                  : 'PIX Direto está ativo. Clique em MercadoPago para alternar.'}
               </p>
             </div>
           </div>
@@ -400,7 +409,8 @@ export default function PaymentsSettingsPage() {
           icon={IconCreditCard}
           isSelected={isMercadoPagoSelected}
           isActive={state.activeMethod === 'mercadopago'}
-          onSelect={() => setSelectedMethod('mercadopago')}
+          isSaving={state.isSaving && state.selectedMethod === 'mercadopago'}
+          onSelect={() => selectAndSaveMethod('mercadopago')}
         />
 
         <PaymentMethodCard
@@ -416,7 +426,8 @@ export default function PaymentsSettingsPage() {
           icon={IconSmartphone}
           isSelected={isPixDirectSelected}
           isActive={state.activeMethod === 'pix_direct'}
-          onSelect={() => setSelectedMethod('pix_direct')}
+          isSaving={state.isSaving && state.selectedMethod === 'pix_direct'}
+          onSelect={() => selectAndSaveMethod('pix_direct')}
         />
       </div>
 
@@ -432,17 +443,6 @@ export default function PaymentsSettingsPage() {
           >
             Fechar
           </button>
-        </div>
-      )}
-
-      {/* Info Box - Entre os cards e o formulário */}
-      {isPixDirectSelected && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
-          <p className="text-sm text-amber-800">
-            <span className="font-medium">💡 Como funciona:</span> O comprador verá sua chave PIX, 
-            fará o pagamento no app do banco e você deverá confirmar manualmente na página{' '}
-            <strong>&quot;Pagamentos Pendentes&quot;</strong>.
-          </p>
         </div>
       )}
 
@@ -467,7 +467,7 @@ export default function PaymentsSettingsPage() {
         />
       )}
 
-      {/* Botões de Ação */}
+      {/* Botões de Ação - Apenas para salvar dados do formulário */}
       {state.selectedMethod && (
         <div className="mt-6 flex flex-col sm:flex-row gap-3">
           <button
@@ -480,15 +480,10 @@ export default function PaymentsSettingsPage() {
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                 Salvando...
               </>
-            ) : state.activeMethod === state.selectedMethod ? (
-              <>
-                <IconCheck className="w-4 h-4" />
-                Atualizar Configurações
-              </>
             ) : (
               <>
                 <IconCheck className="w-4 h-4" />
-                Salvar Configurações
+                Salvar {isMercadoPagoSelected ? 'Credenciais MercadoPago' : 'Chave PIX'}
               </>
             )}
           </button>
