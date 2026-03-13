@@ -11,8 +11,10 @@ import {
   getMercadoPagoCredentials, 
   updateMercadoPagoCredentials,
   createLink,
+  uploadLinkFile,
   CACHE_KEYS 
 } from '@/lib/api';
+import { formatUrl } from '@/lib/masks';
 import { IconCheck, IconArrowRight, IconArrowLeft, IconUser, IconCreditCard, IconLink, IconAlert, IconHelp } from '@/components/icons';
 import { AdminHeader } from '@/components/AdminHeader';
 
@@ -68,8 +70,14 @@ export default function OnboardingPage() {
     url: '',
     price: '',
     type: 'paid' as 'free' | 'paid',
+    openInNewTab: true,
   });
   const [isCreatingLink, setIsCreatingLink] = useState(false);
+  
+  // Upload de arquivo (apenas para links monetizados)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
 
   
   // Step 3: Payment Configuration (PIX or MercadoPago)
@@ -165,19 +173,97 @@ export default function OnboardingPage() {
     }
   };
 
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Só permite arquivo em links monetizados
+    if (link.type !== 'paid') {
+      setFileError('Apenas links monetizados podem ter arquivos para download');
+      return;
+    }
+    
+    // Validações
+    const allowedTypes = [
+      'application/pdf',
+      'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel', 'text/csv',
+      'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'video/mp4', 'video/quicktime', 'video/x-matroska', 'video/webm', 'video/x-msvideo', 'video/mpeg',
+      'audio/mpeg', 'audio/wav', 'audio/aac', 'audio/ogg', 'audio/mp4', 'audio/flac',
+    ];
+    
+    if (!allowedTypes.includes(file.type)) {
+      setFileError('Tipo de arquivo não permitido. Use: PDF, imagens, vídeos, áudios, planilhas ou documentos.');
+      return;
+    }
+    
+    if (file.size > 300 * 1024 * 1024) {
+      setFileError('Arquivo deve ter no máximo 300MB');
+      return;
+    }
+    
+    setFileError(null);
+    setSelectedFile(file);
+  };
+
   const handleCreateLink = async () => {
-    if (!link.title.trim() || (link.type === 'paid' && !link.price)) return;
+    // Validação: link gratuito precisa de URL, monetizado precisa de preço
+    if (!link.title.trim() || (link.type === 'paid' && !link.price) || (link.type === 'free' && !link.url.trim())) return;
+    
+    // Validação do arquivo
+    if (selectedFile && selectedFile.size > 300 * 1024 * 1024) {
+      setFileError('Arquivo deve ter no máximo 300MB');
+      return;
+    }
     
     setIsCreatingLink(true);
     try {
-      await createLink({
-        title: link.title,
-        description: link.description,
-        url: link.url || '#',
-        type: link.type,
+      // Para links monetizados, URL é opcional (pode ter apenas arquivo)
+      const formattedUrl = formatUrl(link.url);
+      const linkData: any = { 
+        title: link.title, 
+        description: link.description, 
+        openInNewTab: link.openInNewTab, 
+        type: link.type, 
+        isPaid: link.type === 'paid', 
         price: link.type === 'paid' ? parseFloat(link.price) : 0,
-        isPaid: link.type === 'paid',
-      });
+      };
+      
+      // Só inclui URL se tiver valor (evita enviar string vazia)
+      if (formattedUrl && formattedUrl.trim() !== '' && formattedUrl !== 'https://') {
+        linkData.url = formattedUrl;
+      } else if (link.type === 'free') {
+        // Link gratuito precisa de URL
+        linkData.url = '';
+      }
+      // Links monetizados sem URL não recebem o campo (undefined)
+      
+      const result = await createLink(linkData);
+      const linkId = result.link?.id || result.id;
+      
+      // Upload do arquivo se selecionado (apenas para links monetizados)
+      if (selectedFile && linkId && link.type === 'paid') {
+        setIsUploadingFile(true);
+        try {
+          await uploadLinkFile(linkId, selectedFile);
+        } catch (err: any) {
+          console.error('Erro no upload:', err);
+          // Não bloqueia o fluxo, apenas loga o erro
+        } finally {
+          setIsUploadingFile(false);
+        }
+      }
+      
       setCompletedSteps(prev => [...new Set([...prev, 'link'])]);
       setCurrentStep(2); // Vai para o passo 3: Payment
     } catch (err) {
@@ -586,7 +672,12 @@ export default function OnboardingPage() {
                   
                   <button
                     type="button"
-                    onClick={() => setLink({ ...link, type: 'free', price: '' })}
+                    onClick={() => {
+                      setLink({ ...link, type: 'free', price: '' });
+                      // Limpar arquivo selecionado ao mudar para link comum
+                      setSelectedFile(null);
+                      setFileError(null);
+                    }}
                     className={`p-4 rounded-xl border-2 transition text-left ${
                       link.type === 'free'
                         ? 'border-emerald-500 bg-emerald-50'
@@ -641,41 +732,102 @@ export default function OnboardingPage() {
                 {/* URL do Link */}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
-                    URL do link *
+                    URL do link {link.type === 'paid' ? '(opcional)' : '*'}
                   </label>
-                  <input
-                    type="url"
-                    value={link.url}
-                    onChange={(e) => setLink({ ...link, url: e.target.value })}
-                    placeholder={link.type === 'paid' ? "https://exemplo.com/seu-produto" : "https://instagram.com/seuperfil"}
-                    className="w-full h-12 px-4 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition"
-                  />
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs">https://</span>
+                    <input
+                      type="text"
+                      value={link.url?.replace(/^https?:\/\//, '') || ''}
+                      onChange={(e) => setLink({ ...link, url: `https://${e.target.value.replace(/^https?:\/\//, '')}` })}
+                      placeholder="seusite.com"
+                      required={link.type === 'free'}
+                      className="w-full h-12 pl-14 pr-4 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition"
+                    />
+                  </div>
                   <p className="text-xs text-slate-400 mt-1">
                     {link.type === 'paid' 
-                      ? "Link que o cliente acessará após confirmar o pagamento (obrigatório)" 
+                      ? "Link que o cliente acessará após o pagamento" 
                       : "Endereço para onde seus visitantes serão direcionados"}
                   </p>
                 </div>
 
-                {/* Preço - só aparece se for pago */}
+                {/* Preço e Upload - só aparece se for pago */}
                 {link.type === 'paid' && (
-                  <div className="animate-in fade-in slide-in-from-top-2 duration-200">
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Preço (R$) *
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-medium">R$</span>
-                      <input
-                        type="number"
-                        value={link.price}
-                        onChange={(e) => setLink({ ...link, price: e.target.value })}
-                        placeholder="47,00"
-                        className="w-full h-12 pl-10 pr-4 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition"
-                      />
+                  <div className="space-y-5 animate-in fade-in slide-in-from-top-2 duration-200">
+                    {/* Preço */}
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Preço (R$) *
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-medium">R$</span>
+                        <input
+                          type="number"
+                          value={link.price}
+                          onChange={(e) => setLink({ ...link, price: e.target.value })}
+                          placeholder="47,00"
+                          className="w-full h-12 pl-10 pr-4 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition"
+                        />
+                      </div>
+                      <p className="text-xs text-slate-400 mt-1">
+                        O cliente pagará via PIX para ter acesso a este conteúdo
+                      </p>
                     </div>
-                    <p className="text-xs text-slate-400 mt-1">
-                      O cliente pagará via PIX para ter acesso a este conteúdo
-                    </p>
+                    
+                    {/* Upload de Arquivo */}
+                    <div className="bg-indigo-50 rounded-xl p-4 space-y-3 border border-indigo-100">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-sm font-medium text-indigo-900">Arquivo para Download (opcional)</label>
+                        <span className="text-xs text-indigo-600">Máx 300MB</span>
+                      </div>
+                      
+                      {selectedFile && (
+                        <div className="bg-white rounded-lg p-3 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-2xl">📎</span>
+                            <div>
+                              <p className="text-sm font-medium text-slate-900">{selectedFile.name}</p>
+                              <p className="text-xs text-slate-500">{formatFileSize(selectedFile.size)}</p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedFile(null)}
+                            className="text-rose-500 hover:text-rose-700 text-sm font-medium"
+                          >
+                            Remover
+                          </button>
+                        </div>
+                      )}
+                      
+                      {!selectedFile && (
+                        <label className="block">
+                          <span className="sr-only">Escolher arquivo</span>
+                          <input
+                            type="file"
+                            onChange={handleFileChange}
+                            className="block w-full text-sm text-slate-500
+                              file:mr-4 file:py-2 file:px-4
+                              file:rounded-lg file:border-0
+                              file:text-sm file:font-medium
+                              file:bg-indigo-100 file:text-indigo-700
+                              hover:file:bg-indigo-200
+                              cursor-pointer
+                            "
+                          />
+                        </label>
+                      )}
+                      
+                      {fileError && (
+                        <p className="text-xs text-rose-600">{fileError}</p>
+                      )}
+                      
+                      <p className="text-xs text-indigo-700">
+                        PDF, imagens, vídeos (MP4, MOV), áudios (MP3), planilhas e documentos.
+                        O arquivo será enviado ao comprador após o pagamento.
+                      </p>
+                    </div>
                   </div>
                 )}
 
@@ -687,8 +839,7 @@ export default function OnboardingPage() {
                       <div>
                         <p className="font-medium text-indigo-900 text-sm">Como funciona o link monetizado?</p>
                         <p className="text-xs text-indigo-700 mt-1">
-                          Você define o preço e o cliente paga via PIX antes de acessar. 
-                          No próximo passo você configura sua conta para receber os pagamentos.
+                          Você define um preço, o cliente paga via PIX e recebe o link de acesso/arquivo por email!
                         </p>
                       </div>
                     </div>
@@ -701,7 +852,7 @@ export default function OnboardingPage() {
                         <p className="font-medium text-emerald-900 text-sm">Link comum</p>
                         <p className="text-xs text-emerald-700 mt-1">
                           Ótimo para compartilhar redes sociais, portfólio ou atrair leads. 
-                          Você pode adicionar links monetizados depois.
+                          Sem cobrança, só redirecionamento!
                         </p>
                       </div>
                     </div>
@@ -726,10 +877,15 @@ export default function OnboardingPage() {
                   </button>
                   <button
                     onClick={handleCreateLink}
-                    disabled={!link.title.trim() || !link.url.trim() || (link.type === 'paid' && !link.price) || isCreatingLink}
+                    disabled={!link.title.trim() || (link.type === 'free' && !link.url.trim()) || (link.type === 'paid' && !link.price) || isCreatingLink || isUploadingFile}
                     className="inline-flex items-center gap-2 px-6 h-12 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
                   >
-                    {isCreatingLink ? (
+                    {isUploadingFile ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Enviando arquivo...
+                      </>
+                    ) : isCreatingLink ? (
                       <>
                         <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                         Criando...
