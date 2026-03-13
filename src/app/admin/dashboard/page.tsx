@@ -219,10 +219,13 @@ export default function AdminDashboard() {
               <IconCoins className="w-6 h-6 text-indigo-600" />
             </div>
             {!isLoadingMP && !mercadoPagoConfigured && !profile?.pixKey && (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-100 rounded-lg">
+              <Link
+                href="/admin/settings/payments"
+                className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-lg text-xs font-medium text-amber-700 hover:bg-amber-100 hover:border-amber-300 transition-colors cursor-pointer"
+              >
                 <div className="w-1.5 h-1.5 bg-amber-500 rounded-full" />
-                <span className="text-xs font-medium text-amber-700">Configure pagamentos</span>
-              </div>
+                Configure pagamentos
+              </Link>
             )}
           </div>
           
@@ -249,9 +252,18 @@ export default function AdminDashboard() {
           </div>
           
           <div className="mt-8 pt-6 border-t border-slate-100">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-400">Período</span>
-              <span className="font-medium text-slate-600">Total acumulado</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Período</span>
+                <span className="text-xs text-slate-400">•</span>
+                <span className="text-xs font-medium text-indigo-600">Todo o período</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-400">Total acumulado</span>
+                <span className="text-lg font-bold text-slate-800">
+                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(salesReport?.totalSales || 0)}
+                </span>
+              </div>
             </div>
           </div>
         </div>
