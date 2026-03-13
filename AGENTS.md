@@ -1401,7 +1401,7 @@ const {
 
 Quando o plano expira:
 - **Links existentes:** Continuam funcionando
-- **Novos links pagos:** Bloqueados (mensagem: "Serviço temporariamente indisponível")
+- **Novos links monetizados:** Bloqueados (mensagem: "Serviço temporariamente indisponível")
 - **Recebimento de pagamentos:** Bloqueado para proteger compradores
 - **Upgrade:** Necessário para reativar funcionalidades
 

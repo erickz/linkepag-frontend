@@ -102,7 +102,7 @@ function LinkButtonComponent({
       window.open(link.url, link.openInNewTab ? '_blank' : '_self');
     }
     
-    // Sempre chama onToggle (para abrir/fechar checkout de links pagos)
+    // Sempre chama onToggle (para abrir/fechar checkout de links monetizados)
     onToggle();
   }, [link.isPaid, link.url, link.openInNewTab, onToggle]);
 

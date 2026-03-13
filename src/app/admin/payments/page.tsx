@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth, useProtectedRoute } from '@/hooks/useAuth';
 import { getSalesReport, getPendingPayments, confirmPaymentManual } from '@/lib/api';
 import { PageHeader } from '@/components/PageHeader';
@@ -35,7 +36,24 @@ type Tab = 'history' | 'pending';
 
 export default function PaymentsPage() {
   const { isAuthenticated, isLoading } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<Tab>('history');
+  const [isReady, setIsReady] = useState(false);
+
+  // Initialize tab from URL on mount
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'pending' || tabParam === 'history') {
+      setActiveTab(tabParam);
+    }
+    setIsReady(true);
+  }, [searchParams]);
+
+  const handleTabChange = (tab: Tab) => {
+    setActiveTab(tab);
+    router.push(`/admin/payments?tab=${tab}`, { scroll: false });
+  };
   
   // Report state
   const [report, setReport] = useState<SalesReport | null>(null);
@@ -251,7 +269,7 @@ export default function PaymentsPage() {
             {tabs.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => handleTabChange(tab.id)}
                 className={`flex items-center gap-2 px-6 py-4 text-sm font-medium transition-colors relative ${
                   activeTab === tab.id 
                     ? 'text-indigo-600' 

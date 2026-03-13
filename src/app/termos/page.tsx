@@ -57,7 +57,7 @@ export default function TermosPage() {
             <p className="text-slate-300 mb-4">
               A LinkePag é uma plataforma de link-in-bio que permite a criadores de conteúdo 
               criarem perfis personalizados, organizarem seus links e monetizarem sua audiência 
-              através de links pagos com integração PIX.
+              através de links monetizados com integração PIX.
             </p>
 
             <h2 className="text-xl font-semibold text-white mt-8 mb-4">
@@ -91,7 +91,7 @@ export default function TermosPage() {
               A LinkePag oferece planos gratuitos e pagos. Ao usar links monetizados:
             </p>
             <ul className="text-slate-300 list-disc list-inside mb-4 space-y-1">
-              <li>Você escolhe o valor dos seus links pagos</li>
+              <li>Você escolhe o valor dos seus links monetizados</li>
               <li>Aplicamos uma taxa fixa por transação bem-sucedida, que varia conforme seu plano</li>
               <li>Os pagamentos são processados via PIX</li>
               <li>Em caso de pagamentos via PIX Direto, você é responsável por confirmar manualmente o recebimento</li>

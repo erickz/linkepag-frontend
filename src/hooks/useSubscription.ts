@@ -215,7 +215,7 @@ export function useSubscription() {
     }
   );
 
-  // Conta links pagos (para mostrar uso)
+  // Conta links monetizados (para mostrar uso)
   const getPaidLinksUsage = useCallback((currentCount: number): { used: number; limit: number | null; percentage: number } => {
     const limit = currentPlan?.maxPaidLinks ?? null;
     if (limit === null) {

@@ -736,7 +736,7 @@ function AppearanceTab({ settings, onUpdate, onSave, isSaving }: any) {
         </div>
       </div>
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-        <h3 className="text-lg font-bold text-slate-900 mb-4">Destaque de Links Pagos</h3>
+        <h3 className="text-lg font-bold text-slate-900 mb-4">Destaque de Links Monetizados</h3>
         <div className="flex flex-wrap gap-3">
           {paidLinkAccentColors.map((a) => (
             <button key={a.id} onClick={() => onUpdate('paidLinkAccent', a.id)} className={`relative group w-12 h-12 rounded-full transition-all ${a.class} ${settings.paidLinkAccent === a.id ? 'ring-4 ring-offset-2 ring-slate-300 scale-110' : 'hover:scale-110'}`}>

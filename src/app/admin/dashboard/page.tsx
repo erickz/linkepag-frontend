@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useAuth, useProtectedRoute } from '@/hooks/useAuth';
 import { useApiParallel } from '@/hooks/useApi';
-import { getLinks, getProfile, getMercadoPagoCredentials, getSalesReport, CACHE_KEYS } from '@/lib/api';
+import { getLinks, getProfile, getMercadoPagoCredentials, getSalesReport, getPendingPayments, CACHE_KEYS } from '@/lib/api';
 import { PageHeader } from '@/components/PageHeader';
 import { BillingAlerts } from '@/app/components/BillingAlerts';
 import { 
@@ -16,7 +16,8 @@ import {
   IconCheck,
   IconArrowRight,
   IconExternalLink,
-  IconCopy
+  IconCopy,
+  IconClock
 } from '@/components/icons';
 
 interface LinkItem {
@@ -48,6 +49,9 @@ export default function AdminDashboard() {
   const [isLoadingMP, setIsLoadingMP] = useState(true);
   const [salesReport, setSalesReport] = useState<SalesReport | null>(null);
   const [isLoadingSales, setIsLoadingSales] = useState(true);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [pendingAmount, setPendingAmount] = useState(0);
+  const [isLoadingPending, setIsLoadingPending] = useState(true);
   
   useProtectedRoute('/login');
 
@@ -83,6 +87,7 @@ export default function AdminDashboard() {
     if (isAuthenticated) {
       loadMercadoPagoStatus();
       loadSalesReport();
+      loadPendingPaymentsCount();
     }
   }, [isAuthenticated]);
 
@@ -113,6 +118,22 @@ export default function AdminDashboard() {
       setMercadoPagoConfigured(false);
     } finally {
       setIsLoadingMP(false);
+    }
+  };
+
+  const loadPendingPaymentsCount = async () => {
+    try {
+      setIsLoadingPending(true);
+      const data = await getPendingPayments();
+      if (data.success) {
+        setPendingCount(data.payments?.length || 0);
+        const total = data.payments?.reduce((sum: number, p: { amount: number }) => sum + (p.amount || 0), 0) || 0;
+        setPendingAmount(total);
+      }
+    } catch (err) {
+      console.error('Erro ao carregar pagamentos pendentes:', err);
+    } finally {
+      setIsLoadingPending(false);
     }
   };
 
@@ -189,105 +210,136 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
-        {/* Sales Card */}
-        <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-6 text-white shadow-lg shadow-emerald-200">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-emerald-100 text-sm font-medium mb-1">Total em Vendas</p>
-              <h3 className="text-2xl sm:text-3xl font-bold">
-                {isLoadingSales ? '-' : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(salesReport?.totalSales || 0)}
-              </h3>
+      {/* Dashboard Grid - Elegante */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Card Principal - Total em Vendas */}
+        <div className="lg:col-span-2 lg:row-span-3 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 lg:p-8 flex flex-col justify-between transition-shadow duration-200 hover:shadow-md">
+          <div className="flex items-start justify-between mb-6">
+            <div className="p-2.5 bg-indigo-50 rounded-xl">
+              <IconCoins className="w-6 h-6 text-indigo-600" />
             </div>
-            <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
-              <IconCoins className="w-6 h-6 text-white" />
-            </div>
-          </div>
-          <div className="flex items-center gap-2 pt-4 mt-4 border-t border-white/20">
-            <span className="text-xl font-bold">{isLoadingSales ? '-' : salesReport?.confirmedOrders || 0}</span>
-            <span className="text-emerald-100 text-sm">vendas confirmadas</span>
-          </div>
-          { (!isLoadingMP && !mercadoPagoConfigured) || !profile?.pixKey && (
-            <div className="mt-4 p-3 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
-              <p className="text-sm text-white">Configure uma forma de pagamento</p>
-              <Link href="/admin/settings/payments" className="text-sm text-white/80 hover:text-white underline mt-1 inline-block">
-                Configurar Pagamento →
-              </Link>
-            </div>
-          )}
-        </div>
-
-        {/* Links Card - Info style (not clickable) */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-indigo-100 flex items-center justify-center">
-                <IconLink className="w-6 h-6 text-indigo-600" />
-              </div>
-              <div>
-                <p className="text-slate-500 text-sm font-medium">Seus Links</p>
-                <h3 className="text-2xl font-bold text-slate-900">{links.length}</h3>
-              </div>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-500">Ativos</span>
-              <span className="font-semibold text-slate-900">{activeLinks}</span>
-            </div>
-            <div className="w-full bg-slate-100 rounded-full h-2">
-              <div 
-                className="bg-indigo-500 h-2 rounded-full transition-all"
-                style={{ width: `${links.length > 0 ? (activeLinks / links.length) * 100 : 0}%` }}
-              />
-            </div>
-            <div className="flex items-center gap-2 pt-2">
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-purple-100 text-purple-700">
-                <IconCoins className="w-3 h-3" />
-                {paidLinks} link{paidLinks !== 1 ? 's' : ''} pago{paidLinks !== 1 ? 's' : ''}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Plan Card - Info style */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
-                <IconCrown className="w-6 h-6 text-amber-600" />
-              </div>
-              <div>
-                <p className="text-slate-500 text-sm font-medium">Seu Plano</p>
-                <h3 className="text-xl font-bold text-slate-900">{getPlanName()}</h3>
-              </div>
-            </div>
-            <Link href="/admin/plans" className="text-sm text-indigo-600 hover:text-indigo-700 font-medium">
-              Gerenciar
-            </Link>
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-500">Links monetizados</span>
-              <span className="font-semibold text-slate-900">
-                {paidLinks} / {getPlanLimit() === Infinity ? '∞' : getPlanLimit()}
-              </span>
-            </div>
-            {getPlanLimit() !== Infinity && (
-              <div className="w-full bg-slate-100 rounded-full h-2">
-                <div 
-                  className={`h-2 rounded-full transition-all ${
-                    paidLinks >= getPlanLimit() ? 'bg-rose-500' : 
-                    paidLinks >= getPlanLimit() * 0.8 ? 'bg-amber-500' : 'bg-emerald-500'
-                  }`}
-                  style={{ width: `${Math.min(100, (paidLinks / getPlanLimit()) * 100)}%` }}
-                />
+            {!isLoadingMP && !mercadoPagoConfigured && !profile?.pixKey && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-100 rounded-lg">
+                <div className="w-1.5 h-1.5 bg-amber-500 rounded-full" />
+                <span className="text-xs font-medium text-amber-700">Configure pagamentos</span>
               </div>
             )}
           </div>
+          
+          <div>
+            {isLoadingSales ? (
+              <div className="space-y-3">
+                <div className="h-10 w-48 bg-slate-100 rounded-lg animate-pulse" />
+                <div className="h-4 w-32 bg-slate-100 rounded animate-pulse" />
+              </div>
+            ) : (
+              <>
+                <div className="flex items-baseline gap-1 mb-2">
+                  <span className="text-4xl lg:text-5xl font-bold text-slate-900 tracking-tight">
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(salesReport?.totalSales || 0)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-slate-500">
+                    {salesReport?.confirmedOrders || 0} vendas confirmadas
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+          
+          <div className="mt-8 pt-6 border-t border-slate-100">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-slate-400">Período</span>
+              <span className="font-medium text-slate-600">Total acumulado</span>
+            </div>
+          </div>
         </div>
 
+        {/* Card - Seus Links */}
+        <Link 
+          href="/admin/links"
+          className="group bg-white rounded-2xl border border-slate-200 shadow-sm p-5 transition-all duration-200 hover:shadow-md hover:border-slate-300"
+        >
+          <div className="flex items-center gap-4">
+            <div className="p-2.5 bg-slate-50 rounded-xl group-hover:bg-indigo-50 transition-colors duration-200">
+              <IconLink className="w-5 h-5 text-slate-500 group-hover:text-indigo-600 transition-colors duration-200" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-slate-900">Seus Links</p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {activeLinks} ativos • {paidLinks} pagos
+              </p>
+            </div>
+            <div className="text-right">
+              {isLoadingData ? (
+                <div className="h-7 w-8 bg-slate-100 rounded animate-pulse" />
+              ) : (
+                <p className="text-2xl font-bold text-slate-900">{links.length}</p>
+              )}
+            </div>
+          </div>
+        </Link>
+
+        {/* Card - Pagamentos Pendentes */}
+        <Link 
+          href="/admin/payments?tab=pending"
+          className="group bg-white rounded-2xl border border-slate-200 shadow-sm p-5 transition-all duration-200 hover:shadow-md hover:border-slate-300"
+        >
+          <div className="flex items-center gap-4">
+            <div className="p-2.5 bg-slate-50 rounded-xl group-hover:bg-amber-50 transition-colors duration-200">
+              <IconClock className="w-5 h-5 text-slate-500 group-hover:text-amber-600 transition-colors duration-200" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-slate-900">Pendentes</p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {pendingCount} aguardando
+              </p>
+            </div>
+            <div className="text-right">
+              {isLoadingPending ? (
+                <div className="h-7 w-16 bg-slate-100 rounded animate-pulse" />
+              ) : (
+                <p className="text-2xl font-bold text-slate-900">
+                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(pendingAmount || 0)}
+                </p>
+              )}
+            </div>
+          </div>
+        </Link>
+
+        {/* Card - Seu Plano */}
+        <Link 
+          href="/admin/plans"
+          className="group bg-white rounded-2xl border border-slate-200 shadow-sm p-5 transition-all duration-200 hover:shadow-md hover:border-slate-300"
+        >
+          <div className="flex items-center gap-4">
+            <div className="p-2.5 bg-slate-50 rounded-xl group-hover:bg-purple-50 transition-colors duration-200">
+              <IconCrown className="w-5 h-5 text-slate-500 group-hover:text-purple-600 transition-colors duration-200" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-slate-900">
+                {getPlanName()}
+              </p>
+              <div className="flex items-center gap-1.5 mt-1">
+                <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-purple-500 rounded-full"
+                    style={{ 
+                      width: `${Math.min((paidLinks / (getPlanLimit() === Infinity ? 100 : (getPlanLimit() || 1))) * 100, 100)}%` 
+                    }}
+                  />
+                </div>
+                <span className="text-xs text-slate-400">
+                  {paidLinks}/{getPlanLimit() === Infinity ? '∞' : getPlanLimit()}
+                </span>
+              </div>
+            </div>
+            <div className="text-slate-300 group-hover:text-purple-500 transition-colors duration-200">
+              <IconArrowRight className="w-5 h-5" />
+            </div>
+          </div>
+        </Link>
       </div>
     </div>
   );
