@@ -214,11 +214,13 @@ function MercadoPagoForm({
 function PixDirectForm({
   keyType,
   pixKey,
+  notifyPendingPayments,
   onChange,
 }: {
   keyType: string;
   pixKey: string;
-  onChange: (field: 'keyType' | 'key', value: string) => void;
+  notifyPendingPayments: boolean;
+  onChange: (field: 'keyType' | 'key' | 'notifyPendingPayments', value: string | boolean) => void;
 }) {
   const keyTypeOptions = [
     { value: 'CPF', label: 'CPF', placeholder: 'XXX.XXX.XXX-XX' },
@@ -272,6 +274,36 @@ function PixDirectForm({
           <p className="text-xs text-slate-400 mt-1">
             Digite exatamente como aparece no seu app do banco
           </p>
+        </div>
+
+        {/* Checkbox para notificações de pagamentos pendentes */}
+        <div className="pt-4 border-t border-slate-200">
+          <label className="flex items-start gap-3 cursor-pointer group">
+            <div className="relative flex items-center">
+              <input
+                type="checkbox"
+                checked={notifyPendingPayments}
+                onChange={(e) => onChange('notifyPendingPayments', e.target.checked)}
+                className="peer sr-only"
+              />
+              <div className="w-5 h-5 border-2 border-slate-300 rounded peer-checked:bg-indigo-500 peer-checked:border-indigo-500 transition-colors"></div>
+              <svg 
+                className="absolute w-3 h-3 text-white opacity-0 peer-checked:opacity-100 transition-opacity left-1 top-1"
+                viewBox="0 0 14 14" 
+                fill="none"
+              >
+                <path d="M2 7L5.5 10.5L12 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            <div className="flex-1">
+              <span className="text-sm font-medium text-slate-700 group-hover:text-slate-900 transition-colors">
+                Receber notificações por email
+              </span>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Envie-me um email quando alguém fizer um pagamento pendente via PIX Direto
+              </p>
+            </div>
+          </label>
         </div>
 
       </div>
@@ -409,7 +441,7 @@ export default function PaymentsSettingsPage() {
           <p className="text-sm text-amber-800">
             <span className="font-medium">💡 Como funciona:</span> O comprador verá sua chave PIX, 
             fará o pagamento no app do banco e você deverá confirmar manualmente na página{' '}
-            <strong>&quot;Vendas Pendentes&quot;</strong>.
+            <strong>&quot;Pagamentos Pendentes&quot;</strong>.
           </p>
         </div>
       )}
@@ -430,6 +462,7 @@ export default function PaymentsSettingsPage() {
         <PixDirectForm
           keyType={state.pixDirect.keyType}
           pixKey={state.pixDirect.key}
+          notifyPendingPayments={state.pixDirect.notifyPendingPayments}
           onChange={(field, value) => setPixDirectData({ [field]: value })}
         />
       )}

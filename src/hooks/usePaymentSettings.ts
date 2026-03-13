@@ -15,6 +15,7 @@ interface PixData {
   keyType: 'CPF' | 'CNPJ' | 'EMAIL' | 'PHONE' | 'RANDOM';
   key: string;
   qrCodeImage: string;
+  notifyPendingPayments: boolean;
 }
 
 interface MercadoPagoData {
@@ -120,6 +121,7 @@ export function usePaymentSettings(): UsePaymentSettingsReturn {
       keyType: 'EMAIL',
       key: '',
       qrCodeImage: '',
+      notifyPendingPayments: false,
     },
     isLoading: true,
     isSaving: false,
@@ -165,6 +167,7 @@ export function usePaymentSettings(): UsePaymentSettingsReturn {
           keyType: profileData.pixKeyType || 'EMAIL',
           key: profileData.pixKey || '',
           qrCodeImage: profileData.pixQRCodeImage || '',
+          notifyPendingPayments: profileData.notifyPendingPayments || false,
         },
         isLoading: false,
       }));
@@ -269,6 +272,7 @@ export function usePaymentSettings(): UsePaymentSettingsReturn {
           pixKey: pixDirect.key,
           pixKeyType: pixDirect.keyType,
           pixQRCodeImage: pixDirect.qrCodeImage,
+          notifyPendingPayments: pixDirect.notifyPendingPayments,
           activePaymentMethod: 'pix_direct',
         });
 

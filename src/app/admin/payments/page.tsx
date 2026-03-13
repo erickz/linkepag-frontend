@@ -273,7 +273,7 @@ export default function PaymentsPage() {
           {activeTab === 'pending' && (
             <div>
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-slate-900">Vendas Pendentes de Confirmação</h3>
+                <h3 className="font-bold text-slate-900">Pagamentos Pendentes de Confirmação</h3>
                 <button onClick={loadPending} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition">
                   <IconRefresh className="w-5 h-5" />
                 </button>
@@ -288,7 +288,7 @@ export default function PaymentsPage() {
                   <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <IconCheck className="w-8 h-8 text-emerald-600" />
                   </div>
-                  <h3 className="text-lg font-medium text-slate-900 mb-1">Nenhuma venda pendente</h3>
+                  <h3 className="text-lg font-medium text-slate-900 mb-1">Nenhum pagamento pendente</h3>
                   <p className="text-slate-500">Quando alguém pagar via PIX Direto, aparecerá aqui</p>
                 </div>
               ) : (
