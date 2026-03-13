@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useAuth, useProtectedRoute } from '@/hooks/useAuth';
 import { getSalesReport, getPendingPayments, confirmPaymentManual } from '@/lib/api';
 import { PageHeader } from '@/components/PageHeader';
-import { IconCoins, IconClock, IconCheck, IconSettings, IconRefresh, IconExternalLink } from '@/components/icons';
+import { IconCoins, IconClock, IconCheck, IconSettings, IconRefresh, IconExternalLink, IconTrash } from '@/components/icons';
 
 interface Payment {
   id: string;
@@ -31,7 +31,7 @@ interface SalesReport {
   recentPayments: Payment[];
 }
 
-type Tab = 'history' | 'pending' | 'config';
+type Tab = 'history' | 'pending';
 
 export default function PaymentsPage() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -46,6 +46,8 @@ export default function PaymentsPage() {
   const [isLoadingPending, setIsLoadingPending] = useState(true);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [selectedPayments, setSelectedPayments] = useState<Set<string>>(new Set());
+  const [isConfirmingBulk, setIsConfirmingBulk] = useState(false);
 
   useProtectedRoute('/login');
 
@@ -65,7 +67,10 @@ export default function PaymentsPage() {
     try {
       setIsLoadingPending(true);
       const data = await getPendingPayments();
-      if (data.success) setPendingPayments(data.payments || []);
+      if (data.success) {
+        setPendingPayments(data.payments || []);
+        setSelectedPayments(new Set()); // Limpar seleção ao recarregar
+      }
     } catch (err) {
       console.error('Erro ao carregar pendentes:', err);
     } finally {
@@ -88,12 +93,74 @@ export default function PaymentsPage() {
       const response = await confirmPaymentManual(paymentId);
       if (response.success) {
         setPendingPayments(prev => prev.filter(p => p.paymentId !== paymentId));
+        setSelectedPayments(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(paymentId);
+          return newSet;
+        });
         loadReport();
       }
     } catch (err) {
       alert('Erro ao confirmar pagamento');
     } finally {
       setConfirmingId(null);
+    }
+  };
+
+  // Toggle seleção de pagamento
+  const togglePaymentSelection = (paymentId: string) => {
+    setSelectedPayments(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(paymentId)) {
+        newSet.delete(paymentId);
+      } else {
+        newSet.add(paymentId);
+      }
+      return newSet;
+    });
+  };
+
+  // Selecionar/deselecionar todos
+  const toggleSelectAll = () => {
+    if (selectedPayments.size === pendingPayments.length) {
+      setSelectedPayments(new Set());
+    } else {
+      setSelectedPayments(new Set(pendingPayments.map(p => p.paymentId)));
+    }
+  };
+
+  // Confirmar pagamentos em massa
+  const handleBulkConfirm = async () => {
+    if (selectedPayments.size === 0) return;
+    
+    if (!confirm(`Confirmar ${selectedPayments.size} pagamento(s)? Os compradores receberão o acesso por email.`)) return;
+    
+    setIsConfirmingBulk(true);
+    let successCount = 0;
+    let errorCount = 0;
+    
+    for (const paymentId of selectedPayments) {
+      try {
+        const response = await confirmPaymentManual(paymentId);
+        if (response.success) {
+          successCount++;
+          setPendingPayments(prev => prev.filter(p => p.paymentId !== paymentId));
+        } else {
+          errorCount++;
+        }
+      } catch (err) {
+        errorCount++;
+      }
+    }
+    
+    setSelectedPayments(new Set());
+    setIsConfirmingBulk(false);
+    loadReport();
+    
+    if (errorCount > 0) {
+      alert(`${successCount} confirmado(s), ${errorCount} erro(s).`);
+    } else {
+      alert(`${successCount} pagamento(s) confirmado(s) com sucesso!`);
     }
   };
 
@@ -133,7 +200,6 @@ export default function PaymentsPage() {
   const tabs = [
     { id: 'history' as Tab, label: 'Histórico', count: report?.totalOrders || 0 },
     { id: 'pending' as Tab, label: 'Pendentes', count: pendingPayments.length },
-    { id: 'config' as Tab, label: 'Configuração' },
   ];
 
   return (
@@ -194,7 +260,6 @@ export default function PaymentsPage() {
               >
                 {tab.id === 'history' && <IconCoins className="w-4 h-4" />}
                 {tab.id === 'pending' && <IconClock className="w-4 h-4" />}
-                {tab.id === 'config' && <IconSettings className="w-4 h-4" />}
                 {tab.label}
                 {tab.count !== undefined && tab.count > 0 && (
                   <span className={`ml-1 px-2 py-0.5 rounded-full text-xs ${
@@ -274,9 +339,24 @@ export default function PaymentsPage() {
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold text-slate-900">Pagamentos Pendentes de Confirmação</h3>
-                <button onClick={loadPending} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition">
-                  <IconRefresh className="w-5 h-5" />
-                </button>
+                <div className="flex items-center gap-2">
+                  {selectedPayments.size > 0 && (
+                    <button
+                      onClick={handleBulkConfirm}
+                      disabled={isConfirmingBulk}
+                      className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium text-sm hover:bg-emerald-700 transition disabled:opacity-50"
+                    >
+                      {isConfirmingBulk ? (
+                        <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>Confirmando...</>
+                      ) : (
+                        <><IconCheck className="w-4 h-4" />Confirmar {selectedPayments.size} selecionado(s)</>
+                      )}
+                    </button>
+                  )}
+                  <button onClick={loadPending} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition">
+                    <IconRefresh className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
 
               {isLoadingPending ? (
@@ -292,81 +372,96 @@ export default function PaymentsPage() {
                   <p className="text-slate-500">Quando alguém pagar via PIX Direto, aparecerá aqui</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {pendingPayments.map((payment) => (
-                    <div key={payment.paymentId} className="bg-white rounded-xl border border-slate-200 p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <span className="px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-medium">
-                          Aguardando
-                        </span>
-                        <span className="text-lg font-bold text-slate-900">{formatCurrency(payment.amount)}</span>
-                      </div>
-                      
-                      <div className="space-y-2 mb-4">
-                        <div>
-                          <p className="text-xs text-slate-500">Comprador</p>
-                          <p className="text-sm font-medium text-slate-900">{payment.payerName || 'Não informado'}</p>
-                          <p className="text-xs text-slate-600">{payment.payerEmail}</p>
-                        </div>
-                        {payment.receiptUrl && (
-                          <div>
-                            <p className="text-xs text-slate-500">Comprovante</p>
-                            <button
-                              onClick={() => setPreviewImage(payment.receiptUrl || null)}
-                              className="relative w-full h-20 rounded-lg overflow-hidden border border-slate-200 hover:border-indigo-500 transition"
-                            >
-                              <img src={payment.receiptUrl} alt="Comprovante" className="w-full h-full object-cover" />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
+                <div>
+                  {/* Barra de seleção em massa */}
+                  <div className="flex items-center gap-3 mb-4 p-3 bg-slate-50 rounded-lg">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={selectedPayments.size === pendingPayments.length && pendingPayments.length > 0}
+                        onChange={toggleSelectAll}
+                        className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span className="text-sm font-medium text-slate-700">
+                        {selectedPayments.size === 0 
+                          ? 'Selecionar todos' 
+                          : `${selectedPayments.size} selecionado(s)`}
+                      </span>
+                    </label>
+                    {selectedPayments.size > 0 && (
                       <button
-                        onClick={() => handleConfirm(payment.paymentId)}
-                        disabled={confirmingId === payment.paymentId}
-                        className="w-full px-4 py-2.5 bg-emerald-600 text-white rounded-lg font-medium text-sm hover:bg-emerald-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                        onClick={() => setSelectedPayments(new Set())}
+                        className="text-sm text-slate-500 hover:text-slate-700 flex items-center gap-1"
                       >
-                        {confirmingId === payment.paymentId ? (
-                          <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>Confirmando...</>
-                        ) : (
-                          <><IconCheck className="w-4 h-4" />Confirmar pagamento</>
-                        )}
+                        <IconTrash className="w-3 h-3" /> Limpar seleção
                       </button>
-                    </div>
-                  ))}
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {pendingPayments.map((payment) => (
+                      <div 
+                        key={payment.paymentId} 
+                        className={`bg-white rounded-xl border p-4 transition ${
+                          selectedPayments.has(payment.paymentId) 
+                            ? 'border-indigo-500 ring-1 ring-indigo-500' 
+                            : 'border-slate-200 hover:border-indigo-300'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={selectedPayments.has(payment.paymentId)}
+                              onChange={() => togglePaymentSelection(payment.paymentId)}
+                              className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                            />
+                            <span className="px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-medium">
+                              Aguardando
+                            </span>
+                          </div>
+                          <span className="text-lg font-bold text-slate-900">{formatCurrency(payment.amount)}</span>
+                        </div>
+                        
+                        <div className="space-y-2 mb-4">
+                          <div>
+                            <p className="text-xs text-slate-500">Comprador</p>
+                            <p className="text-sm font-medium text-slate-900">{payment.payerName || 'Não informado'}</p>
+                            <p className="text-xs text-slate-600">{payment.payerEmail}</p>
+                          </div>
+                          {payment.receiptUrl && (
+                            <div>
+                              <p className="text-xs text-slate-500">Comprovante</p>
+                              <button
+                                onClick={() => setPreviewImage(payment.receiptUrl || null)}
+                                className="relative w-full h-20 rounded-lg overflow-hidden border border-slate-200 hover:border-indigo-500 transition"
+                              >
+                                <img src={payment.receiptUrl} alt="Comprovante" className="w-full h-full object-cover" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        <button
+                          onClick={() => handleConfirm(payment.paymentId)}
+                          disabled={confirmingId === payment.paymentId}
+                          className="w-full px-4 py-2.5 bg-emerald-600 text-white rounded-lg font-medium text-sm hover:bg-emerald-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                          {confirmingId === payment.paymentId ? (
+                            <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>Confirmando...</>
+                          ) : (
+                            <><IconCheck className="w-4 h-4" />Confirmar pagamento</>
+                          )}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
           )}
 
-          {/* Config Tab */}
-          {activeTab === 'config' && (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <IconSettings className="w-8 h-8 text-indigo-600" />
-              </div>
-              <h3 className="text-lg font-medium text-slate-900 mb-2">Configurações de Pagamento</h3>
-              <p className="text-slate-500 mb-6 max-w-md mx-auto">
-                Configure o MercadoPago para enviar os links ou gerencie sua chave PIX para recebimento direto.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <Link
-                  href="/admin/settings/payments"
-                  className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition"
-                >
-                  <IconSettings className="w-4 h-4" />
-                  Configurar MercadoPago
-                </Link>
-                <Link
-                  href="/admin/settings/personal"
-                  className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50 transition"
-                >
-                  <IconExternalLink className="w-4 h-4" />
-                  Configurar Chave PIX
-                </Link>
-              </div>
-            </div>
-          )}
+
         </div>
       </div>
 
