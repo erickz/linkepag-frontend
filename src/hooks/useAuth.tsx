@@ -3,6 +3,8 @@
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.linkepag.com.br';
+
 export interface User {
   id: string;
   fullName: string;
@@ -20,6 +22,7 @@ interface AuthContextType {
   isLoggingOut: boolean;
   login: (token: string, user: User, isNewUser?: boolean) => void;
   logout: () => void;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -143,6 +146,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push('/');
   }, [clearAuth, router]);
 
+  // Função para buscar perfil atualizado da API
+  const refreshUser = useCallback(async () => {
+    if (!token) return;
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/users/profile`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Atualiza apenas se houve mudança no planId ou outros dados
+        const updatedUser: User = {
+          id: data.id,
+          fullName: data.fullName,
+          email: data.email,
+          cpf: data.cpf,
+          username: data.username,
+          planId: data.planId,
+        };
+        
+        setUser(updatedUser);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('user', JSON.stringify(updatedUser));
+        }
+      }
+    } catch (error) {
+      console.error('[useAuth] Error refreshing user:', error);
+    }
+  }, [token]);
+
   // Valor memoizado para evitar re-renders desnecessários
   const value = {
     user,
@@ -152,6 +190,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isLoggingOut,
     login,
     logout,
+    refreshUser,
   };
 
   return (

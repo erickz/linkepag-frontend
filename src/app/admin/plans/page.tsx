@@ -195,7 +195,7 @@ function Alert({
 
 // Main Page Component
 export default function PlansPage() {
-  const { user, isAuthenticated, isLoading: isAuthLoading } = useAuth();
+  const { user, isAuthenticated, isLoading: isAuthLoading, refreshUser } = useAuth();
   const router = useRouter();
   
   // Estados locais
@@ -224,6 +224,13 @@ export default function PlansPage() {
   } | null>(null);
 
   useProtectedRoute('/login');
+
+  // Atualiza os dados do usuário ao montar a página para garantir planId atualizado
+  useEffect(() => {
+    if (isAuthenticated) {
+      refreshUser();
+    }
+  }, [isAuthenticated, refreshUser]);
 
   // Hooks de dados
   const {
@@ -462,6 +469,8 @@ export default function PlansPage() {
   const handleCancel = async () => {
     try {
       await cancelSubscription(cancelReason);
+      // Atualiza os dados do usuário após cancelamento
+      await refreshUser();
       setShowCancelModal(false);
       setCancelReason('');
       setMessage({ type: 'success', text: 'Assinatura cancelada. Você foi movido para o plano Starter.' });
@@ -780,7 +789,7 @@ export default function PlansPage() {
               <div className="flex items-center gap-3">
                 <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${PLAN_COLORS[selectedPlan].gradient} flex items-center justify-center`}>
                   <span className="text-white font-bold text-lg">
-                    {plans.find(p => p.id === selectedPlan)?.name || 'Plano'[0]}
+                    {(plans.find(p => p.id === selectedPlan)?.name || 'Plano')[0]}
                   </span>
                 </div>
                 <div>
