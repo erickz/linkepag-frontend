@@ -7,7 +7,7 @@ import { useAuth, useProtectedRoute, User } from '@/hooks/useAuth';
 import { useApi } from '@/hooks/useApi';
 import { useSubscription } from '@/hooks/useSubscription';
 import { CreditCardForm } from '@/components/CreditCardForm';
-import { apiCache } from '@/lib/api';
+
 import { getBillingSummary, BillingSummary, getLinks } from '@/lib/api';
 
 // Types para Links
@@ -241,7 +241,6 @@ export default function PlansPage() {
 
   // Fetch billing data
   const fetchBillingData = useCallback(async (): Promise<BillingData> => {
-    // Buscar dados reais do billing summary
     let billingSummary: BillingSummary | null = null;
     try {
       billingSummary = await getBillingSummary();
@@ -249,6 +248,11 @@ export default function PlansPage() {
       console.error('Erro ao buscar billing summary:', error);
     }
 
+    const hybridData = billingSummary?.hybrid;
+    
+    const transactionCount = hybridData?.transactionCount ?? billingSummary?.currentInvoice?.transactionCount ?? 0;
+    const totalTransactionFees = hybridData?.totalTransactionFees ?? billingSummary?.currentInvoice?.totalFees ?? 0;
+    
     const cycle: BillingCycle | null = subscription ? {
       id: subscription.id || 'current',
       planId: subscription.planId,
@@ -258,10 +262,10 @@ export default function PlansPage() {
       daysRemaining: subscription.expiresAt 
         ? Math.max(0, Math.ceil((new Date(subscription.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
         : 30,
-      transactionCount: billingSummary?.currentInvoice?.transactionCount || 0,
-      totalTransactionFees: billingSummary?.currentInvoice?.totalFees || 0,
+      transactionCount,
+      totalTransactionFees,
       monthlyFee: currentPlan?.monthlyPrice || 0,
-      totalAmount: (currentPlan?.monthlyPrice || 0) + (billingSummary?.currentInvoice?.totalFees || 0),
+      totalAmount: (currentPlan?.monthlyPrice || 0) + totalTransactionFees,
       status: subscription.status === 'active' ? 'open' : 'closed',
     } : null;
 
@@ -269,19 +273,20 @@ export default function PlansPage() {
       cycle,
       invoice: null,
       usage: {
-        transactions: billingSummary?.currentInvoice?.transactionCount || 0,
-        totalFees: billingSummary?.currentInvoice?.totalFees || 0,
+        transactions: transactionCount,
+        totalFees: totalTransactionFees,
         feePerTransaction: currentPlan?.feePerTransaction || 0.70,
-        projectedTotal: (currentPlan?.monthlyPrice || 0) + (billingSummary?.currentInvoice?.totalFees || 0),
+        projectedTotal: (currentPlan?.monthlyPrice || 0) + totalTransactionFees,
       },
     };
   }, [subscription, currentPlan]);
 
   const { 
     data: billingData, 
-    isLoading: isLoadingBilling 
+    isLoading: isLoadingBilling,
+    refetch: refetchBilling 
   } = useApi<BillingData>('billing-current', fetchBillingData, {
-    ttl: 30 * 1000,
+    ttl: 30 * 1000, // 30 segundos
     enabled: isAuthenticated,
   });
 
@@ -564,11 +569,13 @@ export default function PlansPage() {
                 <div>
                   <p className="text-xs text-slate-500">Taxa por vendas realizadas</p>
                   <p className="font-semibold text-indigo-600">
-                    {billingData?.cycle?.totalAmount ? formatCurrency(billingData.cycle.totalAmount) : formatCurrency(currentUserPlan?.monthlyPrice || 0)}
+                    {(billingData?.usage?.totalFees ?? 0) > 0 
+                      ? formatCurrency(billingData!.usage!.totalFees) 
+                      : 'R$ 0,00'}
                   </p>
-                  {(billingData?.cycle?.totalTransactionFees || 0) > 0 && (
+                  {(billingData?.usage?.totalFees ?? 0) > 0 && (
                     <p className="text-xs text-slate-400">
-                      {formatCurrency(currentUserPlan?.monthlyPrice || 0)} + {formatCurrency(billingData?.cycle?.totalTransactionFees || 0)} taxas
+                      {billingData?.usage?.transactions || 0} venda{billingData?.usage?.transactions !== 1 ? 's' : ''} × {formatCurrency(currentUserPlan?.feePerTransaction || 0)}
                     </p>
                   )}
                 </div>
@@ -578,28 +585,42 @@ export default function PlansPage() {
                     {isLoadingLinks ? '...' : `${paidLinksCount} ${currentUserPlan?.maxPaidLinks === Infinity ? '' : `/ ${currentUserPlan?.maxPaidLinks || 3}`}`}
                   </p>
                 </div>
-                <div>
-                  <p className="text-xs text-slate-500">Período atual</p>
-                  <p className="font-semibold text-slate-900">
-                    {billingData?.cycle ? formatPeriod(billingData.cycle.startDate, billingData.cycle.endDate) : '-'}
-                  </p>
-                </div>
+                {currentUserPlan?.id !== 1 && (
+                  <div>
+                    <p className="text-xs text-slate-500">Período atual</p>
+                    <p className="font-semibold text-slate-900">
+                      {billingData?.cycle ? formatPeriod(billingData.cycle.startDate, billingData.cycle.endDate) : '-'}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* CTA */}
-            <div className="lg:text-right">
-              {!hasPendingSubscription && (
+            <div className="lg:text-right space-y-2">
+              <div className="flex items-center gap-2 justify-end">
                 <button
-                  onClick={scrollToPlans}
-                  className="inline-flex items-center px-5 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 transition shadow-sm"
+                  onClick={() => refetchBilling()}
+                  disabled={isLoadingBilling}
+                  className="inline-flex items-center px-3 py-2.5 bg-white border border-slate-200 text-slate-600 text-sm font-medium rounded-xl hover:bg-slate-50 transition"
+                  title="Atualizar dados de vendas"
                 >
-                  Ver planos
-                  <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  <svg className={`w-4 h-4 ${isLoadingBilling ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                   </svg>
                 </button>
-              )}
+                {!hasPendingSubscription && (
+                  <button
+                    onClick={scrollToPlans}
+                    className="inline-flex items-center px-5 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 transition shadow-sm"
+                  >
+                    Ver planos
+                    <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                )}
+              </div>
               
               {subscription?.status === 'active' && subscription?.expiresAt && !hasPendingSubscription && (
                 <p className="text-xs text-slate-500 mt-2">
@@ -1000,8 +1021,8 @@ export default function PlansPage() {
               >
                 {/* Header */}
                 <div className={`${colors.bg} px-5 py-4 rounded-t-2xl border-b ${colors.border}`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${colors.badge}`}>
+                  <div className="flex items-center justify-between mb-2 gap-2">
+                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${colors.badge} truncate max-w-[80px]`}>
                       {getPlanBadge(plan)}
                     </span>
                     {current && subscription?.status === 'active' && (

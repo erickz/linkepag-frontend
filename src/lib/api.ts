@@ -917,6 +917,13 @@ export interface BillingSummary {
   pendingFees: number;
   currentInvoice: CurrentInvoice | null;
   recentTransactions: FeeReport['transactions'];
+  // Dados do novo sistema híbrido
+  hybrid?: {
+    cycleActive: boolean;
+    daysRemaining: number;
+    transactionCount: number;
+    totalTransactionFees: number;
+  };
 }
 
 export async function getFeeReport(startDate?: string, endDate?: string): Promise<FeeReport> {

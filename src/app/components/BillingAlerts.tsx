@@ -74,15 +74,30 @@ export function BillingAlerts({ user, invoice }: BillingAlertsProps) {
   // Lógica para determinar quais alertas mostrar
   const alerts: BillingAlert[] = [];
 
-  // 1. Pagamento falhou ou conta suspensa
-  if (invoice?.status === 'failed' || user?.billingStatus === 'suspended' || user?.billingStatus === 'blocked') {
+  // 0. Conta suspensa (mais grave - prioridade máxima)
+  if (user?.billingStatus === 'suspended' || user?.billingStatus === 'blocked') {
+    alerts.push({
+      id: 'account-suspended',
+      type: 'error',
+      title: '⚠️ Pagamento Pendente - Links Monetizados Desativados',
+      message: 'Sua conta está com pagamento pendente. Seus links monetizados estão temporariamente desativados. Finalize o pagamento abaixo para reativar suas vendas imediatamente.',
+      action: {
+        label: 'Reativar Agora',
+        onClick: () => router.push('/admin/plans'),
+      },
+      dismissible: false,
+    });
+  }
+
+  // 1. Pagamento falhou
+  else if (invoice?.status === 'failed') {
     alerts.push({
       id: 'payment-failed',
       type: 'error',
-      title: 'Pagamento Falhou',
-      message: 'Sua fatura não foi paga. Regularize agora para evitar a suspensão da sua conta.',
+      title: 'Pagamento Não Confirmado',
+      message: 'Não conseguimos confirmar seu pagamento. Tente novamente ou use outro método de pagamento para manter seus links monetizados ativos.',
       action: {
-        label: 'Pagar Agora',
+        label: 'Tentar Novamente',
         onClick: () => router.push('/admin/plans'),
       },
       dismissible: false,
@@ -98,9 +113,9 @@ export function BillingAlerts({ user, invoice }: BillingAlertsProps) {
       id: 'payment-overdue',
       type: 'error',
       title: 'Fatura Atrasada',
-      message: `Sua fatura venceu em ${dueDate}. Pague até ${graceEnd} para evitar a suspensão da conta.`,
+      message: `Sua fatura venceu em ${dueDate}. Pague até ${graceEnd} para manter seus links monetizados ativos e evitar a desativação temporária.`,
       action: {
-        label: 'Regularizar',
+        label: 'Regularizar Agora',
         onClick: () => router.push('/admin/plans'),
       },
       dismissible: false,
@@ -115,8 +130,8 @@ export function BillingAlerts({ user, invoice }: BillingAlertsProps) {
     alerts.push({
       id: 'grace-period',
       type: 'warning',
-      title: 'Período de Carência',
-      message: `Você está no período de carência. Pague até ${graceEnd} (${daysRemaining} dias) para manter sua conta ativa.`,
+      title: 'Últimos Dias para Pagamento',
+      message: `Você tem ${daysRemaining} dia${daysRemaining !== 1 ? 's' : ''} até ${graceEnd} para pagar sua fatura. Após isso, seus links monetizados serão temporariamente desativados até a regularização.`,
       action: {
         label: 'Pagar Agora',
         onClick: () => router.push('/admin/plans'),
