@@ -408,8 +408,6 @@ export default function PlansPage() {
         setMessage({ type: 'success', text: 'Pagamento crado com sucesso, aguarde a confirmação para ativar seu plano!' });
         setSelectedPlan(null);
       }
-      
-      apiCache.clear();
     } catch (error: any) {
       let errorMessage = error.response?.data?.message || error.message || 'Erro ao criar assinatura';
       
