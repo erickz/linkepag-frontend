@@ -465,7 +465,6 @@ export default function PlansPage() {
       setShowCancelModal(false);
       setCancelReason('');
       setMessage({ type: 'success', text: 'Assinatura cancelada. Você foi movido para o plano Starter.' });
-      apiCache.clear();
     } catch (error: any) {
       setMessage({ 
         type: 'error', 
