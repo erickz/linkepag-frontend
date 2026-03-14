@@ -170,7 +170,7 @@ function LinkButtonComponent({
       return (
         <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
           <span className={`text-sm sm:text-xl font-bold ${accentColor?.textClass || 'text-amber-400'}`}>
-            R$ {formatPrice(link.price ?? 0)}
+            R$ {formatPrice(link.price || 0)}
           </span>
           <div className={`px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl font-bold text-xs shadow-sm transition whitespace-nowrap ${
             isExpanded 
