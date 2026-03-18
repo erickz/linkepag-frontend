@@ -479,7 +479,7 @@ export default function PublicPage() {
           </div>
         )}
 
-        <div className="relative z-10 max-w-lg mx-auto px-4 py-8 sm:py-12">
+        <div className="relative z-10 max-w-lg mx-auto px-4 py-4">
           {/* Profile Card */}
           <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden">
             {/* Header Banner - Usa o gradiente selecionado */}
