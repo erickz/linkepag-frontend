@@ -96,7 +96,7 @@ export default function PixCheckout({
       console.log('Creating payment for link:', linkId, 'isPixDirect:', isPixDirect);
       
       // Obter deviceId do MercadoPago para análise antifraude
-      const deviceId = getDeviceId();
+      const deviceId = getDeviceId() || undefined;
       console.log('Device ID:', deviceId);
       
       const response = isPixDirect 
