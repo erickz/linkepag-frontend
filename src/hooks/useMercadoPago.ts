@@ -12,6 +12,7 @@ declare global {
 interface MercadoPagoInstance {
   getIdentificationTypes(): Promise<{ id: string; name: string }[]>;
   createCardToken(cardData: CardTokenData): Promise<{ id: string; [key: string]: unknown }>;
+  getDeviceId?(): string | null;
 }
 
 interface CardTokenData {
@@ -29,6 +30,7 @@ interface UseMercadoPagoReturn {
   isReady: boolean;
   error: string | null;
   createCardToken: (cardData: CardTokenData, abortSignal?: AbortSignal) => Promise<string | null>;
+  getDeviceId: () => string | null;
 }
 
 const MP_PUBLIC_KEY = process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY || '';
@@ -146,11 +148,24 @@ export function useMercadoPago(): UseMercadoPagoReturn {
     }
   }, []);
 
+  const getDeviceId = useCallback((): string | null => {
+    if (!mpInstanceRef.current) {
+      return null;
+    }
+    // O MercadoPago SDK V2 armazena o device ID em window.MP_DEVICE_ID
+    // ou pode ser obtido via mpInstanceRef.current
+    if (typeof window !== 'undefined' && (window as any).MP_DEVICE_ID) {
+      return (window as any).MP_DEVICE_ID;
+    }
+    return null;
+  }, []);
+
   return {
     isLoading,
     isReady,
     error,
     createCardToken,
+    getDeviceId,
   };
 }
 

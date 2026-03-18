@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { createPayment, createPixDirectPayment, uploadReceipt, checkPaymentStatus } from '@/lib/api';
+import { useMercadoPago } from '@/hooks/useMercadoPago';
 import { formatPrice } from '@/lib/masks';
 
 interface PixCheckoutProps {
@@ -60,6 +61,8 @@ export default function PixCheckout({
   const lastCheckRef = useRef<number>(0);
   const DEBOUNCE_MS = 5000;
 
+  const { getDeviceId } = useMercadoPago();
+
   // Determina qual método de pagamento usar
   // Regra: MercadoPago tem prioridade se ambos estiverem configurados
   // isPixDirect só é true se MP NÃO estiver configurado e PIX estiver
@@ -92,9 +95,13 @@ export default function PixCheckout({
     try {
       console.log('Creating payment for link:', linkId, 'isPixDirect:', isPixDirect);
       
+      // Obter deviceId do MercadoPago para análise antifraude
+      const deviceId = getDeviceId();
+      console.log('Device ID:', deviceId);
+      
       const response = isPixDirect 
-        ? await createPixDirectPayment(linkId, { email, name: name.trim() })
-        : await createPayment(linkId, { email, name: name.trim() });
+        ? await createPixDirectPayment(linkId, { email, name: name.trim(), deviceId })
+        : await createPayment(linkId, { email, name: name.trim(), deviceId });
       
       console.log('Payment response:', response);
       
