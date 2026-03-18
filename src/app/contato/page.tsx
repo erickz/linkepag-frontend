@@ -70,10 +70,9 @@ export default function ContatoPage() {
           <Link href="/faq" className="text-sm font-medium text-slate-600">
             FAQ
           </Link>
-          <Link
-              href="/login" className="inline-flex items-center justify-center h-9 px-5 rounded-full bg-emerald-500 text-white text-sm font-semibold hover:bg-emerald-600 transition shadow-md shadow-emerald-200">
+          <AuthNavButton className="inline-flex items-center justify-center h-9 px-5 rounded-full bg-emerald-500 text-white text-sm font-semibold hover:bg-emerald-600 transition shadow-md shadow-emerald-200">
             Login
-          </Link>
+          </AuthNavButton>
         </div>
       </nav>
 

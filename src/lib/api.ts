@@ -854,6 +854,35 @@ export async function renewSubscription(cardToken?: string) {
   return response.json();
 }
 
+export async function scheduleDowngrade(targetPlanId: number, reason?: string) {
+  const response = await fetch(`${API_BASE_URL}/subscriptions/downgrade/schedule`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ targetPlanId, reason }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Erro ao agendar downgrade');
+  }
+
+  return response.json();
+}
+
+export async function getScheduledDowngrade() {
+  const response = await fetch(`${API_BASE_URL}/subscriptions/downgrade/scheduled`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Erro ao buscar downgrade agendado');
+  }
+
+  return response.json();
+}
+
 // ============ CONTACT ============
 
 export async function submitContactForm(data: {
@@ -879,158 +908,48 @@ export async function submitContactForm(data: {
   return result;
 }
 
-// ============ BILLING / TAXAS ============
+// ============ MERCADO PAGO OAUTH ============
 
-export interface FeeReport {
-  totalTransactionFees: number;
-  pendingFees: number;
-  paidFees: number;
-  waivedFees: number;
-  transactions: Array<{
-    id: string;
-    date: string;
-    amount: number;
-    fee: number;
-    netAmount: number;
-    description: string;
-    status: string;
-  }>;
-}
-
-export interface CurrentInvoice {
-  invoiceId: string | null;
-  totalFees: number;
-  transactionCount: number;
-  dueDate: string | null;
-  pixCode?: string;
-  qrCodeUrl?: string;
-  // Campos para sistema de alertas de billing
-  status?: 'draft' | 'pending' | 'processing' | 'paid' | 'overdue' | 'failed' | 'cancelled';
-  gracePeriodEnd?: string;
-  autoChargeAttempts?: number;
-  totalAmount?: number;
-}
-
-export interface BillingSummary {
-  feeBalance: number;
-  totalFeesPaid: number;
-  pendingFees: number;
-  currentInvoice: CurrentInvoice | null;
-  recentTransactions: FeeReport['transactions'];
-  // Dados do novo sistema híbrido
-  hybrid?: {
-    cycleActive: boolean;
-    daysRemaining: number;
-    transactionCount: number;
-    totalTransactionFees: number;
-  };
-}
-
-export async function getFeeReport(startDate?: string, endDate?: string): Promise<FeeReport> {
-  const params = new URLSearchParams();
-  if (startDate) params.append('startDate', startDate);
-  if (endDate) params.append('endDate', endDate);
-
-  const response = await fetch(`${API_BASE_URL}/billing/report?${params.toString()}`, {
-    method: 'GET',
-    headers: getAuthHeaders(),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || 'Erro ao obter relatório de taxas');
-  }
-
-  const result = await response.json();
-  return result.data;
-}
-
-export async function getCurrentInvoice(): Promise<CurrentInvoice> {
-  const response = await fetch(`${API_BASE_URL}/billing/invoice/current`, {
-    method: 'GET',
-    headers: getAuthHeaders(),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || 'Erro ao obter fatura atual');
-  }
-
-  const result = await response.json();
-  return result.data;
-}
-
-export async function generateInvoice() {
-  const response = await fetch(`${API_BASE_URL}/billing/invoice/generate`, {
+export async function initiateMpOAuth() {
+  const response = await fetch(`${API_BASE_URL}/mp-oauth/initiate`, {
     method: 'POST',
     headers: getAuthHeaders(),
-    body: JSON.stringify({}),
   });
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.message || 'Erro ao gerar fatura');
+    throw new Error(error.message || 'Erro ao iniciar OAuth');
   }
 
   return response.json();
 }
 
-export async function getBillingSummary(): Promise<BillingSummary> {
-  const response = await fetch(`${API_BASE_URL}/billing/summary`, {
+export async function getMpOAuthStatus() {
+  const response = await fetch(`${API_BASE_URL}/mp-oauth/status`, {
     method: 'GET',
     headers: getAuthHeaders(),
   });
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.message || 'Erro ao obter resumo de cobranças');
+    throw new Error(error.message || 'Erro ao obter status OAuth');
   }
 
-  const result = await response.json();
-  return result.data;
+  return response.json();
 }
 
-export async function getUserFees(
-  page = 1,
-  limit = 20,
-  status?: string
-): Promise<{
-  fees: Array<{
-    _id: string;
-    amount: number;
-    status: string;
-    description: string;
-    createdAt: string;
-    paidAt?: string;
-    transactionAmount?: number;
-    paymentId?: {
-      paymentId: string;
-      amount: number;
-      payerEmail?: string;
-      payerName?: string;
-    };
-  }>;
-  total: number;
-  page: number;
-  totalPages: number;
-}> {
-  const params = new URLSearchParams();
-  params.append('page', page.toString());
-  params.append('limit', limit.toString());
-  if (status) params.append('status', status);
-
-  const response = await fetch(`${API_BASE_URL}/billing/fees?${params.toString()}`, {
-    method: 'GET',
+export async function disconnectMpOAuth() {
+  const response = await fetch(`${API_BASE_URL}/mp-oauth/disconnect`, {
+    method: 'DELETE',
     headers: getAuthHeaders(),
   });
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.message || 'Erro ao obter taxas');
+    throw new Error(error.message || 'Erro ao desconectar OAuth');
   }
 
-  const result = await response.json();
-  return result.data;
+  return response.json();
 }
 
 // ============ SUBSCRIPTION HISTORY ============

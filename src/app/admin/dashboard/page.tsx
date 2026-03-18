@@ -6,7 +6,6 @@ import { useAuth, useProtectedRoute } from '@/hooks/useAuth';
 import { useApiParallel } from '@/hooks/useApi';
 import { getLinks, getProfile, getMercadoPagoCredentials, getSalesReport, getPendingPayments, CACHE_KEYS } from '@/lib/api';
 import { PageHeader } from '@/components/PageHeader';
-import { BillingAlerts } from '@/app/components/BillingAlerts';
 import { 
   IconLink, 
   IconUser, 
@@ -71,15 +70,6 @@ export default function AdminDashboard() {
   const links = data?.links?.links || [];
   const profile = data?.profile;
 
-  // Dados para alertas de billing
-  const billingUserStatus = {
-    billingStatus: (profile?.planStatus === 'expired' ? 'grace_period' : 
-                   profile?.planStatus === 'pending_payment' ? 'grace_period' : 'active') as 'active' | 'grace_period' | 'suspended' | 'blocked',
-    planStatus: profile?.planStatus,
-  };
-  
-  // Aqui você pode integrar com dados reais da API de billing quando disponível
-  const billingInvoice = null; // Substituir por dados reais quando disponível
   const activeLinks = links.filter((l: LinkItem) => l.isActive).length;
   const paidLinks = links.filter((l: LinkItem) => l.isPaid).length;
 
@@ -169,9 +159,6 @@ export default function AdminDashboard() {
 
   return (
     <div>
-      {/* Alertas de Billing */}
-      <BillingAlerts user={billingUserStatus} invoice={billingInvoice} />
-      
       <PageHeader
         title="Dashboard"
         description="Visão geral da sua conta e estatísticas"
@@ -258,12 +245,6 @@ export default function AdminDashboard() {
                 <span className="text-xs text-slate-400">•</span>
                 <span className="text-xs font-medium text-indigo-600">Todo o período</span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-400">Total acumulado</span>
-                <span className="text-lg font-bold text-slate-800">
-                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(salesReport?.totalSales || 0)}
-                </span>
-              </div>
             </div>
           </div>
         </div>
@@ -331,7 +312,7 @@ export default function AdminDashboard() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-slate-900">
-                {getPlanName()}
+                Plano {getPlanName()}
               </p>
               <div className="flex items-center gap-1.5 mt-1">
                 <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">

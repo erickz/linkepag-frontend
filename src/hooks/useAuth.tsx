@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react';
+import { useState, useEffect, createContext, useContext, ReactNode, useCallback, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.linkepag.com.br';
@@ -182,16 +182,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [token]);
 
   // Valor memoizado para evitar re-renders desnecessários
-  const value = {
-    user,
-    token,
-    isLoading,
-    isAuthenticated: !!token && !!user,
-    isLoggingOut,
-    login,
-    logout,
-    refreshUser,
-  };
+  const value = useMemo(() => {
+    console.log('[useAuth] Creating value object, refreshUser type:', typeof refreshUser);
+    return {
+      user,
+      token,
+      isLoading,
+      isAuthenticated: !!token && !!user,
+      isLoggingOut,
+      login,
+      logout,
+      refreshUser,
+    };
+  }, [user, token, isLoading, isLoggingOut, login, logout, refreshUser]);
 
   return (
     <AuthContext.Provider value={value}>

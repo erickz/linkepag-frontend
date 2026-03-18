@@ -1,8 +1,10 @@
 'use client';
 
-
+import { useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAuth, useProtectedRoute } from '@/hooks/useAuth';
 import { usePaymentSettings, PaymentMethod } from '@/hooks/usePaymentSettings';
+import { useMpOAuth } from '@/hooks/useMpOAuth';
 import { PageHeader } from '@/components/PageHeader';
 import { 
   IconCreditCard, 
@@ -10,7 +12,24 @@ import {
   IconAlert, 
   IconExternalLink,
   IconSmartphone,
+  IconRefresh,
+  IconUnlink,
 } from '@/components/icons';
+
+// Taxas por plano
+const PLAN_FEES: Record<number, string> = {
+  1: 'R$ 0,70',  // Starter
+  2: 'R$ 0,50',  // Creator
+  3: 'R$ 0,35',  // Pro
+  4: 'R$ 0,20',  // Ilimitado
+};
+
+// Componente para exibir a taxa baseada no plano do usuário
+function FeeDisplay() {
+  const { user } = useAuth();
+  const fee = user?.planId ? PLAN_FEES[user.planId] : 'R$ 0,70';
+  return <span>{fee}</span>;
+}
 
 // Componente do Card de Método de Pagamento
 function PaymentMethodCard({
@@ -134,22 +153,114 @@ function PaymentMethodCard({
   );
 }
 
-// Formulário MercadoPago
-function MercadoPagoForm({
-  publicKey,
-  accessToken,
-  isConfigured,
-  showCredentials,
-  onChange,
-  onToggleShow,
+// Card de status OAuth do MercadoPago
+function MercadoPagoOAuthCard({
+  status,
+  connectionData,
+  hasLegacyCredentials,
+  isConnecting,
+  isDisconnecting,
+  onConnect,
+  onDisconnect,
+  onRefresh,
 }: {
-  publicKey: string;
-  accessToken: string;
-  isConfigured: boolean;
-  showCredentials: boolean;
-  onChange: (field: 'publicKey' | 'accessToken', value: string) => void;
-  onToggleShow: () => void;
+  status: 'loading' | 'connected' | 'disconnected' | 'error';
+  connectionData?: { email: string; connectedAt: Date };
+  hasLegacyCredentials: boolean;
+  isConnecting: boolean;
+  isDisconnecting: boolean;
+  onConnect: () => void;
+  onDisconnect: () => void;
+  onRefresh: () => void;
 }) {
+  if (status === 'loading') {
+    return (
+      <div className="bg-white rounded-2xl border border-slate-200 p-6">
+        <div className="flex items-center justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-600"></div>
+        </div>
+      </div>
+    );
+  }
+
+  // Estado: Conectado via OAuth
+  if (status === 'connected' && connectionData) {
+    return (
+      <div className="bg-white rounded-2xl border border-slate-200 p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center">
+            <IconCheck className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">MercadoPago Conectado</h2>
+            <p className="text-sm text-slate-500">Sua conta está vinculada via OAuth</p>
+          </div>
+        </div>
+
+        <div className="bg-slate-50 rounded-xl p-4 mb-6">
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">Conta</p>
+                <p className="text-sm font-medium text-slate-900">{connectionData.email}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">Conectado em</p>
+                <p className="text-sm font-medium text-slate-900">
+                  {connectionData.connectedAt.toLocaleDateString('pt-BR', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                  })}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            onClick={onDisconnect}
+            disabled={isDisconnecting}
+            className="flex-1 h-11 px-4 bg-rose-50 text-rose-600 border border-rose-200 rounded-xl font-medium text-sm hover:bg-rose-100 transition disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {isDisconnecting ? (
+              <>
+                <div className="w-4 h-4 border-2 border-rose-300 border-t-rose-600 rounded-full animate-spin"></div>
+                Desconectando...
+              </>
+            ) : (
+              <>
+                <IconUnlink className="w-4 h-4" />
+                Desconectar
+              </>
+            )}
+          </button>
+          <button
+            onClick={onRefresh}
+            className="h-11 px-4 bg-slate-100 text-slate-700 rounded-xl font-medium text-sm hover:bg-slate-200 transition flex items-center justify-center gap-2"
+          >
+            <IconRefresh className="w-4 h-4" />
+            Atualizar
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Estado: Desconectado (pode ter credenciais legadas)
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-6">
       <div className="flex items-center gap-3 mb-6">
@@ -157,64 +268,89 @@ function MercadoPagoForm({
           <IconCreditCard className="w-5 h-5 text-white" />
         </div>
         <div>
-          <h2 className="text-lg font-bold text-slate-900">Configurar MercadoPago</h2>
-          <p className="text-sm text-slate-500">Insira suas credenciais de integração</p>
+          <h2 className="text-lg font-bold text-slate-900">
+            {hasLegacyCredentials ? 'Credenciais Antigas Detectadas' : 'Receber com MercadoPago'}
+          </h2>
+          <p className="text-sm text-slate-500">
+            {hasLegacyCredentials 
+              ? 'Você está usando credenciais manuais. Recomendamos reconectar.' 
+              : 'Conecte sua conta para receber pagamentos'}
+          </p>
         </div>
       </div>
 
-      <div className="space-y-5">
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Public Key
-          </label>
-          <div className="relative">
-            <input
-              type={showCredentials ? 'text' : 'password'}
-              value={publicKey}
-              onChange={(e) => onChange('publicKey', e.target.value)}
-              placeholder="TEST-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-              className="w-full h-11 px-4 pr-24 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition text-sm font-mono"
-            />
-            <button
-              type="button"
-              onClick={onToggleShow}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-500 hover:text-slate-700"
-            >
-              {showCredentials ? 'Ocultar' : 'Mostrar'}
-            </button>
+      {/* Alerta de credenciais legadas */}
+      {hasLegacyCredentials && (
+        <div className="mb-6 p-4 rounded-xl border bg-amber-50 border-amber-200">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center bg-amber-100 flex-shrink-0">
+              <IconAlert className="w-4 h-4 text-amber-600" />
+            </div>
+            <div>
+              <p className="font-medium text-amber-900 text-sm">Você está usando credenciais antigas</p>
+              <p className="text-xs text-amber-700 mt-1">
+                Recomendamos reconectar via OAuth para mais segurança e praticidade. Suas vendas continuarão funcionando normalmente.
+              </p>
+            </div>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
-            Começa com <code className="bg-slate-100 px-1 rounded">TEST-</code> (teste) ou{' '}
-            <code className="bg-slate-100 px-1 rounded">APP_USR-</code> (produção)
-          </p>
         </div>
+      )}
 
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Access Token
-          </label>
-          <div className="relative">
-            <input
-              type={showCredentials ? 'text' : 'password'}
-              value={accessToken}
-              onChange={(e) => onChange('accessToken', e.target.value)}
-              placeholder={isConfigured ? '••••••••••••••••' : 'TEST-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'}
-              className="w-full h-11 px-4 pr-24 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition text-sm font-mono"
-            />
-            <button
-              type="button"
-              onClick={onToggleShow}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-500 hover:text-slate-700"
-            >
-              {showCredentials ? 'Ocultar' : 'Mostrar'}
-            </button>
+      {/* Lista de benefícios */}
+      <ul className="space-y-3 mb-6">
+        <li className="flex items-center gap-3 text-sm text-slate-600">
+          <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+            <IconCheck className="w-3 h-3 text-emerald-600" />
           </div>
-          <p className="text-xs text-slate-400 mt-1">
-            O token não será exibido novamente por segurança
-          </p>
-        </div>
+          Dinheiro cai na sua conta MercadoPago
+        </li>
+        <li className="flex items-center gap-3 text-sm text-slate-600">
+          <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+            <IconCheck className="w-3 h-3 text-emerald-600" />
+          </div>
+          Confirmação automática de pagamentos
+        </li>
+        <li className="flex items-center gap-3 text-sm text-slate-600">
+          <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+            <IconCheck className="w-3 h-3 text-emerald-600" />
+          </div>
+          Sem necessidade de inserir credenciais manualmente
+        </li>
+      </ul>
 
+      {/* Taxa - dinâmica baseada no plano */}
+      <div className="bg-slate-50 rounded-xl p-3 mb-6">
+        <p className="text-xs text-slate-500 text-center">
+          Taxa da plataforma: <span className="font-medium text-slate-700"><FeeDisplay /></span> por transação
+        </p>
+        <p className="text-[10px] text-slate-400 text-center mt-1">* Varia conforme seu plano</p>
       </div>
+
+      {/* Botão de conectar */}
+      <button
+        onClick={onConnect}
+        disabled={isConnecting}
+        className="w-full h-11 px-4 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl font-medium text-sm hover:from-blue-600 hover:to-cyan-600 transition disabled:opacity-50 flex items-center justify-center gap-2"
+      >
+        {isConnecting ? (
+          <>
+            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+            Conectando...
+          </>
+        ) : hasLegacyCredentials ? (
+          <>
+            <IconRefresh className="w-4 h-4" />
+            Reconectar Agora
+          </>
+        ) : (
+          <>
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+            </svg>
+            Conectar com MercadoPago
+          </>
+        )}
+      </button>
     </div>
   );
 }
@@ -323,18 +459,37 @@ function PixDirectForm({
 // Main Page Component
 export default function PaymentsSettingsPage() {
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
+  const searchParams = useSearchParams();
   
   const {
     state,
-    setMercadoPagoData,
     setPixDirectData,
-    toggleShowCredentials,
     handleSave,
     clearMessage,
     selectAndSaveMethod,
   } = usePaymentSettings();
 
+  const {
+    status: oauthStatus,
+    connectionData: oauthData,
+    hasLegacyCredentials,
+    isConnecting,
+    isDisconnecting,
+    initiateConnection,
+    disconnect,
+    refreshStatus,
+    error: oauthError,
+  } = useMpOAuth();
+
   useProtectedRoute('/login');
+
+  // Lida com callback OAuth (sucesso/erro)
+  useEffect(() => {
+    const oauthResult = searchParams.get('oauth');
+    if (oauthResult === 'success') {
+      refreshStatus();
+    }
+  }, [searchParams, refreshStatus]);
 
   if (isAuthLoading || state.isLoading) {
     return (
@@ -373,24 +528,39 @@ export default function PaymentsSettingsPage() {
         </div>
       )}
 
-      {/* Mensagem quando ambos configurados */}
-      {state.mercadoPago.publicKey && state.pixDirect.key && (
-        <div className="mb-6 p-4 rounded-xl border bg-blue-50 border-blue-200">
+      {/* Mensagem OAuth após callback */}
+      {searchParams.get('oauth') === 'success' && (
+        <div className="mb-6 p-4 rounded-xl border bg-emerald-50 border-emerald-200">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-blue-100">
-              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-emerald-100">
+              <IconCheck className="w-5 h-5 text-emerald-600" />
             </div>
             <div>
-              <p className="font-medium text-blue-900">Dois métodos configurados</p>
-              <p className="text-sm text-blue-600">
-                {state.activeMethod === 'mercadopago' 
-                  ? 'MercadoPago está ativo. Clique em PIX Direto para alternar.'
-                  : 'PIX Direto está ativo. Clique em MercadoPago para alternar.'}
-              </p>
+              <p className="font-medium text-emerald-900">MercadoPago conectado com sucesso!</p>
+              <p className="text-sm text-emerald-600">Sua conta está vinculada e pronta para receber pagamentos</p>
             </div>
           </div>
+        </div>
+      )}
+
+      {searchParams.get('oauth') === 'error' && (
+        <div className="mb-6 p-4 rounded-xl border bg-rose-50 border-rose-200">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-rose-100">
+              <IconAlert className="w-5 h-5 text-rose-600" />
+            </div>
+            <div>
+              <p className="font-medium text-rose-900">Erro ao conectar</p>
+              <p className="text-sm text-rose-600">{searchParams.get('message') || 'Tente novamente'}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mensagem de erro OAuth */}
+      {oauthError && (
+        <div className="mb-6 p-4 rounded-xl border bg-rose-50 border-rose-200">
+          <p className="font-medium text-rose-700">{oauthError}</p>
         </div>
       )}
 
@@ -400,11 +570,12 @@ export default function PaymentsSettingsPage() {
           method="mercadopago"
           title="MercadoPago"
           badge="Automático"
-          description="Integração completa com confirmação automática"
+          description="Integração OAuth com confirmação automática"
           features={[
             'Dinheiro cai na sua conta MercadoPago',
-            'Clientes recebem acesso do links/arquivos automaticamente',
+            'Clientes recebem acesso automaticamente',
             'Confirmação de pagamento automatizada',
+            'Segurança com OAuth (sem credenciais manuais)',
           ]}
           icon={IconCreditCard}
           isSelected={isMercadoPagoSelected}
@@ -448,13 +619,15 @@ export default function PaymentsSettingsPage() {
 
       {/* Formulário do Método Selecionado */}
       {isMercadoPagoSelected && (
-        <MercadoPagoForm
-          publicKey={state.mercadoPago.publicKey}
-          accessToken={state.mercadoPago.accessToken}
-          isConfigured={state.activeMethod === 'mercadopago'}
-          showCredentials={state.showCredentials}
-          onChange={(field, value) => setMercadoPagoData({ [field]: value })}
-          onToggleShow={toggleShowCredentials}
+        <MercadoPagoOAuthCard
+          status={oauthStatus}
+          connectionData={oauthData}
+          hasLegacyCredentials={hasLegacyCredentials}
+          isConnecting={isConnecting}
+          isDisconnecting={isDisconnecting}
+          onConnect={initiateConnection}
+          onDisconnect={disconnect}
+          onRefresh={refreshStatus}
         />
       )}
 
@@ -470,23 +643,25 @@ export default function PaymentsSettingsPage() {
       {/* Botões de Ação - Apenas para salvar dados do formulário */}
       {state.selectedMethod && (
         <div className="mt-6 flex flex-col sm:flex-row gap-3">
-          <button
-            onClick={handleSave}
-            disabled={state.isSaving}
-            className="flex-1 h-11 px-4 bg-indigo-600 text-white rounded-xl font-medium text-sm hover:bg-indigo-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            {state.isSaving ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                Salvando...
-              </>
-            ) : (
-              <>
-                <IconCheck className="w-4 h-4" />
-                Salvar {isMercadoPagoSelected ? 'Credenciais MercadoPago' : 'Chave PIX'}
-              </>
-            )}
-          </button>
+          {isPixDirectSelected && (
+            <button
+              onClick={handleSave}
+              disabled={state.isSaving}
+              className="flex-1 h-11 px-4 bg-indigo-600 text-white rounded-xl font-medium text-sm hover:bg-indigo-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {state.isSaving ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  Salvando...
+                </>
+              ) : (
+                <>
+                  <IconCheck className="w-4 h-4" />
+                  Salvar Chave PIX
+                </>
+              )}
+            </button>
+          )}
         </div>
       )}
 
@@ -504,7 +679,7 @@ export default function PaymentsSettingsPage() {
               <IconCreditCard className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <p className="font-medium text-slate-900">Obter credenciais MercadoPago</p>
+              <p className="font-medium text-slate-900">Sobre o MercadoPago</p>
               <p className="text-xs text-slate-500">Portal de Desenvolvedores</p>
             </div>
             <IconExternalLink className="w-4 h-4 text-slate-400 ml-auto" />

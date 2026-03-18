@@ -52,7 +52,7 @@ export function PricingSection() {
             <div className="h-8 bg-slate-200 rounded w-1/3 mx-auto mb-4 animate-pulse" />
             <div className="h-6 bg-slate-200 rounded w-1/2 mx-auto animate-pulse" />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[...Array(4)].map((_, i) => (
               <div key={i} className="bg-white rounded-3xl border-2 border-slate-200 p-6 h-96 animate-pulse">
                 <div className="h-6 bg-slate-200 rounded w-1/2 mx-auto mb-4" />
@@ -90,12 +90,12 @@ export function PricingSection() {
             Escolha seu plano
           </h2>
           <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-            Comece grátis e faça upgrade quando quiser. Quanto maior o plano, menor a taxa por venda realizada.
+            Comece grátis e faça upgrade quando quiser. Quanto maior o plano, menor a taxa por venda.
           </p>
         </div>
 
         {/* Plans Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
           {plans.map((plan) => (
             <div
               key={plan.id}
@@ -121,11 +121,6 @@ export function PricingSection() {
                   </span>
                   {plan.monthlyPrice > 0 && <span className="text-slate-500 text-sm">/mês</span>}
                 </div>
-              </div>
-
-              <div className="bg-slate-50 rounded-xl p-3 mb-4 text-center">
-                <p className="text-xs text-slate-500">Taxa por venda realizada:</p>
-                <p className="text-lg font-bold text-indigo-600">R$ {plan.feePerTransactionFormatted}</p>
               </div>
 
               <div className="mb-4">

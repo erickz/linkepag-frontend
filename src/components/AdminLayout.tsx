@@ -2,6 +2,7 @@
 
 import { AdminSidebar } from './AdminSidebar';
 import { PlanNotification } from './PlanNotification';
+import { BillingAlert } from './billing/BillingAlert';
 import { useProtectedRoute } from '@/hooks/useAuth';
 
 interface AdminLayoutProps {
@@ -28,6 +29,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
+        {/* Billing Alert Banner */}
+        <BillingAlert />
+        
         {/* Plan Notification Banner */}
         <PlanNotification />
         

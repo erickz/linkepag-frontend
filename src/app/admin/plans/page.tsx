@@ -8,7 +8,7 @@ import { useApi } from '@/hooks/useApi';
 import { useSubscription } from '@/hooks/useSubscription';
 import { CreditCardForm } from '@/components/CreditCardForm';
 
-import { getBillingSummary, BillingSummary, getLinks } from '@/lib/api';
+import { getLinks, scheduleDowngrade, getScheduledDowngrade } from '@/lib/api';
 
 // Types para Links
 interface LinkItem {
@@ -26,46 +26,16 @@ interface PlanType {
   features: string[];
 }
 
-// Types para Billing Híbrido
-interface BillingCycle {
-  id: string;
-  planId: number;
-  planName: string;
-  startDate: string;
-  endDate: string;
-  daysRemaining: number;
-  transactionCount: number;
-  totalTransactionFees: number;
-  monthlyFee: number;
-  totalAmount: number;
-  status: 'open' | 'closing' | 'closed' | 'invoiced';
+// Types para uso do plano
+interface PlanUsageData {
+  transactions: number;
+  totalFees: number;
+  feePerTransaction: number;
+  projectedTotal: number;
 }
 
-interface Invoice {
-  id: string;
-  invoiceNumber: string;
-  status: 'draft' | 'pending' | 'processing' | 'paid' | 'overdue' | 'failed' | 'cancelled';
-  subscriptionAmount: number;
-  usageAmount: number;
-  totalAmount: number;
-  dueDate: string;
-  gracePeriodEnd?: string;
-  paymentMethod?: 'credit_card_auto' | 'credit_card_manual' | 'pix' | 'boleto';
-  pixCode?: string;
-  pixQrCodeUrl?: string;
-  pixExpirationDate?: string;
-}
-
-interface BillingData {
-  cycle: BillingCycle | null;
-  invoice: Invoice | null;
-  usage: {
-    transactions: number;
-    totalFees: number;
-    feePerTransaction: number;
-    projectedTotal: number;
-  };
-}
+// Hook para billing
+import { useBilling } from '@/hooks/useBilling';
 
 // Configuração de cores por plano
 const PLAN_COLORS: Record<number, { bg: string; border: string; gradient: string; badge: string; text: string }> = {
@@ -111,11 +81,19 @@ const getPlanBadge = (plan: PlanType): string => {
 };
 
 // Formatters
-const formatCurrency = (value: number) => {
+const formatCurrency = (value: number | null | undefined) => {
+  // Handle null, undefined, NaN, or invalid values
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return 'R$ 0,00';
+  }
+  const numValue = Number(value);
+  if (Number.isNaN(numValue)) {
+    return 'R$ 0,00';
+  }
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
-  }).format(value);
+  }).format(numValue);
 };
 
 const formatDate = (dateString: string | null | undefined) => {
@@ -202,6 +180,10 @@ export default function PlansPage() {
   const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'credit_card' | 'pix'>('pix');
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showDowngradeModal, setShowDowngradeModal] = useState(false);
+  const [downgradePlan, setDowngradePlan] = useState<{id: number; name: string} | null>(null);
+  const [isSchedulingDowngrade, setIsSchedulingDowngrade] = useState(false);
+  const [scheduledDowngrade, setScheduledDowngrade] = useState<any>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
@@ -227,8 +209,10 @@ export default function PlansPage() {
 
   // Atualiza os dados do usuário ao montar a página para garantir planId atualizado
   useEffect(() => {
-    if (isAuthenticated) {
-      refreshUser();
+    if (isAuthenticated && refreshUser) {
+      refreshUser().catch(err => {
+        console.error('[PlansPage] Error refreshing user:', err);
+      });
     }
   }, [isAuthenticated, refreshUser]);
 
@@ -246,56 +230,26 @@ export default function PlansPage() {
     refetchSubscription,
   } = useSubscription();
 
-  // Fetch billing data
-  const fetchBillingData = useCallback(async (): Promise<BillingData> => {
-    let billingSummary: BillingSummary | null = null;
-    try {
-      billingSummary = await getBillingSummary();
-    } catch (error) {
-      console.error('Erro ao buscar billing summary:', error);
-    }
+  // Hook de billing (para alertas e valor pendente de taxas)
+  const {
+    isGracePeriod,
+    isLocked,
+    daysUntilLock,
+    currentBalance,
+  } = useBilling();
 
-    const hybridData = billingSummary?.hybrid;
-    
-    const transactionCount = hybridData?.transactionCount ?? billingSummary?.currentInvoice?.transactionCount ?? 0;
-    const totalTransactionFees = hybridData?.totalTransactionFees ?? billingSummary?.currentInvoice?.totalFees ?? 0;
-    
-    const cycle: BillingCycle | null = subscription ? {
-      id: subscription.id || 'current',
-      planId: subscription.planId,
-      planName: subscription.planName,
-      startDate: subscription.startedAt || new Date().toISOString(),
-      endDate: subscription.expiresAt || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      daysRemaining: subscription.expiresAt 
-        ? Math.max(0, Math.ceil((new Date(subscription.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
-        : 30,
-      transactionCount,
-      totalTransactionFees,
-      monthlyFee: currentPlan?.monthlyPrice || 0,
-      totalAmount: (currentPlan?.monthlyPrice || 0) + totalTransactionFees,
-      status: subscription.status === 'active' ? 'open' : 'closed',
-    } : null;
+  // Valor pendente é o total de taxas acumuladas do billing (ex: 8% das vendas no Starter)
+  const pendingSalesFormatted = useMemo(() => {
+    return formatCurrency(currentBalance || 0);
+  }, [currentBalance]);
 
-    return {
-      cycle,
-      invoice: null,
-      usage: {
-        transactions: transactionCount,
-        totalFees: totalTransactionFees,
-        feePerTransaction: currentPlan?.feePerTransaction || 0.70,
-        projectedTotal: (currentPlan?.monthlyPrice || 0) + totalTransactionFees,
-      },
-    };
-  }, [subscription, currentPlan]);
-
-  const { 
-    data: billingData, 
-    isLoading: isLoadingBilling,
-    refetch: refetchBilling 
-  } = useApi<BillingData>('billing-current', fetchBillingData, {
-    ttl: 30 * 1000, // 30 segundos
-    enabled: isAuthenticated,
-  });
+  // Dados de uso do plano (simulados - em uma implementação real viriam de uma API separada)
+  const planUsage: PlanUsageData = {
+    transactions: 0,
+    totalFees: 0,
+    feePerTransaction: Number(currentPlan?.feePerTransaction) || 0.70,
+    projectedTotal: Number(currentPlan?.monthlyPrice) || 0,
+  };
 
   // Fetch links para contar links monetizados
   const fetchLinksData = useCallback(async () => {
@@ -327,6 +281,21 @@ export default function PlansPage() {
       });
     }
   }, [subscription]);
+
+  // Buscar downgrade agendado
+  useEffect(() => {
+    if (isAuthenticated) {
+      getScheduledDowngrade()
+        .then((response) => {
+          if (response.data?.hasScheduledDowngrade) {
+            setScheduledDowngrade(response.data);
+          }
+        })
+        .catch((err) => {
+          console.error('[PlansPage] Error fetching scheduled downgrade:', err);
+        });
+    }
+  }, [isAuthenticated, subscription]);
 
   const handleSelectPlan = (planId: number) => {
     if (planId === selectedPlan) {
@@ -469,8 +438,7 @@ export default function PlansPage() {
   const handleCancel = async () => {
     try {
       await cancelSubscription(cancelReason);
-      // Atualiza os dados do usuário após cancelamento
-      await refreshUser();
+      // TODO: Atualizar dados do usuário após cancelamento
       setShowCancelModal(false);
       setCancelReason('');
       setMessage({ type: 'success', text: 'Assinatura cancelada. Você foi movido para o plano Starter.' });
@@ -479,6 +447,43 @@ export default function PlansPage() {
         type: 'error', 
         text: error.response?.data?.message || 'Erro ao cancelar assinatura' 
       });
+    }
+  };
+
+  // Handle downgrade - abre modal de confirmação
+  const handleDowngradeClick = (planId: number, planName: string) => {
+    setDowngradePlan({ id: planId, name: planName });
+    setShowDowngradeModal(true);
+  };
+
+  // Confirma o downgrade
+  const confirmDowngrade = async () => {
+    if (!downgradePlan) return;
+    
+    setIsSchedulingDowngrade(true);
+    try {
+      const result = await scheduleDowngrade(downgradePlan.id, 'user_request');
+      setScheduledDowngrade({
+        hasScheduledDowngrade: true,
+        targetPlanId: downgradePlan.id,
+        targetPlanName: downgradePlan.name,
+        effectiveDate: result.subscription?.scheduledDowngradeAt,
+      });
+      setShowDowngradeModal(false);
+      setMessage({ 
+        type: 'success', 
+        text: `Downgrade para ${downgradePlan.name} agendado com sucesso! Será efetivado no fim do seu ciclo atual.` 
+      });
+      // Atualiza os dados
+      await refetchSubscription();
+    } catch (error: any) {
+      setMessage({ 
+        type: 'error', 
+        text: error.message || 'Erro ao agendar downgrade' 
+      });
+    } finally {
+      setIsSchedulingDowngrade(false);
+      setDowngradePlan(null);
     }
   };
 
@@ -573,29 +578,23 @@ export default function PlansPage() {
                   <p className="font-semibold text-slate-900">{formatCurrency(currentUserPlan?.monthlyPrice || 0)}/mês</p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500">Taxa por vendas realizadas</p>
-                  <p className="font-semibold text-indigo-600">
-                    {(billingData?.usage?.totalFees ?? 0) > 0 
-                      ? formatCurrency(billingData!.usage!.totalFees) 
-                      : 'R$ 0,00'}
+                  <p className="text-xs text-slate-500">Valor pendente</p>
+                  <p className={`font-semibold ${(currentBalance || 0) > 0 ? 'text-slate-900' : 'text-slate-900'}`}>
+                    {pendingSalesFormatted}
                   </p>
-                  {(billingData?.usage?.totalFees ?? 0) > 0 && (
-                    <p className="text-xs text-slate-400">
-                      {billingData?.usage?.transactions || 0} venda{billingData?.usage?.transactions !== 1 ? 's' : ''} × {formatCurrency(currentUserPlan?.feePerTransaction || 0)}
-                    </p>
-                  )}
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500">Links monetizados</p>
-                  <p className="font-semibold text-slate-900">
-                    {isLoadingLinks ? '...' : `${paidLinksCount} ${currentUserPlan?.maxPaidLinks === Infinity ? '' : `/ ${currentUserPlan?.maxPaidLinks || 3}`}`}
+                  <p className="text-xs text-slate-500">Taxa por venda</p>
+                  <p className="font-semibold text-indigo-600">
+                    {currentUserPlan?.feePerTransactionFormatted || `${currentUserPlan?.feePerTransaction ?? 0}%`}
                   </p>
+                  <p className="text-xs text-slate-400">por transação</p>
                 </div>
-                {currentUserPlan?.id !== 1 && (
+                {currentUserPlan?.id !== 1 && subscription?.expiresAt && (
                   <div>
-                    <p className="text-xs text-slate-500">Período atual</p>
+                    <p className="text-xs text-slate-500">Renova em</p>
                     <p className="font-semibold text-slate-900">
-                      {billingData?.cycle ? formatPeriod(billingData.cycle.startDate, billingData.cycle.endDate) : '-'}
+                      {formatDate(subscription.expiresAt)}
                     </p>
                   </div>
                 )}
@@ -605,16 +604,6 @@ export default function PlansPage() {
             {/* CTA */}
             <div className="lg:text-right space-y-2">
               <div className="flex items-center gap-2 justify-end">
-                <button
-                  onClick={() => refetchBilling()}
-                  disabled={isLoadingBilling}
-                  className="inline-flex items-center px-3 py-2.5 bg-white border border-slate-200 text-slate-600 text-sm font-medium rounded-xl hover:bg-slate-50 transition"
-                  title="Atualizar dados de vendas"
-                >
-                  <svg className={`w-4 h-4 ${isLoadingBilling ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                </button>
                 {!hasPendingSubscription && (
                   <button
                     onClick={scrollToPlans}
@@ -836,7 +825,7 @@ export default function PlansPage() {
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                     </svg>
-                    Cartão de crédito
+                    Cobrança automática mensal com cartão
                   </div>
                 </button>
               </div>
@@ -1005,7 +994,7 @@ export default function PlansPage() {
           <p className="text-slate-500 mt-1">Escolha o plano que faz mais sentido para seu volume de vendas</p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {plans.map((plan) => {
             const current = isCurrentPlan(plan.id);
             const upgrade = canUpgrade(plan.id);
@@ -1028,7 +1017,7 @@ export default function PlansPage() {
                 {/* Header */}
                 <div className={`${colors.bg} px-5 py-4 rounded-t-2xl border-b ${colors.border}`}>
                   <div className="flex items-center justify-between mb-2 gap-2">
-                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${colors.badge} truncate max-w-[80px]`}>
+                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${colors.badge} truncate max-w-[120px]`}>
                       {getPlanBadge(plan)}
                     </span>
                     {current && subscription?.status === 'active' && (
@@ -1046,11 +1035,6 @@ export default function PlansPage() {
 
                 {/* Features */}
                 <div className="p-5 flex-1">
-                  <div className="mb-4 p-3 bg-slate-50 rounded-lg">
-                    <p className="text-xs text-slate-500">Taxa por venda realizada</p>
-                    <p className="font-bold text-indigo-600">{formatCurrency(plan.feePerTransaction)}</p>
-                  </div>
-
                   <ul className="space-y-2">
                     {features.map((feature, idx) => (
                       <li key={idx} className="flex items-start gap-2 text-sm text-slate-600">
@@ -1082,24 +1066,32 @@ export default function PlansPage() {
                   ) : upgrade ? (
                     <button
                       onClick={() => handleSelectPlan(plan.id)}
+                      disabled={!!scheduledDowngrade}
                       className={`w-full py-2.5 rounded-xl text-sm font-semibold transition ${
-                        selected
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                        scheduledDowngrade
+                          ? 'bg-amber-100 text-amber-700 cursor-not-allowed'
+                          : selected
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-indigo-600 text-white hover:bg-indigo-700'
                       }`}
                     >
-                      {selected ? 'Selecionado' : 'Fazer upgrade'}
+                      {scheduledDowngrade 
+                        ? 'Downgrade pendente' 
+                        : selected ? 'Selecionado' : 'Fazer upgrade'}
                     </button>
                   ) : downgrade ? (
                     <button
-                      onClick={() => handleSelectPlan(plan.id)}
+                      onClick={() => handleDowngradeClick(plan.id, plan.name)}
+                      disabled={!!scheduledDowngrade}
                       className={`w-full py-2.5 rounded-xl text-sm font-semibold transition ${
-                        selected
-                          ? 'bg-emerald-600 text-white'
+                        scheduledDowngrade
+                          ? 'bg-amber-100 text-amber-700 cursor-not-allowed'
                           : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                       }`}
                     >
-                      {selected ? 'Selecionado' : 'Fazer downgrade'}
+                      {scheduledDowngrade 
+                        ? `Downgrade agendado` 
+                        : 'Agendar downgrade'}
                     </button>
                   ) : (
                     <button
@@ -1116,6 +1108,48 @@ export default function PlansPage() {
         </div>
       </section>
 
+
+      {/* Modal de Confirmação de Downgrade */}
+      {showDowngradeModal && downgradePlan && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full">
+            <h3 className="text-lg font-bold text-slate-900 mb-2">Confirmar Downgrade</h3>
+            <p className="text-slate-600 mb-4">
+              Você está agendando um downgrade para o plano <strong>{downgradePlan.name}</strong>.
+            </p>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
+              <p className="text-sm text-amber-800">
+                <strong>Importante:</strong>
+              </p>
+              <ul className="text-sm text-amber-700 mt-2 space-y-1 list-disc list-inside">
+                <li>O downgrade será efetivado no fim do seu ciclo atual</li>
+                <li>Você continua com todos os benefícios do plano atual até lá</li>
+                <li>Não será cobrado nenhum valor adicional</li>
+                <li><strong>Esta ação não pode ser desfeita</strong></li>
+              </ul>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={confirmDowngrade}
+                disabled={isSchedulingDowngrade}
+                className="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition disabled:opacity-50"
+              >
+                {isSchedulingDowngrade ? 'Agendando...' : 'Confirmar Downgrade'}
+              </button>
+              <button
+                onClick={() => {
+                  setShowDowngradeModal(false);
+                  setDowngradePlan(null);
+                }}
+                disabled={isSchedulingDowngrade}
+                className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-semibold hover:bg-slate-50 transition"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de Cancelamento */}
       {showCancelModal && (
