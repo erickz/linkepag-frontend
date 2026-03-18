@@ -173,6 +173,10 @@ export default function PixCheckout({
     setError(null);
     setLastCheckMessage(null);
 
+    // Delay de 5-15s para dar tempo do webhook processar no backend
+    const delayMs = Math.floor(Math.random() * 10000) + 5000; // 5-15s aleatório
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+
     try {
       const response = await checkPaymentStatus(paymentId);
 
