@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState, useId } from 'react';
+import { initMercadoPago, Payment } from '@mercadopago/sdk-react';
+import { useEffect, useState } from 'react';
 
-// Types para o MercadoPago Brick
 interface PaymentBrickProps {
   amount: number;
   payerEmail: string;
@@ -18,87 +18,6 @@ interface PaymentBrickProps {
   isProcessing?: boolean;
 }
 
-// Estender o tipo do Window para incluir o paymentBrickController
-// NÃO redeclaramos MercadoPago aqui - usamos a declaração do useMercadoPago.ts
-declare global {
-  interface Window {
-    paymentBrickController?: {
-      unmount: () => void;
-    };
-  }
-}
-
-// Interface estendida para o Brick (adicionamos bricks ao tipo existente)
-interface ExtendedMercadoPagoInstance {
-  bricks: () => Promise<BricksController>;
-}
-
-interface BricksController {
-  create: (
-    brick: string,
-    containerId: string,
-    settings: BrickSettings
-  ) => Promise<{ unmount: () => void }>;
-}
-
-interface BrickSettings {
-  initialization: {
-    amount: number;
-    preferenceId?: string;
-    payer?: {
-      email: string;
-      firstName?: string;
-      lastName?: string;
-    };
-  };
-  callbacks: {
-    onReady?: () => void;
-    onError?: (error: BrickError) => void;
-    onSubmit: (formData: BrickFormData) => Promise<void>;
-  };
-  locale?: string;
-  customization?: {
-    visual?: {
-      style?: {
-        theme?: 'default' | 'dark' | 'bootstrap' | 'flat';
-        customStyles?: Record<string, string>;
-      };
-    };
-    paymentMethods?: {
-      // Lista explícita de métodos - apenas PIX
-      types?: { id: 'pix' }[];
-    };
-  };
-}
-
-interface BrickError {
-  type: string;
-  message: string;
-}
-
-interface BrickFormData {
-  // Dados para cartão
-  token?: string;
-  issuer_id?: string;
-  payment_method_id?: string;
-  installments?: number;
-  // Dados para PIX
-  id?: string;
-  qr_code?: string;
-  qr_code_base64?: string;
-  // Dados comuns
-  transaction_amount: number;
-  payer: {
-    email: string;
-    first_name?: string;
-    last_name?: string;
-    identification?: {
-      type: string;
-      number: string;
-    };
-  };
-}
-
 const MERCADOPAGO_PUBLIC_KEY = process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY || '';
 
 export function PaymentBrick({
@@ -110,190 +29,112 @@ export function PaymentBrick({
   onReady,
   isProcessing = false,
 }: PaymentBrickProps) {
-  const [isLoading, setIsLoading] = useState(true);
-  const [brickError, setBrickError] = useState<string | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const brickControllerRef = useRef<{ unmount: () => void } | null>(null);
-  const isInitializingRef = useRef(false);
-  const isMountedRef = useRef(true);
-  
-  // Gerar ID único para esta instância do componente
-  const uniqueId = useId();
-  const containerId = `payment-brick-container-${uniqueId.replace(/:/g, '')}`;
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [initializationError, setInitializationError] = useState<string | null>(null);
 
+  // Inicializar o SDK do MercadoPago
   useEffect(() => {
-    // Flag para rastrear se o componente está montado
-    isMountedRef.current = true;
+    if (!MERCADOPAGO_PUBLIC_KEY) {
+      setInitializationError('Chave pública do MercadoPago não configurada');
+      return;
+    }
 
-    const initializeBrick = async () => {
-      // Evitar inicialização dupla
-      if (isInitializingRef.current) return;
-      isInitializingRef.current = true;
+    try {
+      initMercadoPago(MERCADOPAGO_PUBLIC_KEY, {
+        locale: 'pt-BR',
+      });
+      setIsInitialized(true);
+    } catch (err) {
+      console.error('[PaymentBrick] Error initializing SDK:', err);
+      setInitializationError('Erro ao inicializar SDK do MercadoPago');
+    }
+  }, []);
 
-      // Verificar se o container existe usando a ref
-      if (!containerRef.current) {
-        console.error('[PaymentBrick] Container ref não está disponível');
-        if (isMountedRef.current) {
-          setBrickError('Erro ao carregar formulário de pagamento. Tente novamente.');
-          setIsLoading(false);
-        }
-        isInitializingRef.current = false;
-        return;
+  // Separar nome em firstName e lastName
+  const [firstName, ...lastNameParts] = (payerName || 'Cliente').split(' ');
+  const lastName = lastNameParts.join(' ') || '';
+
+  // Configuração do Brick
+  const initialization = {
+    amount: amount,
+    payer: {
+      email: payerEmail,
+      firstName: firstName,
+      lastName: lastName,
+    },
+  };
+
+  // Configuração do Brick - Apenas PIX
+  // Usamos 'as any' porque o tipo do SDK é muito restritivo
+  const customization = {
+    paymentMethods: {
+      types: {
+        excluded: ['credit_card', 'debit_card', 'ticket', 'bank_transfer'],
+      },
+    },
+    visual: {
+      style: {
+        theme: 'default' as const,
+        customVariables: {
+          formBackgroundColor: '#ffffff',
+          baseColor: '#4f46e5', // indigo-600
+          textColor: '#0f172a',
+          errorColor: '#e11d48',
+          successColor: '#059669',
+          borderRadius: '0.5rem',
+        },
+      },
+    },
+  } as any;
+
+  const onSubmit = async (
+    formData: any,
+    nativeResponse: any
+  ) => {
+    try {
+      // O nativeResponse contém os dados do pagamento criado
+      const { id, qr_code, qr_code_base64 } = nativeResponse;
+
+      if (!id || !qr_code) {
+        throw new Error('Dados do PIX não recebidos corretamente');
       }
 
-      try {
-        // Aguardar o SDK do MercadoPago estar disponível
-        if (!window.MercadoPago) {
-          throw new Error('SDK do MercadoPago não carregado');
-        }
+      onPaymentGenerated({
+        id,
+        pixCode: qr_code,
+        qrCodeUrl: qr_code_base64 ? `data:image/png;base64,${qr_code_base64}` : '',
+        status: 'pending',
+      });
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Erro ao gerar PIX';
+      onError(errorMsg);
+      throw err; // Re-throw para o brick saber que falhou
+    }
+  };
 
-        if (!MERCADOPAGO_PUBLIC_KEY) {
-          throw new Error('Chave pública do MercadoPago não configurada');
-        }
+  const onErrorCallback = (error: any) => {
+    console.error('[PaymentBrick] Error:', error);
+    onError(error?.message || 'Erro no formulário de pagamento');
+  };
 
-        // Inicializar instância do MercadoPago
-        const mp = new window.MercadoPago(MERCADOPAGO_PUBLIC_KEY, {
-          locale: 'pt-BR',
-        });
+  const onReadyCallback = () => {
+    onReady?.();
+  };
 
-        // Obter controller dos bricks (cast para tipo estendido)
-        const bricksController = await (mp as unknown as ExtendedMercadoPagoInstance).bricks();
-
-        // Separar nome em firstName e lastName
-        const [firstName, ...lastNameParts] = (payerName || 'Cliente').split(' ');
-        const lastName = lastNameParts.join(' ') || '';
-
-        // Criar o Payment Brick configurado apenas para PIX
-        const settings: BrickSettings = {
-          initialization: {
-            amount: amount,
-            payer: {
-              email: payerEmail,
-              firstName: firstName,
-              lastName: lastName,
-            },
-          },
-          callbacks: {
-            onReady: () => {
-              if (isMountedRef.current) {
-                setIsLoading(false);
-                onReady?.();
-              }
-            },
-            onError: (error) => {
-              console.error('[PaymentBrick] Error:', error);
-              if (isMountedRef.current) {
-                setBrickError(error.message || 'Erro no formulário de pagamento');
-                onError(error.message || 'Erro no formulário de pagamento');
-              }
-            },
-            onSubmit: async (formData) => {
-              try {
-                // Para PIX, o formData contém os dados do pagamento criado
-                // Incluindo id, qr_code, qr_code_base64
-                const { id, qr_code, qr_code_base64 } = formData;
-                
-                if (!id || !qr_code) {
-                  throw new Error('Dados do PIX não recebidos corretamente');
-                }
-                
-                onPaymentGenerated({
-                  id,
-                  pixCode: qr_code,
-                  qrCodeUrl: qr_code_base64 ? `data:image/png;base64,${qr_code_base64}` : '',
-                  status: 'pending',
-                });
-              } catch (err) {
-                const errorMsg = err instanceof Error ? err.message : 'Erro ao gerar PIX';
-                onError(errorMsg);
-                throw err; // Re-throw para o brick saber que falhou
-              }
-            },
-          },
-          locale: 'pt-BR',
-          customization: {
-            visual: {
-              style: {
-                theme: 'default',
-                customStyles: {
-                  // Cores que combinam com o tema do LinkePag
-                  '--payment-form-background-color': '#ffffff',
-                  '--payment-form-text-color': '#0f172a',
-                  '--payment-form-primary-color': '#4f46e5', // indigo-600
-                  '--payment-form-secondary-color': '#6366f1', // indigo-500
-                  '--payment-form-error-color': '#e11d48', // rose-600
-                  '--payment-form-success-color': '#059669', // emerald-600
-                  '--payment-form-border-radius': '0.5rem',
-                  '--payment-form-font-family': 'inherit',
-                },
-              },
-            },
-            paymentMethods: {
-              // Apenas PIX - conforme solicitado para aprovação do MP
-              types: [{ id: 'pix' }],
-            },
-          },
-        };
-
-        // Verificar novamente se o componente está montado antes de criar
-        if (!isMountedRef.current) {
-          return;
-        }
-
-        brickControllerRef.current = await bricksController.create(
-          'payment',
-          containerId,
-          settings
-        );
-      } catch (err) {
-        console.error('[PaymentBrick] Initialization error:', err);
-        const errorMsg = err instanceof Error ? err.message : 'Erro ao inicializar formulário';
-        if (isMountedRef.current) {
-          setBrickError(errorMsg);
-          setIsLoading(false);
-          onError(errorMsg);
-        }
-      } finally {
-        isInitializingRef.current = false;
-      }
-    };
-
-    // Aguardar um pequeno delay para garantir que o DOM está pronto
-    const timer = setTimeout(() => {
-      initializeBrick();
-    }, 100);
-
-    return () => {
-      isMountedRef.current = false;
-      clearTimeout(timer);
-      // Cleanup: desmontar o brick quando o componente unmount
-      if (brickControllerRef.current) {
-        try {
-          brickControllerRef.current.unmount();
-        } catch (e) {
-          // Ignorar erros de cleanup
-        }
-        brickControllerRef.current = null;
-      }
-      isInitializingRef.current = false;
-    };
-  }, [amount, payerEmail, payerName, onPaymentGenerated, onError, onReady, containerId]);
-
-  // Loading state
-  if (isLoading && !brickError) {
+  // Estado de loading
+  if (!isInitialized) {
     return (
       <div className="bg-white rounded-xl border border-slate-200 p-6">
         <div className="flex flex-col items-center justify-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-600 mb-4"></div>
-          <p className="text-sm text-slate-600">Carregando formulário seguro...</p>
-          <p className="text-xs text-slate-400 mt-1">MercadoPago Payment Brick</p>
+          <p className="text-sm text-slate-600">Inicializando formulário de pagamento...</p>
         </div>
       </div>
     );
   }
 
-  // Error state
-  if (brickError) {
+  // Estado de erro
+  if (initializationError) {
     return (
       <div className="bg-white rounded-xl border border-rose-200 p-6">
         <div className="flex flex-col items-center justify-center py-6">
@@ -302,13 +143,7 @@ export function PaymentBrick({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <p className="text-sm text-rose-700 font-medium text-center">{brickError}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-3 px-4 py-2 bg-rose-600 text-white rounded-lg text-sm hover:bg-rose-700 transition"
-          >
-            Tentar novamente
-          </button>
+          <p className="text-sm text-rose-700 font-medium text-center">{initializationError}</p>
         </div>
       </div>
     );
@@ -316,13 +151,14 @@ export function PaymentBrick({
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4">
-      {/* Container do Brick - o MercadoPago vai renderizar aqui */}
-      <div 
-        id={containerId}
-        ref={containerRef}
-        className="min-h-[400px]"
+      <Payment
+        initialization={initialization}
+        customization={customization}
+        onSubmit={onSubmit}
+        onError={onErrorCallback}
+        onReady={onReadyCallback}
       />
-      
+
       {/* Indicador de processamento */}
       {isProcessing && (
         <div className="mt-4 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
