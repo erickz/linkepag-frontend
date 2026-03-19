@@ -5,6 +5,9 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { ErrorSuppressor } from "@/components/ErrorSuppressor";
 
+// MercadoPago SDK V2 - necessário para integração segura e device fingerprinting
+const MERCADOPAGO_SDK_URL = "https://sdk.mercadopago.com/js/v2";
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -153,6 +156,12 @@ export default function RootLayout({
         
         {/* Script para suprimir warning de WebSocket HMR - APENAS EM DESENVOLVIMENTO */}
         {isDevelopment && <script src="/suppress-ws.js" />}
+        
+        {/* MercadoPago SDK V2 - obrigatório para integração segura */}
+        <Script
+          src={MERCADOPAGO_SDK_URL}
+          strategy="lazyOnload"
+        />
         
         {/* Google Analytics */}
         <Script
