@@ -165,7 +165,7 @@ function MercadoPagoOAuthCard({
   onRefresh,
 }: {
   status: 'loading' | 'connected' | 'disconnected' | 'error';
-  connectionData?: { email: string; connectedAt: Date };
+  connectionData?: { email?: string; connectedAt: Date };
   hasLegacyCredentials: boolean;
   isConnecting: boolean;
   isDisconnecting: boolean;
@@ -207,7 +207,9 @@ function MercadoPagoOAuthCard({
               </div>
               <div>
                 <p className="text-xs text-slate-500">Conta</p>
-                <p className="text-sm font-medium text-slate-900">{connectionData.email}</p>
+                <p className="text-sm font-medium text-slate-900">
+                  {connectionData.email || 'Conta MercadoPago vinculada'}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-3">
