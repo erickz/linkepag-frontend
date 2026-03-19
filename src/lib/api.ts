@@ -496,11 +496,13 @@ export async function createPayment(linkId: string, payerInfo?: {
 
 export async function registerBrickPayment(linkId: string, paymentData: {
   gatewayId: string;
-  pixCode: string;
-  qrCodeUrl: string;
+  pixCode?: string;
+  qrCodeUrl?: string;
   payerEmail?: string;
   payerName?: string;
   payerPhone?: string;
+  paymentMethodType?: 'pix' | 'credit_card' | 'debit_card' | string;
+  status?: 'pending' | 'approved' | 'in_process' | string;
 }) {
   const response = await fetch(`${API_BASE_URL}/payments/register-brick/${linkId}`, {
     method: 'POST',

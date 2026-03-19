@@ -1,24 +1,30 @@
 'use client';
 
-import { initMercadoPago, Payment } from '@mercadopago/sdk-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+
+export type PaymentMethodType = 'pix' | 'credit_card' | 'debit_card' | string;
+
+export interface PaymentGeneratedData {
+  id: string;
+  type: PaymentMethodType;
+  status: 'pending' | 'approved' | 'in_process' | string;
+  pixCode?: string;
+  qrCodeUrl?: string;
+}
 
 interface PaymentBrickProps {
   amount: number;
   payerEmail: string;
   payerName?: string;
-  onPaymentGenerated: (paymentData: {
-    id: string;
-    pixCode: string;
-    qrCodeUrl: string;
-    status: string;
-  }) => void;
+  onPaymentGenerated: (paymentData: PaymentGeneratedData) => void;
   onError: (error: string) => void;
   onReady?: () => void;
-  isProcessing?: boolean;
 }
 
 const MERCADOPAGO_PUBLIC_KEY = process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY || '';
+
+// Contador global para IDs únicos
+let brickInstanceCount = 0;
 
 export function PaymentBrick({
   amount,
@@ -27,114 +33,136 @@ export function PaymentBrick({
   onPaymentGenerated,
   onError,
   onReady,
-  isProcessing = false,
 }: PaymentBrickProps) {
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [initializationError, setInitializationError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const brickControllerRef = useRef<any>(null);
+  const instanceId = useRef(++brickInstanceCount);
+  const containerId = `mercadopago-brick-container-${instanceId.current}`;
 
-  // Inicializar o SDK do MercadoPago
   useEffect(() => {
-    if (!MERCADOPAGO_PUBLIC_KEY) {
-      setInitializationError('Chave pública do MercadoPago não configurada');
-      return;
-    }
+    const initializeBrick = async () => {
+      try {
+        // Aguardar o SDK estar disponível
+        let attempts = 0;
+        const maxAttempts = 100;
+        
+        while (!(window as any).MercadoPago && attempts < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 50));
+          attempts++;
+        }
 
-    try {
-      initMercadoPago(MERCADOPAGO_PUBLIC_KEY, {
-        locale: 'pt-BR',
-      });
-      setIsInitialized(true);
-    } catch (err) {
-      console.error('[PaymentBrick] Error initializing SDK:', err);
-      setInitializationError('Erro ao inicializar SDK do MercadoPago');
-    }
-  }, []);
+        if (!(window as any).MercadoPago) {
+          throw new Error('SDK do MercadoPago não carregado');
+        }
 
-  // Separar nome em firstName e lastName
-  const [firstName, ...lastNameParts] = (payerName || 'Cliente').split(' ');
-  const lastName = lastNameParts.join(' ') || '';
+        if (!MERCADOPAGO_PUBLIC_KEY) {
+          throw new Error('Chave pública não configurada');
+        }
 
-  // Configuração do Brick
-  const initialization = {
-    amount: amount,
-    payer: {
-      email: payerEmail,
-      firstName: firstName,
-      lastName: lastName,
-    },
-  };
+        // Inicializar MercadoPago
+        const mp = new (window as any).MercadoPago(MERCADOPAGO_PUBLIC_KEY, {
+          locale: 'pt-BR',
+        });
 
-  // Configuração do Brick - Apenas PIX
-  // Usamos 'as any' porque o tipo do SDK é muito restritivo
-  const customization = {
-    paymentMethods: {
-      types: {
-        excluded: ['credit_card', 'debit_card', 'ticket', 'bank_transfer'],
-      },
-    },
-    visual: {
-      style: {
-        theme: 'default' as const,
-        customVariables: {
-          formBackgroundColor: '#ffffff',
-          baseColor: '#4f46e5', // indigo-600
-          textColor: '#0f172a',
-          errorColor: '#e11d48',
-          successColor: '#059669',
-          borderRadius: '0.5rem',
-        },
-      },
-    },
-  } as any;
+        // Aguardar container estar no DOM
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        const container = document.getElementById(containerId);
+        if (!container) {
+          throw new Error('Container não encontrado');
+        }
 
-  const onSubmit = async (
-    formData: any,
-    nativeResponse: any
-  ) => {
-    try {
-      // O nativeResponse contém os dados do pagamento criado
-      const { id, qr_code, qr_code_base64 } = nativeResponse;
+        // Criar o Payment Brick
+        const bricksBuilder = await mp.bricks();
+        
+        brickControllerRef.current = await bricksBuilder.create(
+          'payment',
+          containerId,
+          {
+            initialization: {
+              amount: amount,
+              payer: {
+                email: payerEmail,
+                firstName: payerName?.split(' ')[0] || 'Cliente',
+                lastName: payerName?.split(' ').slice(1).join(' ') || '',
+              },
+            },
+            customization: {
+              visual: {
+                style: {
+                  theme: 'default',
+                  customVariables: {
+                    baseColor: '#4f46e5',
+                    formBackgroundColor: '#ffffff',
+                    borderRadius: '8px',
+                  },
+                },
+              },
+              paymentMethods: {
+                // Todos os métodos disponíveis
+                creditCard: 'all',
+                debitCard: 'all',
+                pix: 'all',
+              },
+            },
+            callbacks: {
+              onReady: () => {
+                console.log('[PaymentBrick] Brick pronto');
+                setIsLoading(false);
+                onReady?.();
+              },
+              onSubmit: async (formData: any) => {
+                console.log('[PaymentBrick] Pagamento submetido:', formData);
+                
+                // O formData contém os dados do pagamento
+                const { paymentMethodId, ...rest } = formData;
+                
+                // Retornar os dados para o componente pai
+                // O processamento real é feito pelo backend via webhook
+                onPaymentGenerated({
+                  id: formData.id || `pending-${Date.now()}`,
+                  type: paymentMethodId || 'unknown',
+                  status: 'pending',
+                });
 
-      if (!id || !qr_code) {
-        throw new Error('Dados do PIX não recebidos corretamente');
+                // Retornar Promise para o brick
+                return new Promise((resolve) => {
+                  resolve({});
+                });
+              },
+              onError: (errorData: any) => {
+                console.error('[PaymentBrick] Erro:', errorData);
+                const errorMsg = errorData?.message || 'Erro no processamento do pagamento';
+                setError(errorMsg);
+                onError(errorMsg);
+              },
+            },
+          }
+        );
+      } catch (err: any) {
+        console.error('[PaymentBrick] Erro de inicialização:', err);
+        setError(err.message || 'Erro ao carregar formulário de pagamento');
+        setIsLoading(false);
       }
+    };
 
-      onPaymentGenerated({
-        id,
-        pixCode: qr_code,
-        qrCodeUrl: qr_code_base64 ? `data:image/png;base64,${qr_code_base64}` : '',
-        status: 'pending',
-      });
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Erro ao gerar PIX';
-      onError(errorMsg);
-      throw err; // Re-throw para o brick saber que falhou
-    }
-  };
+    initializeBrick();
 
-  const onErrorCallback = (error: any) => {
-    console.error('[PaymentBrick] Error:', error);
-    onError(error?.message || 'Erro no formulário de pagamento');
-  };
+    // Cleanup
+    return () => {
+      if (brickControllerRef.current && brickControllerRef.current.unmount) {
+        try {
+          brickControllerRef.current.unmount();
+        } catch (e) {
+          // Ignorar erro de cleanup
+        }
+      }
+    };
+  }, [amount, payerEmail, payerName, onPaymentGenerated, onError, onReady, containerId]);
 
-  const onReadyCallback = () => {
-    onReady?.();
-  };
-
-  // Estado de loading
-  if (!isInitialized) {
-    return (
-      <div className="bg-white rounded-xl border border-slate-200 p-6">
-        <div className="flex flex-col items-center justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-600 mb-4"></div>
-          <p className="text-sm text-slate-600">Inicializando formulário de pagamento...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Estado de erro
-  if (initializationError) {
+  if (error) {
     return (
       <div className="bg-white rounded-xl border border-rose-200 p-6">
         <div className="flex flex-col items-center justify-center py-6">
@@ -143,7 +171,13 @@ export function PaymentBrick({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <p className="text-sm text-rose-700 font-medium text-center">{initializationError}</p>
+          <p className="text-sm text-rose-700 font-medium text-center">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-3 px-4 py-2 bg-rose-600 text-white rounded-lg text-sm hover:bg-rose-700 transition"
+          >
+            Tentar novamente
+          </button>
         </div>
       </div>
     );
@@ -151,23 +185,19 @@ export function PaymentBrick({
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4">
-      <Payment
-        initialization={initialization}
-        customization={customization}
-        onSubmit={onSubmit}
-        onError={onErrorCallback}
-        onReady={onReadyCallback}
-      />
-
-      {/* Indicador de processamento */}
-      {isProcessing && (
-        <div className="mt-4 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
-          <div className="flex items-center gap-3">
-            <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-indigo-600"></div>
-            <p className="text-sm text-indigo-700">Processando pagamento...</p>
-          </div>
+      {isLoading && (
+        <div className="flex flex-col items-center justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-600 mb-4"></div>
+          <p className="text-sm text-slate-600">Carregando formulário de pagamento...</p>
         </div>
       )}
+      
+      {/* Container do Brick */}
+      <div 
+        id={containerId}
+        ref={containerRef}
+        className={isLoading ? 'hidden' : ''}
+      />
 
       {/* Selo de segurança */}
       <div className="mt-4 flex items-center justify-center gap-2 text-xs text-slate-400">

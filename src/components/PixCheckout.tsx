@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createPayment, createPixDirectPayment, registerBrickPayment, uploadReceipt, checkPaymentStatus } from '@/lib/api';
 import { useMercadoPago } from '@/hooks/useMercadoPago';
 import { formatPrice } from '@/lib/masks';
-import { PaymentBrick } from './PaymentBrick';
+import { PaymentBrick, PaymentMethodType } from './PaymentBrick';
 
 interface PixCheckoutProps {
   linkId: string;
@@ -28,6 +28,9 @@ type UploadStatus = 'idle' | 'uploading' | 'success' | 'error';
 // Validações de segurança
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+
+// Etapas do checkout
+ type CheckoutStep = 'form' | 'payment_brick' | 'result';
 
 export default function PixCheckout({ 
   linkId, 
@@ -69,8 +72,34 @@ export default function PixCheckout({
   // isPixDirect só é true se MP NÃO estiver configurado e PIX estiver
   const isPixDirect = !mercadoPagoConfigured && pixConfigured;
   
-  // Controle para mostrar o Payment Brick (só depois de clicar no botão)
-  const [showPaymentBrick, setShowPaymentBrick] = useState(false);
+  // Controle das etapas do checkout
+  const [currentStep, setCurrentStep] = useState<CheckoutStep>('form');
+  
+  // Dados do pagamento gerado pelo Brick
+  const [paymentType, setPaymentType] = useState<PaymentMethodType | null>(null);
+
+  const handleContinueToPayment = () => {
+    // Validações
+    if (!name.trim()) {
+      setError('Por favor, informe seu nome');
+      return;
+    }
+
+    if (!email) {
+      setError('Por favor, informe seu email para receber a confirmação do pagamento');
+      return;
+    }
+
+    // Validação básica de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError('Por favor, informe um email válido');
+      return;
+    }
+
+    setError(null);
+    setCurrentStep('payment_brick');
+  };
 
   const handleCreatePayment = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -133,6 +162,8 @@ export default function PixCheckout({
       } else {
         setStatus('pending');
       }
+      
+      setCurrentStep('result');
     } catch (err: any) {
       console.error('Payment creation error:', err);
       setError(err.message || 'Erro ao criar pagamento');
@@ -236,6 +267,8 @@ export default function PixCheckout({
     setName('');
     setUploadStatus('idle');
     setReceiptUrl('');
+    setPaymentType(null);
+    setCurrentStep('form');
     lastCheckRef.current = 0;
   };
 
@@ -510,7 +543,7 @@ export default function PixCheckout({
       );
     }
 
-    // Layout para MercadoPago (original)
+    // Layout para PIX via MercadoPago
     return (
       <>
         {/* Timer */}
@@ -601,6 +634,175 @@ export default function PixCheckout({
     );
   };
 
+  // Callback quando o Payment Brick gera um pagamento
+  const handlePaymentGenerated = async (paymentData: {
+    id: string;
+    type: PaymentMethodType;
+    status: string;
+    pixCode?: string;
+    qrCodeUrl?: string;
+  }) => {
+    console.log('[PixCheckout] Payment generated:', paymentData);
+    
+    setPaymentType(paymentData.type);
+    
+    try {
+      // Se for PIX, registrar no backend e mostrar QR code
+      if (paymentData.type === 'pix') {
+        if (!paymentData.pixCode) {
+          setError('Erro: QR Code do PIX não recebido');
+          setCurrentStep('form');
+          return;
+        }
+
+        // Registrar o pagamento criado pelo Brick no nosso backend
+        const response = await registerBrickPayment(linkId, {
+          gatewayId: paymentData.id,
+          pixCode: paymentData.pixCode,
+          qrCodeUrl: paymentData.qrCodeUrl || '',
+          payerEmail: email,
+          payerName: name,
+          paymentMethodType: 'pix',
+          status: paymentData.status,
+        });
+        
+        if (response.success) {
+          setPaymentId(response.payment.paymentId);
+          setPixCode(response.payment.pixCode);
+          setQrCodeUrl(response.payment.qrCodeUrl);
+          setExpiresAt(new Date(response.payment.expiresAt));
+          setStatus('pending');
+          setCurrentStep('result');
+        } else {
+          setError(response.error || 'Erro ao registrar pagamento');
+          setCurrentStep('form');
+        }
+      } else {
+        // Cartão ou outro método - o pagamento já foi processado pelo Brick
+        // Precisamos apenas registrar e verificar o status
+        
+        // Registrar o pagamento no backend com o status apropriado
+        const response = await registerBrickPayment(linkId, {
+          gatewayId: paymentData.id,
+          payerEmail: email,
+          payerName: name,
+          paymentMethodType: paymentData.type,
+          status: paymentData.status,
+        });
+        
+        if (response.success) {
+          setPaymentId(response.payment.paymentId);
+          
+          if (paymentData.status === 'approved' || response.payment.status === 'confirmed') {
+            // Pagamento aprovado imediatamente (cartão)
+            setStatus('confirmed');
+            
+            // Aguarda 2 segundos para mostrar a mensagem de sucesso antes de redirecionar
+            setTimeout(() => {
+              onSuccess(response.payment.paymentId, '');
+            }, 2000);
+          } else {
+            // Status pendente ou em processamento
+            setStatus('pending');
+            setCurrentStep('result');
+          }
+        } else {
+          setError(response.error || 'Erro ao registrar pagamento');
+          setCurrentStep('form');
+        }
+      }
+    } catch (err: any) {
+      console.error('[PixCheckout] Error handling payment:', err);
+      setError(err.message || 'Erro ao processar pagamento');
+      setCurrentStep('form');
+    }
+  };
+
+  // Renderiza o resultado do pagamento com cartão
+  const renderCardResult = () => {
+    if (status === 'confirmed') {
+      return (
+        <div className="py-8 text-center">
+          <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <h4 className="text-lg font-bold text-slate-900 mb-2">Pagamento aprovado!</h4>
+          <p className="text-slate-600 text-sm mb-4">
+            Seu pagamento com cartão foi aprovado com sucesso.
+          </p>
+          <div className="flex items-center justify-center gap-2 text-emerald-600 text-sm font-medium">
+            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+            Redirecionando para o conteúdo...
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <>
+        {/* Timer */}
+        <div className="flex items-center justify-center gap-2 mb-4 px-4 py-2 bg-white rounded-lg border border-slate-200">
+          <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span className="font-mono font-semibold text-slate-700">{timeRemaining}</span>
+          <span className="text-xs text-slate-400">restante</span>
+        </div>
+
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
+          <p className="text-sm text-amber-800">
+            <span className="font-medium">⏳ Pagamento em processamento</span>
+          </p>
+          <p className="text-xs text-amber-700 mt-1">
+            Seu pagamento está sendo processado. Assim que for confirmado, você receberá o link de acesso no email <strong>{email}</strong>.
+          </p>
+        </div>
+
+        {/* Status message */}
+        {lastCheckMessage && (
+          <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-blue-700 text-xs">{lastCheckMessage}</p>
+          </div>
+        )}
+
+        {/* Error message */}
+        {error && (
+          <div className="mb-3 p-3 bg-rose-50 border border-rose-200 rounded-lg">
+            <p className="text-rose-700 text-xs">{error}</p>
+          </div>
+        )}
+
+        {/* Verificar status Button */}
+        <button
+          onClick={handleCheckPayment}
+          disabled={isCheckingPayment}
+          className="w-full h-10 rounded-lg font-semibold transition flex items-center justify-center gap-2 mb-2 bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+        >
+          {isCheckingPayment ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+              Verificando...
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+              </svg>
+              Verificar status
+            </>
+          )}
+        </button>
+
+        {/* Footer */}
+        <p className="text-xs text-slate-400 text-center mt-3">
+          Pagamento processado via MercadoPago
+        </p>
+      </>
+    );
+  };
+
   return (
     <div className="mt-4 bg-slate-50 rounded-2xl border border-slate-200 p-5 animate-fade-in">
       {/* Header */}
@@ -609,7 +811,7 @@ export default function PixCheckout({
           <h3 className="text-base font-semibold text-slate-900">{title}</h3>
           <div className="text-2xl font-bold text-indigo-600">R$ {formatPrice(price)}</div>
         </div>
-        {(status === 'pending' || status === 'awaiting_confirmation') && (
+        {(status === 'pending' || status === 'awaiting_confirmation') && currentStep === 'result' && (
           <div className="flex items-center gap-1 text-amber-600 text-sm font-medium">
             <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></span>
             Aguardando
@@ -648,9 +850,9 @@ export default function PixCheckout({
         </div>
       )}
 
-      {/* Name and Email Fields - Comum para ambos */}
-      {(mercadoPagoConfigured || pixConfigured) && status === 'idle' && (
-        <>
+      {/* Step 1: Formulário inicial (Nome + Email + Botão) */}
+      {currentStep === 'form' && (mercadoPagoConfigured || pixConfigured) && (
+        <div className="animate-fade-in">
           <div className="mb-4">
             <label className="block text-sm font-medium text-slate-700 mb-2">
               Nome
@@ -681,105 +883,96 @@ export default function PixCheckout({
               Você receberá o link de acesso neste email após a confirmação do pagamento.
             </p>
           </div>
-        </>
-      )}
 
-      {/* Payment Brick para MercadoPago - Implementação moderna recomendada pelo MP */}
-      {mercadoPagoConfigured && status === 'idle' && !isPixDirect && (
-        <div className="mb-2">
-          {!showPaymentBrick ? (
-            // Botão inicial para iniciar o Payment Brick
+          {error && (
+            <div className="mb-3 p-3 bg-rose-50 border border-rose-200 rounded-lg">
+              <p className="text-rose-700 text-xs">{error}</p>
+            </div>
+          )}
+
+          {/* Botão Gerar pagamento - MercadoPago */}
+          {mercadoPagoConfigured && !isPixDirect && (
             <button
-              onClick={() => {
-                if (!email) {
-                  setError('Por favor, informe seu email para continuar');
-                  return;
-                }
-                setError(null);
-                setShowPaymentBrick(true);
-              }}
-              disabled={!email}
-              className="w-full h-11 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 active:scale-[0.98] transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              onClick={handleContinueToPayment}
+              disabled={!email || !name.trim()}
+              className="w-full h-12 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 active:scale-[0.98] transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-base shadow-md hover:shadow-lg"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+              Gerar pagamento
+            </button>
+          )}
+
+          {/* Botão Gerar PIX - Apenas para PIX Direto (fallback) */}
+          {isPixDirect && (
+            <button
+              onClick={handleCreatePayment}
+              disabled={!email || !name.trim()}
+              className="w-full h-12 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 active:scale-[0.98] transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-base shadow-md hover:shadow-lg"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
               </svg>
               Gerar PIX
             </button>
-          ) : (
-            // Payment Brick só é renderizado depois do clique
-            <PaymentBrick
-              amount={price}
-              payerEmail={email}
-              payerName={name}
-              onPaymentGenerated={async (paymentData) => {
-                try {
-                  // Registrar o pagamento criado pelo Brick no nosso backend
-                  const response = await registerBrickPayment(linkId, {
-                    gatewayId: paymentData.id,
-                    pixCode: paymentData.pixCode,
-                    qrCodeUrl: paymentData.qrCodeUrl,
-                    payerEmail: email,
-                    payerName: name,
-                  });
-                  
-                  if (response.success) {
-                    setPaymentId(response.payment.paymentId);
-                    setPixCode(response.payment.pixCode);
-                    setQrCodeUrl(response.payment.qrCodeUrl);
-                    setStatus('pending');
-                    setError(null);
-                  } else {
-                    setError(response.error || 'Erro ao registrar pagamento');
-                    setShowPaymentBrick(false); // Volta para o botão em caso de erro
-                  }
-                } catch (err: any) {
-                  setError(err.message || 'Erro ao processar pagamento');
-                  setShowPaymentBrick(false); // Volta para o botão em caso de erro
-                }
-              }}
-              onError={(err) => {
-                setError(err);
-                setShowPaymentBrick(false); // Volta para o botão em caso de erro
-              }}
-            />
-          )}
-          {error && status === 'idle' && (
-            <p className="text-rose-600 text-xs mt-2 text-center">{error}</p>
           )}
         </div>
       )}
 
-      {/* Botão Gerar PIX - Apenas para PIX Direto (fallback) */}
-      {isPixDirect && status === 'idle' && (
-        <div className="mb-2">
+      {/* Step 2: Payment Brick (todos os métodos) */}
+      {currentStep === 'payment_brick' && mercadoPagoConfigured && !isPixDirect && (
+        <div className="animate-fade-in">
+          {/* Botão voltar */}
           <button
-            onClick={handleCreatePayment}
-            disabled={!email}
-            className="w-full h-11 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 active:scale-[0.98] transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+            onClick={() => setCurrentStep('form')}
+            className="mb-4 flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 transition"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            Gerar PIX
+            Voltar
           </button>
-          {error && status === 'idle' && (
-            <p className="text-rose-600 text-xs mt-2 text-center">{error}</p>
-          )}
+          
+          {/* Resumo do comprador */}
+          <div className="mb-4 p-3 bg-slate-100 rounded-lg">
+            <p className="text-xs text-slate-500">Pagador</p>
+            <p className="text-sm font-medium text-slate-900">{name} • {email}</p>
+          </div>
+          
+          <PaymentBrick
+            amount={price}
+            payerEmail={email}
+            payerName={name}
+            onPaymentGenerated={handlePaymentGenerated}
+            onError={(err) => {
+              setError(err);
+              setCurrentStep('form');
+            }}
+          />
+        </div>
+      )}
+
+      {/* Step 3: Resultado do pagamento */}
+      {currentStep === 'result' && (
+        <div className="animate-fade-in">
+          {/* PIX Result */}
+          {paymentType === 'pix' && renderPendingPayment()}
+          
+          {/* Card Result */}
+          {(paymentType === 'credit_card' || paymentType === 'debit_card') && renderCardResult()}
+          
+          {/* Outros métodos */}
+          {paymentType && paymentType !== 'pix' && paymentType !== 'credit_card' && paymentType !== 'debit_card' && renderCardResult()}
         </div>
       )}
 
       {/* Creating Payment */}
-      {status === 'creating' && (
+      {status === 'creating' && currentStep !== 'result' && (
         <div className="py-6 text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-600 mx-auto mb-3"></div>
           <p className="text-slate-600 text-sm">Criando pagamento...</p>
         </div>
-      )}
-
-      {/* Pending Payment - Renderiza o layout apropriado */}
-      {(status === 'pending' || status === 'awaiting_confirmation') && (
-        renderPendingPayment()
       )}
 
       {/* Expired Payment */}
@@ -798,7 +991,7 @@ export default function PixCheckout({
             onClick={handleGenerateNew}
             className="px-5 py-2 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 transition text-sm"
           >
-            Gerar novo PIX
+            Tentar novamente
           </button>
         </div>
       )}
@@ -812,7 +1005,7 @@ export default function PixCheckout({
       )}
 
       {/* Payment Confirmed - Success Screen */}
-      {status === 'confirmed' && (
+      {status === 'confirmed' && currentStep !== 'result' && (
         <div className="py-8 text-center">
           <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">

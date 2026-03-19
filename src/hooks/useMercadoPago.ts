@@ -13,6 +13,7 @@ interface MercadoPagoInstance {
   getIdentificationTypes(): Promise<{ id: string; name: string }[]>;
   createCardToken(cardData: CardTokenData): Promise<{ id: string; [key: string]: unknown }>;
   getDeviceId?(): string | null;
+  bricks(): Promise<any>;
 }
 
 interface CardTokenData {
