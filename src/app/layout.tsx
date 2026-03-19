@@ -160,7 +160,8 @@ export default function RootLayout({
         {/* MercadoPago SDK V2 - obrigatório para integração segura */}
         <Script
           src={MERCADOPAGO_SDK_URL}
-          strategy="lazyOnload"
+          strategy="beforeInteractive"
+          id="mercadopago-sdk"
         />
         
         {/* Google Analytics */}
