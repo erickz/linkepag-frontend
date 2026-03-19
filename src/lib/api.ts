@@ -476,7 +476,6 @@ export async function createPayment(linkId: string, payerInfo?: {
   email?: string;
   phone?: string;
   name?: string;
-  deviceId?: string;
 }) {
   const response = await fetch(`${API_BASE_URL}/payments/create/${linkId}`, {
     method: 'POST',
@@ -553,7 +552,6 @@ export async function createPixDirectPayment(linkId: string, payerInfo?: {
   email?: string;
   phone?: string;
   name?: string;
-  deviceId?: string;
 }) {
   const response = await fetch(`${API_BASE_URL}/payments/create-pix-direct/${linkId}`, {
     method: 'POST',

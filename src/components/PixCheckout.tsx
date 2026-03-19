@@ -94,13 +94,9 @@ export default function PixCheckout({
     try {
       console.log('Creating payment for link:', linkId, 'isPixDirect:', isPixDirect);
       
-      // Obter deviceId do MercadoPago para análise antifraude
-      const deviceId = getDeviceId() || undefined;
-      console.log('Device ID:', deviceId);
-      
       const response = isPixDirect 
-        ? await createPixDirectPayment(linkId, { email, name: name.trim(), deviceId })
-        : await createPayment(linkId, { email, name: name.trim(), deviceId });
+        ? await createPixDirectPayment(linkId, { email, name: name.trim() })
+        : await createPayment(linkId, { email, name: name.trim() });
       
       console.log('Payment response:', response);
       
