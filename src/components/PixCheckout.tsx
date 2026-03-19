@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { createPayment, createPixDirectPayment, uploadReceipt, checkPaymentStatus } from '@/lib/api';
+import { createPayment, createPixDirectPayment, registerBrickPayment, uploadReceipt, checkPaymentStatus } from '@/lib/api';
 import { useMercadoPago } from '@/hooks/useMercadoPago';
 import { formatPrice } from '@/lib/masks';
+import { PaymentBrick } from './PaymentBrick';
 
 interface PixCheckoutProps {
   linkId: string;
@@ -67,6 +68,9 @@ export default function PixCheckout({
   // Regra: MercadoPago tem prioridade se ambos estiverem configurados
   // isPixDirect só é true se MP NÃO estiver configurado e PIX estiver
   const isPixDirect = !mercadoPagoConfigured && pixConfigured;
+  
+  // Controle para mostrar o Payment Brick (só depois de clicar no botão)
+  const [showPaymentBrick, setShowPaymentBrick] = useState(false);
 
   const handleCreatePayment = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -680,8 +684,74 @@ export default function PixCheckout({
         </>
       )}
 
-      {/* Generate PIX Button - Comum para ambos */}
-      {(mercadoPagoConfigured || pixConfigured) && status === 'idle' && (
+      {/* Payment Brick para MercadoPago - Implementação moderna recomendada pelo MP */}
+      {mercadoPagoConfigured && status === 'idle' && !isPixDirect && (
+        <div className="mb-2">
+          {!showPaymentBrick ? (
+            // Botão inicial para iniciar o Payment Brick
+            <button
+              onClick={() => {
+                if (!email) {
+                  setError('Por favor, informe seu email para continuar');
+                  return;
+                }
+                setError(null);
+                setShowPaymentBrick(true);
+              }}
+              disabled={!email}
+              className="w-full h-11 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 active:scale-[0.98] transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+              </svg>
+              Gerar PIX
+            </button>
+          ) : (
+            // Payment Brick só é renderizado depois do clique
+            <PaymentBrick
+              amount={price}
+              payerEmail={email}
+              payerName={name}
+              onPaymentGenerated={async (paymentData) => {
+                try {
+                  // Registrar o pagamento criado pelo Brick no nosso backend
+                  const response = await registerBrickPayment(linkId, {
+                    gatewayId: paymentData.id,
+                    pixCode: paymentData.pixCode,
+                    qrCodeUrl: paymentData.qrCodeUrl,
+                    payerEmail: email,
+                    payerName: name,
+                  });
+                  
+                  if (response.success) {
+                    setPaymentId(response.payment.paymentId);
+                    setPixCode(response.payment.pixCode);
+                    setQrCodeUrl(response.payment.qrCodeUrl);
+                    setStatus('pending');
+                    setError(null);
+                  } else {
+                    setError(response.error || 'Erro ao registrar pagamento');
+                    setShowPaymentBrick(false); // Volta para o botão em caso de erro
+                  }
+                } catch (err: any) {
+                  setError(err.message || 'Erro ao processar pagamento');
+                  setShowPaymentBrick(false); // Volta para o botão em caso de erro
+                }
+              }}
+              onError={(err) => {
+                setError(err);
+                setShowPaymentBrick(false); // Volta para o botão em caso de erro
+              }}
+            />
+          )}
+          {error && status === 'idle' && (
+            <p className="text-rose-600 text-xs mt-2 text-center">{error}</p>
+          )}
+        </div>
+      )}
+
+      {/* Botão Gerar PIX - Apenas para PIX Direto (fallback) */}
+      {isPixDirect && status === 'idle' && (
         <div className="mb-2">
           <button
             onClick={handleCreatePayment}
@@ -691,7 +761,7 @@ export default function PixCheckout({
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
             </svg>
-            {isPixDirect ? 'Gerar PIX' : 'Gerar PIX'}
+            Gerar PIX
           </button>
           {error && status === 'idle' && (
             <p className="text-rose-600 text-xs mt-2 text-center">{error}</p>

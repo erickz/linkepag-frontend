@@ -492,6 +492,30 @@ export async function createPayment(linkId: string, payerInfo?: {
   return response.json();
 }
 
+// ============ PAYMENT BRICK (PIX via MercadoPago Brick) ============
+
+export async function registerBrickPayment(linkId: string, paymentData: {
+  gatewayId: string;
+  pixCode: string;
+  qrCodeUrl: string;
+  payerEmail?: string;
+  payerName?: string;
+  payerPhone?: string;
+}) {
+  const response = await fetch(`${API_BASE_URL}/payments/register-brick/${linkId}`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(paymentData),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Erro ao registrar pagamento');
+  }
+
+  return response.json();
+}
+
 export async function checkPaymentStatus(paymentId: string) {
   // Pagamentos não são cacheados - sempre busca status atual
   const response = await fetch(`${API_BASE_URL}/payments/status/${paymentId}`, {

@@ -208,7 +208,7 @@ function MercadoPagoOAuthCard({
               <div>
                 <p className="text-xs text-slate-500">Conta</p>
                 <p className="text-sm font-medium text-slate-900">
-                  {connectionData.email || 'Conta MercadoPago vinculada'}
+                  {connectionData.email || '-'}
                 </p>
               </div>
             </div>
