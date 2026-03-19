@@ -59,7 +59,7 @@ export default function PixCheckout({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const lastCheckRef = useRef<number>(0);
-  const DEBOUNCE_MS = 5000;
+  const DEBOUNCE_MS = 2000; // 2 segundos entre cliques
 
   const { getDeviceId } = useMercadoPago();
 
@@ -179,8 +179,8 @@ export default function PixCheckout({
     setError(null);
     setLastCheckMessage(null);
 
-    // Delay de 5-15s para dar tempo do webhook processar no backend
-    const delayMs = Math.floor(Math.random() * 10000) + 5000; // 5-15s aleatório
+    // Delay de 2-4s para dar tempo do webhook processar no backend
+    const delayMs = Math.floor(Math.random() * 2000) + 2000; // 2-4s aleatório
     await new Promise(resolve => setTimeout(resolve, delayMs));
 
     try {

@@ -150,13 +150,18 @@ export function useMercadoPago(): UseMercadoPagoReturn {
   }, []);
 
   const getDeviceId = useCallback((): string | null => {
-    if (!mpInstanceRef.current) {
-      return null;
-    }
-    // O MercadoPago SDK V2 armazena o device ID em window.MP_DEVICE_ID
-    // ou pode ser obtido via mpInstanceRef.current
-    if (typeof window !== 'undefined' && (window as any).MP_DEVICE_ID) {
-      return (window as any).MP_DEVICE_ID;
+    // ⚠️ NOTA: O SDK V2 do MercadoPago NÃO expõe mais device_id manualmente
+    // A prevenção de fraude é automática (advancedFraudPrevention: true por padrão)
+    // O device fingerprint é enviado automaticamente ao criar tokens ou usar Bricks
+    // 
+    // Se precisar de um identificador de sessão, use um gerado próprio:
+    if (typeof window !== 'undefined') {
+      let sessionId = sessionStorage.getItem('mp_session_id');
+      if (!sessionId) {
+        sessionId = `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        sessionStorage.setItem('mp_session_id', sessionId);
+      }
+      return sessionId;
     }
     return null;
   }, []);
