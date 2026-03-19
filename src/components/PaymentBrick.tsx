@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useId } from 'react';
 
 // Types para o MercadoPago Brick
 interface PaymentBrickProps {
@@ -19,6 +19,7 @@ interface PaymentBrickProps {
 }
 
 // Estender o tipo do Window para incluir o paymentBrickController
+// NÃO redeclaramos MercadoPago aqui - usamos a declaração do useMercadoPago.ts
 declare global {
   interface Window {
     paymentBrickController?: {
@@ -27,7 +28,7 @@ declare global {
   }
 }
 
-// Estender a interface MercadoPagoInstance do useMercadoPago
+// Interface estendida para o Brick (adicionamos bricks ao tipo existente)
 interface ExtendedMercadoPagoInstance {
   bricks: () => Promise<BricksController>;
 }
@@ -113,32 +114,33 @@ export function PaymentBrick({
   const [brickError, setBrickError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const brickControllerRef = useRef<{ unmount: () => void } | null>(null);
-  const isInitializedRef = useRef(false);
+  const isInitializingRef = useRef(false);
+  const isMountedRef = useRef(true);
+  
+  // Gerar ID único para esta instância do componente
+  const uniqueId = useId();
+  const containerId = `payment-brick-container-${uniqueId.replace(/:/g, '')}`;
 
   useEffect(() => {
-    // Evitar inicialização dupla
-    if (isInitializedRef.current) return;
+    // Flag para rastrear se o componente está montado
+    isMountedRef.current = true;
 
     const initializeBrick = async () => {
-      // Aguardar um pouco para garantir que o DOM está pronto
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Verificar se o container existe no DOM
-      const container = document.getElementById('payment-brick-container');
-      if (!container) {
-        console.error('[PaymentBrick] Container não encontrado, tentando novamente...');
-        // Tentar novamente após mais um delay
-        await new Promise(resolve => setTimeout(resolve, 200));
-        const retryContainer = document.getElementById('payment-brick-container');
-        if (!retryContainer) {
+      // Evitar inicialização dupla
+      if (isInitializingRef.current) return;
+      isInitializingRef.current = true;
+
+      // Verificar se o container existe usando a ref
+      if (!containerRef.current) {
+        console.error('[PaymentBrick] Container ref não está disponível');
+        if (isMountedRef.current) {
           setBrickError('Erro ao carregar formulário de pagamento. Tente novamente.');
           setIsLoading(false);
-          return;
         }
+        isInitializingRef.current = false;
+        return;
       }
-      
-      // Marcar como inicializado
-      isInitializedRef.current = true;
+
       try {
         // Aguardar o SDK do MercadoPago estar disponível
         if (!window.MercadoPago) {
@@ -154,7 +156,7 @@ export function PaymentBrick({
           locale: 'pt-BR',
         });
 
-        // Obter controller dos bricks (cast para o tipo estendido)
+        // Obter controller dos bricks (cast para tipo estendido)
         const bricksController = await (mp as unknown as ExtendedMercadoPagoInstance).bricks();
 
         // Separar nome em firstName e lastName
@@ -173,13 +175,17 @@ export function PaymentBrick({
           },
           callbacks: {
             onReady: () => {
-              setIsLoading(false);
-              onReady?.();
+              if (isMountedRef.current) {
+                setIsLoading(false);
+                onReady?.();
+              }
             },
             onError: (error) => {
               console.error('[PaymentBrick] Error:', error);
-              setBrickError(error.message || 'Erro no formulário de pagamento');
-              onError(error.message || 'Erro no formulário de pagamento');
+              if (isMountedRef.current) {
+                setBrickError(error.message || 'Erro no formulário de pagamento');
+                onError(error.message || 'Erro no formulário de pagamento');
+              }
             },
             onSubmit: async (formData) => {
               try {
@@ -229,38 +235,52 @@ export function PaymentBrick({
           },
         };
 
+        // Verificar novamente se o componente está montado antes de criar
+        if (!isMountedRef.current) {
+          return;
+        }
+
         brickControllerRef.current = await bricksController.create(
           'payment',
-          'payment-brick-container',
+          containerId,
           settings
         );
       } catch (err) {
         console.error('[PaymentBrick] Initialization error:', err);
         const errorMsg = err instanceof Error ? err.message : 'Erro ao inicializar formulário';
-        setBrickError(errorMsg);
-        setIsLoading(false);
-        onError(errorMsg);
+        if (isMountedRef.current) {
+          setBrickError(errorMsg);
+          setIsLoading(false);
+          onError(errorMsg);
+        }
+      } finally {
+        isInitializingRef.current = false;
       }
     };
 
-    // Aguardar um pouco para garantir que o SDK está carregado
+    // Aguardar um pequeno delay para garantir que o DOM está pronto
     const timer = setTimeout(() => {
       initializeBrick();
-    }, 500);
+    }, 100);
 
     return () => {
+      isMountedRef.current = false;
       clearTimeout(timer);
       // Cleanup: desmontar o brick quando o componente unmount
       if (brickControllerRef.current) {
-        brickControllerRef.current.unmount();
+        try {
+          brickControllerRef.current.unmount();
+        } catch (e) {
+          // Ignorar erros de cleanup
+        }
         brickControllerRef.current = null;
       }
-      isInitializedRef.current = false;
+      isInitializingRef.current = false;
     };
-  }, [amount, onPaymentGenerated, onError, onReady]);
+  }, [amount, payerEmail, payerName, onPaymentGenerated, onError, onReady, containerId]);
 
   // Loading state
-  if (isLoading) {
+  if (isLoading && !brickError) {
     return (
       <div className="bg-white rounded-xl border border-slate-200 p-6">
         <div className="flex flex-col items-center justify-center py-8">
@@ -298,7 +318,7 @@ export function PaymentBrick({
     <div className="bg-white rounded-xl border border-slate-200 p-4">
       {/* Container do Brick - o MercadoPago vai renderizar aqui */}
       <div 
-        id="payment-brick-container" 
+        id={containerId}
         ref={containerRef}
         className="min-h-[400px]"
       />
