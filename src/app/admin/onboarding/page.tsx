@@ -2,20 +2,19 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth, useProtectedRoute } from '@/hooks/useAuth';
+import { useMpOAuth } from '@/hooks/useMpOAuth';
 import { 
   getProfile, 
   updateProfile, 
   updateUsername,
-  getMercadoPagoCredentials, 
-  updateMercadoPagoCredentials,
   createLink,
   uploadLinkFile,
   CACHE_KEYS 
 } from '@/lib/api';
 import { formatUrl } from '@/lib/masks';
-import { IconCheck, IconArrowRight, IconArrowLeft, IconUser, IconCreditCard, IconLink, IconAlert, IconHelp } from '@/components/icons';
+import { IconCheck, IconArrowRight, IconArrowLeft, IconUser, IconCreditCard, IconLink, IconAlert, IconHelp, IconRefresh, IconUnlink } from '@/components/icons';
 import { AdminHeader } from '@/components/AdminHeader';
 
 interface OnboardingStep {
@@ -50,6 +49,7 @@ const steps: OnboardingStep[] = [
 export default function OnboardingPage() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<string[]>([]);
   
@@ -90,24 +90,42 @@ export default function OnboardingPage() {
     pixQRCodeImage: '',
   });
   const [isSavingPix, setIsSavingPix] = useState(false);
-  
-  // MercadoPago configuration
-  const [mpCredentials, setMpCredentials] = useState({
-    mercadoPagoPublicKey: '',
-    mercadoPagoAccessToken: '',
-  });
-  const [isMpConfigured, setIsMpConfigured] = useState(false);
-  const [isSavingMp, setIsSavingMp] = useState(false);
-  const [showAccessToken, setShowAccessToken] = useState(false);
+
+  // MercadoPago OAuth (novo fluxo)
+  const {
+    status: oauthStatus,
+    connectionData: oauthData,
+    hasLegacyCredentials,
+    isConnecting,
+    isDisconnecting,
+    initiateConnection,
+    disconnect,
+    refreshStatus,
+  } = useMpOAuth();
 
   useProtectedRoute('/login');
 
   useEffect(() => {
     if (isAuthenticated) {
       loadProfile();
-      loadMpStatus();
     }
   }, [isAuthenticated]);
+
+  // Lida com callback OAuth (sucesso/erro)
+  useEffect(() => {
+    const oauthResult = searchParams.get('oauth');
+    if (oauthResult === 'success') {
+      refreshStatus();
+      setCompletedSteps(prev => [...new Set([...prev, 'payment'])]);
+    }
+  }, [searchParams, refreshStatus]);
+
+  // Atualiza completedSteps quando OAuth estiver conectado
+  useEffect(() => {
+    if (oauthStatus === 'connected') {
+      setCompletedSteps(prev => [...new Set([...prev, 'payment'])]);
+    }
+  }, [oauthStatus]);
 
   const loadProfile = async () => {
     try {
@@ -124,21 +142,6 @@ export default function OnboardingPage() {
       }
     } catch (err) {
       console.error('Erro ao carregar perfil:', err);
-    }
-  };
-
-  const loadMpStatus = async () => {
-    try {
-      const data = await getMercadoPagoCredentials();
-      setIsMpConfigured(data.isConfigured);
-      if (data.mercadoPagoPublicKey) {
-        setMpCredentials(prev => ({ ...prev, mercadoPagoPublicKey: data.mercadoPagoPublicKey }));
-      }
-      if (data.isConfigured) {
-        setCompletedSteps(prev => [...new Set([...prev, 'payment'])]);
-      }
-    } catch (err) {
-      console.error('Erro ao carregar MP:', err);
     }
   };
 
@@ -294,22 +297,11 @@ export default function OnboardingPage() {
     }
   };
 
-  const handleSaveMp = async () => {
-    if (!mpCredentials.mercadoPagoPublicKey || !mpCredentials.mercadoPagoAccessToken) return;
-    
-    setIsSavingMp(true);
-    try {
-      await updateMercadoPagoCredentials(mpCredentials);
-      setIsMpConfigured(true);
-      setCompletedSteps(prev => [...new Set([...prev, 'payment'])]);
-      // Onboarding completo!
-      localStorage.setItem('lp_onboarding_complete', 'true');
-      router.push('/admin/dashboard');
-    } catch (err) {
-      console.error('Erro ao salvar MP:', err);
-    } finally {
-      setIsSavingMp(false);
-    }
+  const handleOAuthSuccess = () => {
+    setCompletedSteps(prev => [...new Set([...prev, 'payment'])]);
+    // Onboarding completo!
+    localStorage.setItem('lp_onboarding_complete', 'true');
+    router.push('/admin/dashboard');
   };
 
 
@@ -666,7 +658,7 @@ export default function OnboardingPage() {
                       </span>
                     </div>
                     <p className={`text-xs ${link.type === 'paid' ? 'text-indigo-600' : 'text-slate-500'}`}>
-                      Venda produtos, serviços ou conteúdos. Seu cliente paga via PIX para acessar.
+                      Venda seu produto! O cliente paga via PIX e recebe o link de acesso/arquivo por email!
                     </p>
                   </button>
                   
@@ -695,7 +687,7 @@ export default function OnboardingPage() {
                       </span>
                     </div>
                     <p className={`text-xs ${link.type === 'free' ? 'text-emerald-600' : 'text-slate-500'}`}>
-                      Compartilhe conteúdo gratuito, redes sociais ou qualquer link sem cobrança.
+                      Compartilhe seu site, grupos ou qualquer link sem cobrança.
                     </p>
                   </button>
                 </div>
@@ -830,34 +822,6 @@ export default function OnboardingPage() {
                     </div>
                   </div>
                 )}
-
-                {/* Info box baseada no tipo */}
-                {link.type === 'paid' ? (
-                  <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
-                    <div className="flex items-start gap-3">
-                      <IconCreditCard className="w-5 h-5 text-indigo-600 mt-0.5" />
-                      <div>
-                        <p className="font-medium text-indigo-900 text-sm">Como funciona o link monetizado?</p>
-                        <p className="text-xs text-indigo-700 mt-1">
-                          Você define um preço, o cliente paga via PIX e recebe o link de acesso/arquivo por email!
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-                    <div className="flex items-start gap-3">
-                      <IconCheck className="w-5 h-5 text-emerald-600 mt-0.5" />
-                      <div>
-                        <p className="font-medium text-emerald-900 text-sm">Link comum</p>
-                        <p className="text-xs text-emerald-700 mt-1">
-                          Ótimo para compartilhar redes sociais, portfólio ou atrair leads. 
-                          Sem cobrança, só redirecionamento!
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
 
               <div className="flex justify-between mt-8">
@@ -916,7 +880,7 @@ export default function OnboardingPage() {
               </div>
 
               {/* Payment Method Selection */}
-              {!paymentMethod && !isMpConfigured && (
+              {!paymentMethod && oauthStatus !== 'connected' && (
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                     {/* PIX Option */}
@@ -1155,143 +1119,159 @@ export default function OnboardingPage() {
                 </>
               )}
 
-              {/* MercadoPago Configuration Form */}
+              {/* MercadoPago OAuth Configuration */}
               {paymentMethod === 'mercadopago' && (
                 <>
-                  <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 mb-6">
-                    <div className="flex items-start gap-3">
-                      <IconAlert className="w-5 h-5 text-indigo-600 mt-0.5" />
-                      <div>
-                        <p className="font-medium text-indigo-900">Integração completa</p>
-                        <p className="text-sm text-indigo-700 mt-1">
-                          O MercadoPago gera QR Codes automaticamente e notifica quando o pagamento é confirmado.
-                        </p>
+                  {/* Mensagem de sucesso após callback OAuth */}
+                  {searchParams.get('oauth') === 'success' && (
+                    <div className="mb-6 p-4 rounded-xl border bg-emerald-50 border-emerald-200">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center bg-emerald-100">
+                          <IconCheck className="w-5 h-5 text-emerald-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-emerald-900">MercadoPago conectado com sucesso!</p>
+                          <p className="text-sm text-emerald-600">Sua conta está vinculada e pronta para receber pagamentos</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
 
-                  <div className="space-y-5">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Public Key
-                      </label>
-                      <input
-                        type="text"
-                        value={mpCredentials.mercadoPagoPublicKey}
-                        onChange={(e) => setMpCredentials({ ...mpCredentials, mercadoPagoPublicKey: e.target.value })}
-                        placeholder="TEST-f44e5241-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                        className="w-full h-12 px-4 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Access Token
-                      </label>
-                      <div className="relative">
-                        <input
-                          type={showAccessToken ? 'text' : 'password'}
-                          value={mpCredentials.mercadoPagoAccessToken}
-                          onChange={(e) => setMpCredentials({ ...mpCredentials, mercadoPagoAccessToken: e.target.value })}
-                          placeholder="TEST-2372715816013223-..."
-                          className="w-full h-12 px-4 pr-12 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowAccessToken(!showAccessToken)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                        >
-                          {showAccessToken ? (
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                            </svg>
-                          ) : (
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                          )}
-                        </button>
+                  {searchParams.get('oauth') === 'error' && (
+                    <div className="mb-6 p-4 rounded-xl border bg-rose-50 border-rose-200">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center bg-rose-100">
+                          <IconAlert className="w-5 h-5 text-rose-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-rose-900">Erro ao conectar</p>
+                          <p className="text-sm text-rose-600">{searchParams.get('message') || 'Tente novamente'}</p>
+                        </div>
                       </div>
                     </div>
+                  )}
 
-                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-                      <p className="font-medium text-slate-900 mb-3">Como obter suas credenciais:</p>
-                      <ol className="space-y-2 text-sm text-slate-600">
-                        <li className="flex items-start gap-2">
-                          <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold flex-shrink-0">1</span>
-                          Acesse o <a href="https://www.mercadopago.com.br/developers" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline">Portal de Desenvolvedores</a>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold flex-shrink-0">2</span>
-                          Faça login com sua conta do MercadoPago
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold flex-shrink-0">3</span>
-                          Vá em &quot;Suas integrações&quot; e crie uma nova aplicação
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold flex-shrink-0">4</span>
-                          Copie a Public Key e o Access Token
-                        </li>
-                      </ol>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-between mt-8">
-                    <button
-                      onClick={() => setPaymentMethod(null)}
-                      className="inline-flex items-center gap-2 px-4 h-12 text-slate-600 hover:text-slate-900 font-medium transition"
-                    >
-                      <IconArrowLeft className="w-4 h-4" />
-                      Voltar
-                    </button>
-                    <div className="flex items-center gap-3">
+                  {/* Estado: Conectado via OAuth */}
+                  {oauthStatus === 'connected' && oauthData && (
+                    <div className="text-center py-8">
+                      <div className="w-20 h-20 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-4">
+                        <IconCheck className="w-10 h-10" />
+                      </div>
+                      <h3 className="text-xl font-bold text-slate-900 mb-2">MercadoPago Conectado!</h3>
+                      <p className="text-slate-500 mb-2">
+                        Conta: <span className="font-medium text-slate-700">{oauthData.email}</span>
+                      </p>
+                      <p className="text-slate-500 mb-6">
+                        Sua conta está configurada e você já pode começar a vender
+                      </p>
                       <button
-                        onClick={skipStep}
-                        className="text-slate-500 hover:text-slate-700 font-medium transition"
+                        onClick={handleOAuthSuccess}
+                        className="inline-flex items-center gap-2 px-6 h-12 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition"
                       >
-                        Configurar depois
+                        Concluir Onboarding
+                        <IconArrowRight className="w-4 h-4" />
                       </button>
+                    </div>
+                  )}
+
+                  {/* Estado: Desconectado ou com credenciais legadas */}
+                  {oauthStatus !== 'connected' && (
+                    <>
+                      <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 mb-6">
+                        <div className="flex items-start gap-3">
+                          <IconAlert className="w-5 h-5 text-indigo-600 mt-0.5" />
+                          <div>
+                            <p className="font-medium text-indigo-900">Integração automática com OAuth</p>
+                            <p className="text-sm text-indigo-700 mt-1">
+                              Conecte sua conta do MercadoPago de forma segura. O dinheiro cai direto na sua conta e os pagamentos são confirmados automaticamente.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Alerta de credenciais legadas */}
+                      {hasLegacyCredentials && (
+                        <div className="mb-6 p-4 rounded-xl border bg-amber-50 border-amber-200">
+                          <div className="flex items-start gap-3">
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center bg-amber-100 flex-shrink-0">
+                              <IconAlert className="w-4 h-4 text-amber-600" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-amber-900 text-sm">Você está usando credenciais antigas</p>
+                              <p className="text-xs text-amber-700 mt-1">
+                                Recomendamos reconectar via OAuth para mais segurança e praticidade.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Lista de benefícios */}
+                      <ul className="space-y-3 mb-6">
+                        <li className="flex items-center gap-3 text-sm text-slate-600">
+                          <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                            <IconCheck className="w-3 h-3 text-emerald-600" />
+                          </div>
+                          Dinheiro cai na sua conta MercadoPago
+                        </li>
+                        <li className="flex items-center gap-3 text-sm text-slate-600">
+                          <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                            <IconCheck className="w-3 h-3 text-emerald-600" />
+                          </div>
+                          Confirmação automática de pagamentos
+                        </li>
+                        <li className="flex items-center gap-3 text-sm text-slate-600">
+                          <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                            <IconCheck className="w-3 h-3 text-emerald-600" />
+                          </div>
+                          Sem necessidade de inserir credenciais manualmente
+                        </li>
+                      </ul>
+
+                      {/* Botão de conectar */}
                       <button
-                        onClick={handleSaveMp}
-                        disabled={!mpCredentials.mercadoPagoPublicKey || !mpCredentials.mercadoPagoAccessToken || isSavingMp}
-                        className="inline-flex items-center gap-2 px-6 h-12 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                        onClick={initiateConnection}
+                        disabled={isConnecting}
+                        className="w-full h-12 px-4 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-cyan-600 transition disabled:opacity-50 flex items-center justify-center gap-2 mb-4"
                       >
-                        {isSavingMp ? (
+                        {isConnecting ? (
                           <>
-                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            Salvando...
+                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                            Conectando...
+                          </>
+                        ) : hasLegacyCredentials ? (
+                          <>
+                            <IconRefresh className="w-4 h-4" />
+                            Reconectar com MercadoPago
                           </>
                         ) : (
                           <>
-                            Concluir
-                            <IconCheck className="w-4 h-4" />
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                            </svg>
+                            Conectar com MercadoPago
                           </>
                         )}
                       </button>
-                    </div>
-                  </div>
-                </>
-              )}
 
-              {isMpConfigured && (
-                <div className="text-center py-8">
-                  <div className="w-20 h-20 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-4">
-                    <IconCheck className="w-10 h-10" />
-                  </div>
-                  <h3 className="text-xl font-bold text-slate-900 mb-2">Tudo pronto!</h3>
-                  <p className="text-slate-500 mb-6">
-                    Sua conta está configurada e você já pode começar a vender
-                  </p>
-                  <Link
-                    href="/admin/dashboard"
-                    className="inline-flex items-center gap-2 px-6 h-12 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition"
-                  >
-                    Ir para o Dashboard
-                    <IconArrowRight className="w-4 h-4" />
-                  </Link>
-                </div>
+                      <div className="flex justify-between mt-6">
+                        <button
+                          onClick={() => setPaymentMethod(null)}
+                          className="inline-flex items-center gap-2 px-4 h-12 text-slate-600 hover:text-slate-900 font-medium transition"
+                        >
+                          <IconArrowLeft className="w-4 h-4" />
+                          Voltar
+                        </button>
+                        <button
+                          onClick={skipStep}
+                          className="text-slate-500 hover:text-slate-700 font-medium transition"
+                        >
+                          Configurar depois
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </>
               )}
             </div>
           )}

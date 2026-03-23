@@ -187,6 +187,23 @@ export default function PlansPage() {
   const [cancelReason, setCancelReason] = useState('');
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  
+  // Estados para pagamento de pendências (taxas acumuladas)
+  const [showPendingPaymentSection, setShowPendingPaymentSection] = useState(false);
+  const [pendingPaymentMethod, setPendingPaymentMethod] = useState<'credit_card' | 'pix'>('pix');
+  const [pendingPixData, setPendingPixData] = useState<{
+    pixCode: string;
+    qrCodeUrl: string;
+    expirationDate: string;
+  } | null>(null);
+  const [isProcessingPendingPayment, setIsProcessingPendingPayment] = useState(false);
+  const [pendingPaymentError, setPendingPaymentError] = useState<string | null>(null);
+  const [pendingCardToken, setPendingCardToken] = useState<string | null>(null);
+  const [pendingCardHolderCpf, setPendingCardHolderCpf] = useState<string | null>(null);
+  const pendingCardTokenRef = useRef<string | null>(null);
+  const pendingCardHolderCpfRef = useRef<string | null>(null);
+  const [isPendingCardTokenized, setIsPendingCardTokenized] = useState(false);
+  const [shouldPendingTokenize, setShouldPendingTokenize] = useState(false);
   const [cardToken, setCardToken] = useState<string | null>(null);
   const [cardHolderCpf, setCardHolderCpf] = useState<string | null>(null);
   /**
@@ -236,6 +253,9 @@ export default function PlansPage() {
     isLocked,
     daysUntilLock,
     currentBalance,
+    payFees,
+    isPayingFees,
+    refreshBilling,
   } = useBilling();
 
   // Valor pendente é o total de taxas acumuladas do billing (ex: 8% das vendas no Starter)
@@ -487,6 +507,111 @@ export default function PlansPage() {
     }
   };
 
+  // ========== HANDLERS PARA PAGAMENTO DE PENDÊNCIAS ==========
+  
+  const handlePendingPaymentMethodChange = (method: 'credit_card' | 'pix') => {
+    if (pendingPixData) return;
+    setPendingPaymentMethod(method);
+    setPendingCardToken(null);
+    pendingCardTokenRef.current = null;
+    setPendingCardHolderCpf(null);
+    pendingCardHolderCpfRef.current = null;
+    setIsPendingCardTokenized(false);
+    setShouldPendingTokenize(false);
+    setPendingPaymentError(null);
+    if (method === 'credit_card') {
+      setPendingPixData(null);
+    }
+  };
+
+  const handlePendingCardTokenGenerated = (token: string) => {
+    setPendingCardToken(token);
+    pendingCardTokenRef.current = token;
+    setIsPendingCardTokenized(true);
+    setPendingPaymentError(null);
+  };
+
+  const createPendingPaymentWithToken = async () => {
+    setIsProcessingPendingPayment(true);
+    setPendingPaymentError(null);
+    
+    try {
+      const tokenToSend = pendingPaymentMethod === 'credit_card' 
+        ? pendingCardTokenRef.current || pendingCardToken || undefined 
+        : undefined;
+
+      console.log('[PagarPendencias] Iniciando pagamento:', { 
+        method: pendingPaymentMethod, 
+        hasToken: !!tokenToSend 
+      });
+      
+      const result = await payFees(pendingPaymentMethod, tokenToSend);
+      
+      console.log('[PagarPendencias] Resultado:', result);
+
+      if (result.pixData) {
+        console.log('[PagarPendencias] PIX gerado com sucesso');
+        setPendingPixData(result.pixData);
+      } else {
+        console.log('[PagarPendencias] Pagamento processado sem PIX');
+        setMessage({ type: 'success', text: 'Pagamento processado com sucesso! Suas pendências foram regularizadas.' });
+        setShowPendingPaymentSection(false);
+        setPendingPixData(null);
+        refreshBilling();
+      }
+    } catch (error: any) {
+      console.error('[PagarPendencias] Erro:', error);
+      
+      let errorMessage = error.message || 'Erro ao processar pagamento';
+      if (errorMessage.includes('token') || errorMessage.includes('Token') || errorMessage.includes('card')) {
+        errorMessage = 'Erro ao processar o cartão. Por favor, preencha os dados novamente.';
+      }
+      
+      if (pendingPaymentMethod === 'credit_card') {
+        setPendingCardToken(null);
+        pendingCardTokenRef.current = null;
+        setIsPendingCardTokenized(false);
+        setShouldPendingTokenize(false);
+      }
+      
+      setPendingPaymentError(errorMessage);
+      setMessage({ type: 'error', text: errorMessage });
+    } finally {
+      setIsProcessingPendingPayment(false);
+    }
+  };
+
+  const handlePendingPaymentSubmit = async () => {
+    setPendingPaymentError(null);
+
+    if (pendingPaymentMethod === 'credit_card' && !pendingCardTokenRef.current && !pendingCardToken) {
+      setShouldPendingTokenize(true);
+      return;
+    }
+
+    await createPendingPaymentWithToken();
+  };
+
+  const handlePendingTokenizationComplete = () => {
+    setShouldPendingTokenize(false);
+    setTimeout(() => {
+      createPendingPaymentWithToken();
+    }, 0);
+  };
+
+  const closePendingPaymentSection = () => {
+    setShowPendingPaymentSection(false);
+    setPendingPixData(null);
+    setPendingPaymentError(null);
+    setPendingCardToken(null);
+    pendingCardTokenRef.current = null;
+    setPendingCardHolderCpf(null);
+    pendingCardHolderCpfRef.current = null;
+    setIsPendingCardTokenized(false);
+    setShouldPendingTokenize(false);
+    setPendingPaymentMethod('pix');
+  };
+
   // Plano atual baseado em user.planId
   const isCurrentPlan = (planId: number) => {
     return planId === user?.planId;
@@ -583,13 +708,6 @@ export default function PlansPage() {
                     {pendingSalesFormatted}
                   </p>
                 </div>
-                <div>
-                  <p className="text-xs text-slate-500">Taxa por venda</p>
-                  <p className="font-semibold text-indigo-600">
-                    {currentUserPlan?.feePerTransactionFormatted || `${currentUserPlan?.feePerTransaction ?? 0}%`}
-                  </p>
-                  <p className="text-xs text-slate-400">por transação</p>
-                </div>
                 {currentUserPlan?.id !== 1 && subscription?.expiresAt && (
                   <div>
                     <p className="text-xs text-slate-500">Renova em</p>
@@ -603,7 +721,7 @@ export default function PlansPage() {
 
             {/* CTA */}
             <div className="lg:text-right space-y-2">
-              <div className="flex items-center gap-2 justify-end">
+              <div className="flex flex-col gap-2 items-end">
                 {!hasPendingSubscription && (
                   <button
                     onClick={scrollToPlans}
@@ -613,6 +731,19 @@ export default function PlansPage() {
                     <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
+                  </button>
+                )}
+                
+                {/* Botão Pagar Pendências - aparece se houver valor pendente */}
+                {(currentBalance || 0) > 0 && !hasPendingSubscription && (
+                  <button
+                    onClick={() => setShowPendingPaymentSection(true)}
+                    className="inline-flex items-center px-5 py-2.5 bg-white text-emerald-700 text-sm font-medium rounded-xl border-2 border-emerald-500 hover:bg-emerald-50 hover:border-emerald-600 transition shadow-sm"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    Pagar Pendências
                   </button>
                 )}
               </div>
@@ -825,7 +956,7 @@ export default function PlansPage() {
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                     </svg>
-                    Cobrança automática mensal com cartão
+                    Cartão de crédito
                   </div>
                 </button>
               </div>
@@ -863,8 +994,8 @@ export default function PlansPage() {
               )}
             </div>
 
-            {/* PIX Code Display */}
-            {pixData && (
+            {/* PIX Code Display - só aparece se método for PIX */}
+            {paymentMethod === 'pix' && pixData && (
               <div className="bg-white rounded-xl p-6 border border-slate-200 mb-6">
                 <div className="text-center mb-4">
                   <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-emerald-100 flex items-center justify-center">
@@ -934,8 +1065,8 @@ export default function PlansPage() {
             <button
               onClick={() => {
                 if (paymentMethod === 'pix' && pixData) {
-                  // PIX já gerado: apenas refresh da página
-                  window.location.reload();
+                  // PIX já gerado: mostra mensagem de aguardando
+                  setMessage({ type: 'info', text: 'Aguardando confirmação do pagamento PIX. Assim que confirmado, sua assinatura será ativada automaticamente.' });
                 } else {
                   handleSubscribe();
                 }
@@ -949,7 +1080,7 @@ export default function PlansPage() {
                 ? 'Validando cartão...'
                 : paymentMethod === 'pix' && !pixData
                 ? 'Gerar Pagamento'
-                : 'Confirmar assinatura'
+                : 'Confirmar Pagamento'
               }
             </button>
 
@@ -970,6 +1101,206 @@ export default function PlansPage() {
         >
           {message.text}
         </Alert>
+      )}
+
+      {/* SEÇÃO: Checkout de Pagamento de Pendências */}
+      {showPendingPaymentSection && !hasPendingSubscription && (
+        <section id="pagar-pendencias" className="bg-emerald-50 rounded-2xl border-2 border-emerald-200 overflow-hidden scroll-mt-6">
+          <div className="bg-emerald-100 px-6 py-5 border-b border-emerald-200">
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-emerald-900 text-lg">
+                Pagar Pendências
+              </h2>
+              <button
+                onClick={closePendingPaymentSection}
+                className="p-2 hover:bg-emerald-200 rounded-lg transition"
+              >
+                <svg className="w-5 h-5 text-emerald-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          
+          <div className="p-6">
+            <p className="text-slate-600 mb-6">
+              Regularize suas taxas pendentes para liberar seus links monetizados.
+            </p>
+
+            {/* Valor a pagar */}
+            <div className="bg-white border border-emerald-200 rounded-xl p-4 mb-6">
+              <p className="text-sm text-slate-600 mb-1">Valor total das pendências:</p>
+              <p className="text-2xl font-bold text-emerald-700">{pendingSalesFormatted}</p>
+            </div>
+
+            {/* Formas de pagamento */}
+            <div className="space-y-4 mb-6">
+              <p className="text-sm font-medium text-slate-700">Escolha como pagar:</p>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => handlePendingPaymentMethodChange('pix')}
+                  disabled={!!pendingPixData}
+                  className={`flex-1 py-3 px-4 rounded-xl border-2 text-sm font-medium transition ${
+                    pendingPaymentMethod === 'pix'
+                      ? 'border-emerald-500 bg-emerald-100 text-emerald-700'
+                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                  } ${!!pendingPixData ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                    </svg>
+                    Pagar com PIX
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => handlePendingPaymentMethodChange('credit_card')}
+                  disabled={!!pendingPixData}
+                  className={`flex-1 py-3 px-4 rounded-xl border-2 text-sm font-medium transition ${
+                    pendingPaymentMethod === 'credit_card'
+                      ? 'border-emerald-500 bg-emerald-100 text-emerald-700'
+                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                  } ${!!pendingPixData ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                    </svg>
+                    Cartão de Crédito
+                  </div>
+                </button>
+              </div>
+
+              {/* Instrução quando PIX está selecionado mas ainda não gerado */}
+              {pendingPaymentMethod === 'pix' && !pendingPixData && (
+                <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+                  <div className="flex items-start gap-3">
+                    <svg className="w-5 h-5 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                      <p className="text-sm text-blue-800 font-medium">Como pagar com PIX</p>
+                      <p className="text-sm text-blue-600 mt-1">
+                        Confirme para gerar o QR Code e código PIX para pagamento das pendências
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {pendingPaymentMethod === 'credit_card' && (
+                <div className="bg-white rounded-xl p-4 border border-slate-200">
+                  <CreditCardForm 
+                    onCardTokenGenerated={handlePendingCardTokenGenerated}
+                    onError={(error) => setMessage({ type: 'error', text: error })}
+                    onValidationChange={setIsPendingCardTokenized}
+                    isProcessing={isProcessingPendingPayment || isPayingFees}
+                    shouldTokenize={shouldPendingTokenize}
+                    onTokenizationComplete={handlePendingTokenizationComplete}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* PIX Code Display - só aparece se método for PIX */}
+            {pendingPaymentMethod === 'pix' && pendingPixData && (
+              <div className="bg-white rounded-xl p-6 border border-slate-200 mb-6">
+                <div className="text-center mb-4">
+                  <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-emerald-100 flex items-center justify-center">
+                    <svg className="w-8 h-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="font-semibold text-slate-900">Pagamento via PIX</h3>
+                  <p className="text-sm text-slate-500 mt-1">Escaneie o QR Code ou copie o código PIX</p>
+                </div>
+
+                {pendingPixData.qrCodeUrl && (
+                  <div className="flex justify-center mb-4">
+                    <img 
+                      src={pendingPixData.qrCodeUrl} 
+                      alt="QR Code PIX" 
+                      className="w-48 h-48 rounded-lg border border-slate-200"
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={pendingPixData.pixCode}
+                      readOnly
+                      className="flex-1 px-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-lg font-mono"
+                    />
+                    <button
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(pendingPixData.pixCode);
+                          setMessage({ type: 'success', text: 'Código PIX copiado!' });
+                        } catch {
+                          setMessage({ type: 'error', text: 'Erro ao copiar código' });
+                        }
+                      }}
+                      className="px-4 py-3 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition"
+                    >
+                      Copiar
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-500 text-center">
+                    Expira em: {new Date(pendingPixData.expirationDate).toLocaleString('pt-BR')}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Mensagem de erro específica */}
+            {pendingPaymentError && (
+              <div className="mb-4 p-4 bg-rose-50 border border-rose-200 rounded-xl">
+                <div className="flex items-start gap-3">
+                  <svg className="w-5 h-5 text-rose-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-medium text-rose-800">Erro no pagamento</p>
+                    <p className="text-sm text-rose-600 mt-1">{pendingPaymentError}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Botão de confirmação */}
+            <button
+              onClick={() => {
+                if (pendingPaymentMethod === 'pix' && pendingPixData) {
+                  // PIX já gerado: mostra mensagem de aguardando
+                  setMessage({ type: 'info', text: 'Aguardando confirmação do pagamento PIX. Assim que confirmado, suas pendências serão regularizadas automaticamente.' });
+                } else {
+                  handlePendingPaymentSubmit();
+                }
+              }}
+              disabled={isProcessingPendingPayment || isPayingFees || shouldPendingTokenize || (pendingPaymentMethod === 'credit_card' && !isPendingCardTokenized && !shouldPendingTokenize)}
+              className="w-full py-3 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isProcessingPendingPayment || isPayingFees
+                ? 'Processando...' 
+                : shouldPendingTokenize
+                ? 'Validando cartão...'
+                : pendingPaymentMethod === 'pix' && !pendingPixData
+                ? 'Gerar Pagamento'
+                : 'Confirmar Pagamento'
+              }
+            </button>
+
+            {pendingPaymentMethod === 'credit_card' && !isPendingCardTokenized && !pendingPaymentError && (
+              <p className="text-xs text-amber-600 mt-2 text-center">
+                Preencha os dados do cartão para continuar
+              </p>
+            )}
+          </div>
+        </section>
       )}
 
       {/* SEÇÃO 4: Comparar Planos */}
@@ -1175,6 +1506,8 @@ export default function PlansPage() {
           </div>
         </div>
       )}
+
+
     </div>
   );
 }

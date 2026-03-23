@@ -225,6 +225,8 @@ export function useBilling(): UseBillingReturn {
       if (!result) {
         throw new Error('Erro ao processar pagamento');
       }
+      // Recarrega dados do billing após pagamento
+      refreshBilling();
       return result;
     },
     isPayingFees: payFeesMutation.isLoading,

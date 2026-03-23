@@ -119,7 +119,7 @@ export default function Home() {
                 </div>
                 <div className="flex items-center gap-2">
                   <IconCheck className="w-5 h-5" />
-                  <span>Grátis para começar</span>
+                  <span>É grátis! Pague apenas quando vender</span>
                 </div>
               </div>
             </div>
@@ -213,8 +213,8 @@ export default function Home() {
                             <IconVideo className="w-5 h-5 text-purple-600" />
                           </div>
                           <div className="flex-1 text-left">
-                            <div className="font-medium text-sm">YouTube</div>
-                            <div className="text-xs text-slate-400">Meus tutoriais</div>
+                            <div className="font-medium text-sm">Youtube</div>
+                            <div className="text-xs text-slate-400">Confira meus tutoriais</div>
                           </div>
                           <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />

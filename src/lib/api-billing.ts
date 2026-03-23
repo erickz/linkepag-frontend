@@ -102,8 +102,9 @@ export interface BillingPayment {
 }
 
 export interface PayFeesResponse {
-  success: boolean;
-  payment: BillingPayment;
+  paymentId: string;
+  status: string;
+  totalAmount: number;
   pixData?: {
     pixCode: string;
     qrCodeUrl: string;
@@ -225,7 +226,7 @@ export async function getFeesReport(
 }
 
 /**
- * Inicia pagamento das taxas acumuladas
+ * Inicia pagamento das taxas acumuladas (apenas taxas, sem plano)
  * POST /billing/payment
  */
 export async function createBillingPayment(
@@ -235,7 +236,7 @@ export async function createBillingPayment(
   const response = await fetch(`${API_BASE_URL}/billing/payment`, {
     method: 'POST',
     headers: getAuthHeaders(),
-    body: JSON.stringify({ paymentMethod, cardToken }),
+    body: JSON.stringify({ paymentMethod, cardToken, planAmount: 0 }), // planAmount: 0 = paga apenas taxas
   });
 
   if (!response.ok) {
@@ -243,11 +244,14 @@ export async function createBillingPayment(
     throw new Error(error.message || 'Erro ao processar pagamento');
   }
 
+  const result = await response.json();
+
   // Limpa cache após pagamento
   apiCache.invalidate(BILLING_CACHE_KEYS.BILLING_STATUS);
   apiCache.invalidate(BILLING_CACHE_KEYS.CURRENT_CYCLE);
 
-  return response.json();
+  // O backend retorna { success: true, data: {...} }
+  return result.data;
 }
 
 /**
