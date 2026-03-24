@@ -525,6 +525,11 @@ export default function PlansPage() {
   };
 
   const handlePendingCardTokenGenerated = (token: string) => {
+    console.log('[CardTokenGenerated] Token recebido:', { 
+      length: token.length, 
+      prefix: token.substring(0, 15),
+      timestamp: new Date().toISOString()
+    });
     setPendingCardToken(token);
     pendingCardTokenRef.current = token;
     setIsPendingCardTokenized(true);
@@ -540,9 +545,22 @@ export default function PlansPage() {
         ? pendingCardTokenRef.current || pendingCardToken || undefined 
         : undefined;
 
+      console.log('[CreatePendingPayment] Estado atual:', {
+        method: pendingPaymentMethod,
+        hasRefToken: !!pendingCardTokenRef.current,
+        hasStateToken: !!pendingCardToken,
+        isCardTokenized: isPendingCardTokenized,
+        tokenPrefix: pendingCardTokenRef.current?.substring(0, 15)
+      });
+
+      if (pendingPaymentMethod === 'credit_card' && !tokenToSend) {
+        throw new Error('Token do cartão não disponível. Por favor, preencha os dados do cartão novamente.');
+      }
+
       console.log('[PagarPendencias] Iniciando pagamento:', { 
         method: pendingPaymentMethod, 
-        hasToken: !!tokenToSend 
+        hasToken: !!tokenToSend,
+        tokenLength: tokenToSend?.length || 0
       });
       
       const result = await payFees(pendingPaymentMethod, tokenToSend);
@@ -594,9 +612,23 @@ export default function PlansPage() {
 
   const handlePendingTokenizationComplete = () => {
     setShouldPendingTokenize(false);
+    // Aguarda um pouco mais para garantir que a ref foi atualizada
     setTimeout(() => {
+      const token = pendingCardTokenRef.current;
+      console.log('[TokenizationComplete] Token na ref:', { 
+        hasToken: !!token, 
+        length: token?.length || 0,
+        prefix: token?.substring(0, 15)
+      });
+      
+      if (!token) {
+        console.error('[TokenizationComplete] Token não encontrado na ref!');
+        setPendingPaymentError('Erro ao processar o cartão. Por favor, tente novamente.');
+        return;
+      }
+      
       createPendingPaymentWithToken();
-    }, 0);
+    }, 100); // Aumentado para 100ms para garantir sincronização
   };
 
   const closePendingPaymentSection = () => {
