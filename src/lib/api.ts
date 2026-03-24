@@ -830,7 +830,24 @@ export async function createSubscription(
   cardToken?: string,
   cardHolderCpf?: string,
   cardBrand?: string
-) {
+): Promise<{
+  success: boolean;
+  subscription: {
+    id: string;
+    planId: number;
+    planName: string;
+    status: string;
+    amount: number;
+    expiresAt?: string;
+    pixExpirationDate?: string;
+  };
+  pixData?: {
+    pixCode: string;
+    qrCodeUrl: string;
+    expirationDate: string;
+  };
+  paymentUrl?: string;
+}> {
   const response = await fetch(`${API_BASE_URL}/subscriptions`, {
     method: 'POST',
     headers: getAuthHeaders(),
