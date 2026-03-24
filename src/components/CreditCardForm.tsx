@@ -350,7 +350,7 @@ export function CreditCardForm({
         {isTokenizing ? (
           <div className="flex items-center gap-2 text-indigo-600 text-sm font-medium">
             <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-indigo-600"></div>
-            Validando cartão...
+            Processando...
           </div>
         ) : hasTokenized ? (
           <div className="flex items-center gap-2 text-emerald-600 text-sm font-medium">

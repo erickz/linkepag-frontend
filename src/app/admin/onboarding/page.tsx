@@ -879,26 +879,6 @@ export default function OnboardingPage() {
                 </div>
               </div>
 
-              {/* MP Already Configured - Generic Message */}
-              {oauthStatus === 'connected' && (
-                <div className="text-center py-8">
-                  <div className="w-20 h-20 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-4">
-                    <IconCheck className="w-10 h-10" />
-                  </div>
-                  <h3 className="text-xl font-bold text-slate-900 mb-2">Recebimento configurado!</h3>
-                  <p className="text-slate-500 mb-6">
-                    Seu MercadoPago está conectado e pronto para receber pagamentos.
-                  </p>
-                  <button
-                    onClick={handleOAuthSuccess}
-                    className="inline-flex items-center gap-2 px-6 h-12 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition"
-                  >
-                    Concluir
-                    <IconArrowRight className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-
               {/* Payment Method Selection */}
               {!paymentMethod && oauthStatus !== 'connected' && (
                 <>
@@ -1168,6 +1148,29 @@ export default function OnboardingPage() {
                           <p className="text-sm text-rose-600">{searchParams.get('message') || 'Tente novamente'}</p>
                         </div>
                       </div>
+                    </div>
+                  )}
+
+                  {/* Estado: Conectado via OAuth */}
+                  {oauthStatus === 'connected' && oauthData && (
+                    <div className="text-center py-8">
+                      <div className="w-20 h-20 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-4">
+                        <IconCheck className="w-10 h-10" />
+                      </div>
+                      <h3 className="text-xl font-bold text-slate-900 mb-2">MercadoPago Conectado!</h3>
+                      <p className="text-slate-500 mb-2">
+                        Conta: <span className="font-medium text-slate-700">{oauthData.email}</span>
+                      </p>
+                      <p className="text-slate-500 mb-6">
+                        Sua conta está configurada e você já pode começar a vender
+                      </p>
+                      <button
+                        onClick={handleOAuthSuccess}
+                        className="inline-flex items-center gap-2 px-6 h-12 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition"
+                      >
+                        Concluir Onboarding
+                        <IconArrowRight className="w-4 h-4" />
+                      </button>
                     </div>
                   )}
 

@@ -1077,7 +1077,7 @@ export default function PlansPage() {
               {isCreatingSubscription 
                 ? 'Processando...' 
                 : shouldTokenize
-                ? 'Validando cartão...'
+                ? 'Processando...'
                 : paymentMethod === 'pix' && !pixData
                 ? 'Gerar Pagamento'
                 : 'Confirmar Pagamento'
@@ -1287,7 +1287,7 @@ export default function PlansPage() {
               {isProcessingPendingPayment || isPayingFees
                 ? 'Processando...' 
                 : shouldPendingTokenize
-                ? 'Validando cartão...'
+                ? 'Processando...'
                 : pendingPaymentMethod === 'pix' && !pendingPixData
                 ? 'Gerar Pagamento'
                 : 'Confirmar Pagamento'
