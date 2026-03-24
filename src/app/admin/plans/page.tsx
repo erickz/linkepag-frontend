@@ -573,11 +573,23 @@ export default function PlansPage() {
         ? pendingCardTokenRef.current || pendingCardToken || undefined 
         : undefined;
 
+      // DEBUG LOGS
+      console.log('[FRONTEND DEBUG] ========== PAGAMENTO CARTÃO ==========');
+      console.log('[FRONTEND DEBUG] Método:', pendingPaymentMethod);
+      console.log('[FRONTEND DEBUG] Has Token:', !!tokenToSend);
+      if (tokenToSend) {
+        console.log('[FRONTEND DEBUG] Token Prefix:', tokenToSend.substring(0, 15));
+        console.log('[FRONTEND DEBUG] Token Length:', tokenToSend.length);
+      }
+      console.log('[FRONTEND DEBUG] =========================================');
+
       if (pendingPaymentMethod === 'credit_card' && !tokenToSend) {
         throw new Error('Token do cartão não disponível. Por favor, preencha os dados do cartão novamente.');
       }
       
+      console.log('[FRONTEND DEBUG] Enviando para API...');
       const result = await payFees(pendingPaymentMethod, tokenToSend);
+      console.log('[FRONTEND DEBUG] Resultado:', result);
       
       // Salva o ID do pagamento para verificação posterior
       if (result.paymentId) {
