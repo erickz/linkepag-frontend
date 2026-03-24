@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { useAuth, useProtectedRoute } from '@/hooks/useAuth';
 import { useApiParallel } from '@/hooks/useApi';
-import { getLinks, getProfile, getMercadoPagoCredentials, getSalesReport, getPendingPayments, CACHE_KEYS } from '@/lib/api';
+import { getLinks, getProfile, getSalesReport, getPendingPayments, CACHE_KEYS } from '@/lib/api';
+import { getMpOAuthStatus } from '@/lib/api';
 import { PageHeader } from '@/components/PageHeader';
 import { 
   IconLink, 
@@ -33,6 +34,7 @@ interface ProfileData {
   bio?: string;
   planId?: number;
   planStatus?: 'active' | 'expired' | 'cancelled' | 'pending_payment';
+  planExpiryDate?: string;
   pixKey?: string;
 }
 
@@ -46,6 +48,10 @@ export default function AdminDashboard() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [mercadoPagoConfigured, setMercadoPagoConfigured] = useState(false);
   const [isLoadingMP, setIsLoadingMP] = useState(true);
+  const [planExpiringSoon, setPlanExpiringSoon] = useState(false);
+  const [daysUntilExpiry, setDaysUntilExpiry] = useState<number | null>(null);
+  const [hasPendingFees, setHasPendingFees] = useState(false);
+  const [pendingFeesAmount, setPendingFeesAmount] = useState(0);
   const [salesReport, setSalesReport] = useState<SalesReport | null>(null);
   const [isLoadingSales, setIsLoadingSales] = useState(true);
   const [pendingCount, setPendingCount] = useState(0);
@@ -78,8 +84,16 @@ export default function AdminDashboard() {
       loadMercadoPagoStatus();
       loadSalesReport();
       loadPendingPaymentsCount();
+      loadPendingFees();
     }
   }, [isAuthenticated]);
+
+  // Carrega status do plano quando profile estiver disponível
+  useEffect(() => {
+    if (profile) {
+      loadPlanStatus();
+    }
+  }, [profile]);
 
   const loadSalesReport = async () => {
     try {
@@ -102,12 +116,56 @@ export default function AdminDashboard() {
   const loadMercadoPagoStatus = async () => {
     try {
       setIsLoadingMP(true);
-      const data = await getMercadoPagoCredentials();
-      setMercadoPagoConfigured(data.isConfigured);
+      // Usa OAuth ao invés de credenciais manuais
+      const data = await getMpOAuthStatus();
+      setMercadoPagoConfigured(data.connected);
     } catch (err) {
       setMercadoPagoConfigured(false);
     } finally {
       setIsLoadingMP(false);
+    }
+  };
+
+  const loadPlanStatus = useCallback(async () => {
+    try {
+      // Verifica se o plano está prestes a expirar (menos de 7 dias)
+      if (profile?.planExpiryDate) {
+        const expiryDate = new Date(profile.planExpiryDate);
+        const now = new Date();
+        const diffTime = expiryDate.getTime() - now.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (diffDays <= 7 && diffDays > 0 && profile?.planStatus === 'active') {
+          setPlanExpiringSoon(true);
+          setDaysUntilExpiry(diffDays);
+        } else {
+          setPlanExpiringSoon(false);
+          setDaysUntilExpiry(null);
+        }
+      }
+    } catch (err) {
+      console.error('Erro ao verificar status do plano:', err);
+    }
+  }, [profile]);
+
+  const loadPendingFees = async () => {
+    try {
+      // Busca taxas pendentes via billing
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/billing/status`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const pendingAmount = data.data?.totalFeesPending || data.data?.totalFees || 0;
+        setPendingFeesAmount(pendingAmount);
+        setHasPendingFees(pendingAmount > 0);
+      }
+    } catch (err) {
+      console.error('Erro ao carregar taxas pendentes:', err);
     }
   };
 
@@ -196,6 +254,63 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
+
+      {/* Alertas de Plano e Taxas Pendentes */}
+      <div className="space-y-3 mb-6">
+        {/* Alerta de valores pendentes - Warning (sutil) */}
+        {hasPendingFees && pendingFeesAmount > 0 && (
+          <Link 
+            href="/admin/plans"
+            className="block bg-amber-50/70 border border-amber-200/70 rounded-xl p-4 hover:bg-amber-100/70 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-amber-900">
+                  Você tem {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(pendingFeesAmount)} em taxas pendentes
+                </p>
+                <p className="text-sm text-amber-700 mt-0.5">
+                  Clique para regularizar e evitar bloqueio dos seus links
+                </p>
+              </div>
+              <div className="text-amber-400">
+                <IconArrowRight className="w-5 h-5" />
+              </div>
+            </div>
+          </Link>
+        )}
+
+        {/* Alerta sutil de plano expirando */}
+        {planExpiringSoon && daysUntilExpiry !== null && (
+          <Link 
+            href="/admin/plans"
+            className="block bg-amber-50/70 border border-amber-200/70 rounded-xl p-4 hover:bg-amber-100/70 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-amber-900">
+                  Seu plano expira em {daysUntilExpiry} {daysUntilExpiry === 1 ? 'dia' : 'dias'}
+                </p>
+                <p className="text-sm text-amber-700 mt-0.5">
+                  Renove agora para não perder seus benefícios
+                </p>
+              </div>
+              <div className="text-amber-400">
+                <IconArrowRight className="w-5 h-5" />
+              </div>
+            </div>
+          </Link>
+        )}
+      </div>
 
       {/* Dashboard Grid - Elegante */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

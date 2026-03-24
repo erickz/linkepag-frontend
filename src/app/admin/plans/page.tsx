@@ -753,6 +753,58 @@ export default function PlansPage() {
         <p className="text-slate-500 mt-1">Acompanhe seus custos e escolha o melhor plano para suas vendas</p>
       </div>
 
+      {/* Alertas de valores pendentes e expiração */}
+      {(currentBalance || 0) > 0 && (
+        <div className="bg-amber-50/70 border border-amber-200/70 rounded-xl p-4">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <p className="font-medium text-amber-900">
+                Você tem {pendingSalesFormatted} em taxas pendentes
+              </p>
+              <p className="text-sm text-amber-700 mt-1">
+                Regularize suas pendências para evitar o bloqueio dos seus links monetizados.
+              </p>
+              {!showPendingPaymentSection && (
+                <button
+                  onClick={() => setShowPendingPaymentSection(true)}
+                  className="mt-3 inline-flex items-center px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                  Pagar agora
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isExpiringSoon() && subscription?.expiresAt && (
+        <div className="bg-amber-50/70 border border-amber-200/70 rounded-xl p-4">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <p className="font-medium text-amber-900">
+                Seu plano expira em breve
+              </p>
+              <p className="text-sm text-amber-700 mt-1">
+                Renove até {new Date(subscription.expiresAt).toLocaleDateString('pt-BR')} para manter seus benefícios.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* SEÇÃO 1: Seu Plano Atual */}
       <section className={`bg-white rounded-2xl border-2 ${planColors.border} shadow-sm overflow-hidden`}>
         <div className={`${planColors.bg} px-6 py-5 border-b ${planColors.border}`}>
