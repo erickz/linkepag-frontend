@@ -7,6 +7,7 @@ import { useApiParallel } from '@/hooks/useApi';
 import { getLinks, getProfile, getSalesReport, getPendingPayments, CACHE_KEYS } from '@/lib/api';
 import { getMpOAuthStatus } from '@/lib/api';
 import { PageHeader } from '@/components/PageHeader';
+import { BillingAlert } from '@/components/billing/BillingAlert';
 import { 
   IconLink, 
   IconUser, 
@@ -222,6 +223,9 @@ export default function AdminDashboard() {
         description="Visão geral da sua conta e estatísticas"
         breadcrumbs={[{ label: 'Dashboard' }]}
       />
+
+      {/* Billing Alert - abaixo do título */}
+      <BillingAlert />
 
       {/* Public URL Card - Non clickable info card */}
       {profile?.username && (

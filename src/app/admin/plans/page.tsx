@@ -36,6 +36,7 @@ interface PlanUsageData {
 
 // Hook para billing
 import { useBilling } from '@/hooks/useBilling';
+import { BillingAlert } from '@/components/billing/BillingAlert';
 import { checkBillingPaymentStatus } from '@/lib/api-billing';
 import { checkSubscriptionStatus } from '@/lib/api';
 
@@ -803,6 +804,9 @@ export default function PlansPage() {
         <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Seu Plano</h1>
         <p className="text-slate-500 mt-1">Acompanhe seus custos e escolha o melhor plano para suas vendas</p>
       </div>
+
+      {/* Billing Alert - abaixo do título */}
+      <BillingAlert />
 
       {/* Alertas de valores pendentes e expiração */}
       {(currentBalance || 0) > 0 && (
