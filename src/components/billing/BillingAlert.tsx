@@ -73,7 +73,6 @@ export function BillingAlert() {
                 href="/admin/plans"
                 className="text-rose-700 text-sm font-medium hover:text-rose-800 transition"
               >
-                Ver detalhes →
               </Link>
             </div>
           </div>
@@ -141,7 +140,6 @@ export function BillingAlert() {
                     : 'text-amber-700 hover:text-amber-800'
                 }`}
               >
-                Ver detalhes →
               </Link>
             </div>
           </div>
