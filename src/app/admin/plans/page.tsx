@@ -320,6 +320,43 @@ export default function PlansPage() {
     }
   }, [isAuthenticated, subscription]);
 
+  // Polling automático para verificar status do pagamento PIX
+  useEffect(() => {
+    if (!pendingPaymentId || !pendingPixData) return;
+    
+    console.log('[Polling] Iniciando verificação automática | Payment:', pendingPaymentId);
+    
+    // Verifica a cada 5 segundos
+    const interval = setInterval(async () => {
+      try {
+        const response = await checkBillingPaymentStatus(pendingPaymentId);
+        console.log('[Polling] Status:', response.data.status, '| Confirmed:', response.data.isConfirmed);
+        
+        if (response.data.isConfirmed) {
+          // Pagamento confirmado!
+          console.log('[Polling] Pagamento confirmado! Atualizando UI...');
+          setMessage({ type: 'success', text: 'Pagamento confirmado! Suas pendências foram regularizadas.' });
+          setShowPendingPaymentSection(false);
+          setPendingPixData(null);
+          setPendingPaymentId(null);
+          refreshBilling(); // Atualiza o currentBalance
+          clearInterval(interval);
+        } else if (response.data.isFailed) {
+          setMessage({ type: 'error', text: 'Pagamento falhou. Por favor, tente novamente.' });
+          clearInterval(interval);
+        }
+        // Se ainda pendente, continua verificando...
+      } catch (error) {
+        console.error('[Polling] Erro:', error);
+      }
+    }, 5000);
+    
+    return () => {
+      console.log('[Polling] Limpando intervalo');
+      clearInterval(interval);
+    };
+  }, [pendingPaymentId, pendingPixData, refreshBilling]);
+
   const handleSelectPlan = (planId: number) => {
     if (planId === selectedPlan) {
       setSelectedPlan(null);
