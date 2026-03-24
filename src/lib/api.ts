@@ -828,12 +828,13 @@ export async function createSubscription(
   planId: number, 
   paymentMethod: 'credit_card' | 'pix', 
   cardToken?: string,
-  cardHolderCpf?: string
+  cardHolderCpf?: string,
+  cardBrand?: string
 ) {
   const response = await fetch(`${API_BASE_URL}/subscriptions`, {
     method: 'POST',
     headers: getAuthHeaders(),
-    body: JSON.stringify({ planId, paymentMethod, cardToken, cardHolderCpf }),
+    body: JSON.stringify({ planId, paymentMethod, cardToken, cardHolderCpf, cardBrand }),
   });
 
   if (!response.ok) {

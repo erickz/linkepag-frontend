@@ -211,6 +211,7 @@ export default function PlansPage() {
   const [shouldPendingTokenize, setShouldPendingTokenize] = useState(false);
   const [cardToken, setCardToken] = useState<string | null>(null);
   const [cardHolderCpf, setCardHolderCpf] = useState<string | null>(null);
+  const [cardBrand, setCardBrand] = useState<string | null>(null);
   /**
    * Ref para armazenar o token do cartão de forma síncrona.
    * O estado React é assíncrono, então quando o callback onCardTokenGenerated é chamado
@@ -219,6 +220,7 @@ export default function PlansPage() {
    */
   const cardTokenRef = useRef<string | null>(null);
   const cardHolderCpfRef = useRef<string | null>(null);
+  const cardBrandRef = useRef<string | null>(null);
   const [isCardTokenized, setIsCardTokenized] = useState(false);
   const [shouldTokenize, setShouldTokenize] = useState(false);
   const [pixData, setPixData] = useState<{
@@ -398,11 +400,13 @@ export default function PlansPage() {
     }
   };
 
-  const handleCardTokenGenerated = (token: string) => {
+  const handleCardTokenGenerated = (token: string, cardData?: { cpf: string; cardBrand: string | null }) => {
     // Atualiza o estado para trigger de re-renderização (UI feedback)
     setCardToken(token);
+    setCardBrand(cardData?.cardBrand || null);
     // Atualiza a ref de forma síncrona para acesso imediato no callback seguinte
     cardTokenRef.current = token;
+    cardBrandRef.current = cardData?.cardBrand || null;
     setIsCardTokenized(true);
     setCheckoutError(null);
   };
@@ -418,12 +422,16 @@ export default function PlansPage() {
 
       // Get CPF from ref (synchronous) or state
       const cpfToSend = paymentMethod === 'credit_card' ? cardHolderCpfRef.current || cardHolderCpf || undefined : undefined;
+      
+      // Get card brand from ref (synchronous) or state
+      const cardBrandToSend = paymentMethod === 'credit_card' ? cardBrandRef.current || cardBrand || undefined : undefined;
 
       const result = await createSubscription({
         planId: selectedPlan,
         paymentMethod,
         cardToken: tokenToSend,
         cardHolderCpf: cpfToSend,
+        cardBrand: cardBrandToSend,
       });
 
       // Se result for null, houve erro (já tratado no catch do useApiMutation)
