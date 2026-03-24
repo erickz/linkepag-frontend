@@ -419,7 +419,6 @@ export default function PublicPage() {
     location: profile?.location,
     profilePhoto: profile?.profilePhoto,
     socialLinks: profile?.socialLinks,
-    canReceivePayments: profile?.canReceivePayments ?? true,
     ...paymentConfig,
   }), [profile, paymentConfig]);
 
