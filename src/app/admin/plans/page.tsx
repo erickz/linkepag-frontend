@@ -659,9 +659,13 @@ export default function PlansPage() {
         setPendingPaymentId(null);
         refreshBilling();
       } else if (response.data.isFailed) {
-        setPendingPaymentError('Pagamento falhou. Por favor, tente novamente.');
+        setMessage({ type: 'error', text: 'Pagamento falhou. Por favor, tente novamente.' });
       } else {
-        setPendingPaymentError('Pagamento ainda não confirmado. Aguarde alguns instantes e tente novamente.');
+        // Usa info em vez de erro para não assustar o usuário
+        setMessage({ 
+          type: 'info', 
+          text: 'Pagamento ainda sendo processado. Aguarde alguns instantes e tente novamente.' 
+        });
       }
     } catch (error: any) {
       console.error('[CheckPendingPayment] Erro:', error);
