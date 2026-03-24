@@ -49,7 +49,7 @@ export interface UseBillingReturn {
   
   // Ações
   refreshBilling: () => void;
-  payFees: (method: 'pix' | 'credit_card', cardToken?: string) => Promise<PayFeesResponse>;
+  payFees: (method: 'pix' | 'credit_card', cardToken?: string, cardBrand?: string | null) => Promise<PayFeesResponse>;
   isPayingFees: boolean;
 }
 
@@ -185,8 +185,8 @@ export function useBilling(): UseBillingReturn {
 
   // Mutation para pagar taxas
   const payFeesMutation = useApiMutation(
-    async (params: { method: 'pix' | 'credit_card'; cardToken?: string }) => {
-      return createBillingPayment(params.method, params.cardToken);
+    async (params: { method: 'pix' | 'credit_card'; cardToken?: string; cardBrand?: string | null }) => {
+      return createBillingPayment(params.method, params.cardToken, params.cardBrand);
     }
   );
 
@@ -220,8 +220,8 @@ export function useBilling(): UseBillingReturn {
     
     // Ações
     refreshBilling,
-    payFees: async (method: 'pix' | 'credit_card', cardToken?: string) => {
-      const result = await payFeesMutation.mutate({ method, cardToken });
+    payFees: async (method: 'pix' | 'credit_card', cardToken?: string, cardBrand?: string | null) => {
+      const result = await payFeesMutation.mutate({ method, cardToken, cardBrand });
       if (!result) {
         throw new Error('Erro ao processar pagamento');
       }

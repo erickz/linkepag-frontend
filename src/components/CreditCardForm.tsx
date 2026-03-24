@@ -3,9 +3,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useMercadoPago, useCardValidation } from '@/hooks/useMercadoPago';
 import { useMask } from '@/hooks/useMask';
+import { detectCardBrand } from '@/utils/card-detector';
 
 interface CreditCardFormProps {
-  onCardTokenGenerated: (token: string, cardData?: { cpf: string }) => void;
+  onCardTokenGenerated: (token: string, cardData?: { cpf: string; cardBrand: string | null }) => void;
   onError: (error: string) => void;
   onValidationChange?: (isValid: boolean) => void;
   isProcessing: boolean;
@@ -201,9 +202,10 @@ export function CreditCardForm({
 
         if (token) {
           setHasTokenized(true);
-          // Pass token + CPF for customer creation in backend
+          // Pass token + CPF + bandeira do cartão para o backend
           const cleanCPF = formData.cpf.replace(/[^\d]/g, '');
-          onCardTokenGenerated(token, { cpf: cleanCPF });
+          const cardBrand = detectCardBrand(formData.cardNumber);
+          onCardTokenGenerated(token, { cpf: cleanCPF, cardBrand });
         } else {
           onError('Não foi possível processar o cartão. Verifique os dados e tente novamente.');
           setHasTokenized(false);

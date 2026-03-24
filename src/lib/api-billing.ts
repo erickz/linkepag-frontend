@@ -231,12 +231,18 @@ export async function getFeesReport(
  */
 export async function createBillingPayment(
   paymentMethod: 'pix' | 'credit_card',
-  cardToken?: string
+  cardToken?: string,
+  cardBrand?: string | null
 ): Promise<PayFeesResponse> {
   const response = await fetch(`${API_BASE_URL}/billing/payment`, {
     method: 'POST',
     headers: getAuthHeaders(),
-    body: JSON.stringify({ paymentMethod, cardToken, planAmount: 0 }), // planAmount: 0 = paga apenas taxas
+    body: JSON.stringify({ 
+      paymentMethod, 
+      cardToken, 
+      cardBrand,  // Bandeira: visa, master, amex, elo
+      planAmount: 0  // planAmount: 0 = paga apenas taxas
+    }), 
   });
 
   if (!response.ok) {
