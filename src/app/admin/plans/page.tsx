@@ -36,6 +36,7 @@ interface PlanUsageData {
 
 // Hook para billing
 import { useBilling } from '@/hooks/useBilling';
+import { checkBillingPaymentStatus } from '@/lib/api-billing';
 
 // Configuração de cores por plano
 const PLAN_COLORS: Record<number, { bg: string; border: string; gradient: string; badge: string; text: string }> = {
@@ -196,8 +197,10 @@ export default function PlansPage() {
     qrCodeUrl: string;
     expirationDate: string;
   } | null>(null);
+  const [pendingPaymentId, setPendingPaymentId] = useState<string | null>(null);
   const [isProcessingPendingPayment, setIsProcessingPendingPayment] = useState(false);
   const [pendingPaymentError, setPendingPaymentError] = useState<string | null>(null);
+  const [isCheckingPendingPayment, setIsCheckingPendingPayment] = useState(false);
   const [pendingCardToken, setPendingCardToken] = useState<string | null>(null);
   const [pendingCardHolderCpf, setPendingCardHolderCpf] = useState<string | null>(null);
   const pendingCardTokenRef = useRef<string | null>(null);
@@ -566,6 +569,11 @@ export default function PlansPage() {
       const result = await payFees(pendingPaymentMethod, tokenToSend);
       
       console.log('[PagarPendencias] Resultado:', result);
+      
+      // Salva o ID do pagamento para verificação posterior
+      if (result.paymentId) {
+        setPendingPaymentId(result.paymentId);
+      }
 
       if (result.pixData) {
         console.log('[PagarPendencias] PIX gerado com sucesso');
@@ -631,6 +639,38 @@ export default function PlansPage() {
     }, 100); // Aumentado para 100ms para garantir sincronização
   };
 
+  // Função para verificar status do pagamento (botão "Já paguei")
+  const handleCheckPendingPayment = async () => {
+    if (!pendingPaymentId) {
+      setMessage({ type: 'error', text: 'ID do pagamento não encontrado' });
+      return;
+    }
+    
+    setIsCheckingPendingPayment(true);
+    setPendingPaymentError(null);
+    
+    try {
+      const response = await checkBillingPaymentStatus(pendingPaymentId);
+      
+      if (response.data.isConfirmed) {
+        setMessage({ type: 'success', text: 'Pagamento confirmado! Suas pendências foram regularizadas.' });
+        setShowPendingPaymentSection(false);
+        setPendingPixData(null);
+        setPendingPaymentId(null);
+        refreshBilling();
+      } else if (response.data.isFailed) {
+        setPendingPaymentError('Pagamento falhou. Por favor, tente novamente.');
+      } else {
+        setPendingPaymentError('Pagamento ainda não confirmado. Aguarde alguns instantes e tente novamente.');
+      }
+    } catch (error: any) {
+      console.error('[CheckPendingPayment] Erro:', error);
+      setPendingPaymentError(error.message || 'Erro ao verificar status do pagamento');
+    } finally {
+      setIsCheckingPendingPayment(false);
+    }
+  };
+
   const closePendingPaymentSection = () => {
     setShowPendingPaymentSection(false);
     setPendingPixData(null);
@@ -642,6 +682,7 @@ export default function PlansPage() {
     setIsPendingCardTokenized(false);
     setShouldPendingTokenize(false);
     setPendingPaymentMethod('pix');
+    setPendingPaymentId(null);
   };
 
   // Plano atual baseado em user.planId
@@ -1307,21 +1348,25 @@ export default function PlansPage() {
             <button
               onClick={() => {
                 if (pendingPaymentMethod === 'pix' && pendingPixData) {
-                  // PIX já gerado: mostra mensagem de aguardando
-                  setMessage({ type: 'info', text: 'Aguardando confirmação do pagamento PIX. Assim que confirmado, suas pendências serão regularizadas automaticamente.' });
+                  // PIX já gerado: verifica se foi pago (igual "Já paguei" do checkout)
+                  handleCheckPendingPayment();
                 } else {
                   handlePendingPaymentSubmit();
                 }
               }}
-              disabled={isProcessingPendingPayment || isPayingFees || shouldPendingTokenize || (pendingPaymentMethod === 'credit_card' && !isPendingCardTokenized && !shouldPendingTokenize)}
+              disabled={isProcessingPendingPayment || isPayingFees || shouldPendingTokenize || isCheckingPendingPayment || (pendingPaymentMethod === 'credit_card' && !isPendingCardTokenized && !shouldPendingTokenize)}
               className="w-full py-3 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isProcessingPendingPayment || isPayingFees
                 ? 'Processando...' 
                 : shouldPendingTokenize
                 ? 'Processando...'
+                : isCheckingPendingPayment
+                ? 'Verificando...'
                 : pendingPaymentMethod === 'pix' && !pendingPixData
                 ? 'Gerar Pagamento'
+                : pendingPaymentMethod === 'pix' && pendingPixData
+                ? 'Já paguei'
                 : 'Confirmar Pagamento'
               }
             </button>

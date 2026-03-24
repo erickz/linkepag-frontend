@@ -302,6 +302,34 @@ export async function getPendingPayment(): Promise<{
   return response.json();
 }
 
+/**
+ * Verifica status de um pagamento específico
+ * GET /billing/payment/:id/status
+ * Usado pelo botão "Já paguei" do PIX
+ */
+export async function checkBillingPaymentStatus(paymentId: string): Promise<{
+  success: boolean;
+  data: {
+    status: string;
+    isConfirmed: boolean;
+    isPending: boolean;
+    isFailed: boolean;
+    message: string;
+  }
+}> {
+  const response = await fetch(`${API_BASE_URL}/billing/payment/${paymentId}/status`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Erro ao verificar status do pagamento');
+  }
+
+  return response.json();
+}
+
 // ============ CACHE UTILITIES ============
 
 /**
