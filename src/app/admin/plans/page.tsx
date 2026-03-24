@@ -521,7 +521,7 @@ export default function PlansPage() {
       const response = await checkSubscriptionStatus(subscriptionIdToCheck);
       
       if (response.data.isConfirmed) {
-        setMessage({ type: 'success', text: 'Pagamento confirmado! Seu plano foi ativado.' });
+        setMessage({ type: 'success', text: 'Pagamento confirmado! Aguarde a ativação do seu plano.' });
         setPixData(null);
         setSelectedPlan(null);
         refetchSubscription();
