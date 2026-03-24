@@ -18,6 +18,7 @@ interface PixCheckoutProps {
   pixKey?: string;
   pixKeyType?: string;
   pixQRCodeImage?: string;
+  canReceivePayments?: boolean; // Indica se o vendedor pode receber pagamentos (billing em dia)
 }
 
 type PaymentStatus = 'idle' | 'creating' | 'pending' | 'awaiting_confirmation' | 'confirming' | 'confirmed' | 'expired' | 'error';
@@ -39,6 +40,7 @@ export default function PixCheckout({
   pixKey,
   pixKeyType,
   pixQRCodeImage,
+  canReceivePayments = true,
 }: PixCheckoutProps) {
   const [status, setStatus] = useState<PaymentStatus>('idle');
   const [paymentId, setPaymentId] = useState<string | null>(null);
@@ -616,8 +618,8 @@ export default function PixCheckout({
         </div>
       )}
 
-      {/* Neither MercadoPago nor PIX configured */}
-      {!mercadoPagoConfigured && !pixConfigured && (
+      {/* Neither MercadoPago nor PIX configured, or billing blocked */}
+      {((!mercadoPagoConfigured && !pixConfigured) || !canReceivePayments) && (
         <div className="py-8 text-center">
           <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
             <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -629,7 +631,7 @@ export default function PixCheckout({
       )}
 
       {/* Formulário inicial + QR Code/PIX */}
-      {(mercadoPagoConfigured || pixConfigured) && (
+      {(mercadoPagoConfigured || pixConfigured) && canReceivePayments && (
         <div className="animate-fade-in">
           {status === 'idle' && (
             <>

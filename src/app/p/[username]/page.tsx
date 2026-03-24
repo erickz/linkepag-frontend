@@ -117,6 +117,7 @@ interface PublicProfile {
   pixKeyType?: string;
   pixQRCodeImage?: string;
   activePaymentMethod?: 'mercadopago' | 'pix_direct' | null;
+  canReceivePayments?: boolean; // Indica se o vendedor pode receber pagamentos (billing em dia)
   appearanceSettings?: {
     headerGradient?: string;
     backgroundColor?: string;
@@ -254,6 +255,7 @@ const LinksList = memo(function LinksList({
   pixKey,
   pixKeyType,
   pixQRCodeImage,
+  canReceivePayments,
 }: {
   links: ApiLink[];
   expandedId: string | null;
@@ -265,6 +267,7 @@ const LinksList = memo(function LinksList({
   pixKey?: string;
   pixKeyType?: string;
   pixQRCodeImage?: string;
+  canReceivePayments?: boolean;
 }) {
   if (links.length === 0) {
     return (
@@ -296,6 +299,7 @@ const LinksList = memo(function LinksList({
           pixKey={pixKey}
           pixKeyType={pixKeyType}
           pixQRCodeImage={pixQRCodeImage}
+          canReceivePayments={canReceivePayments}
         />
       ))}
     </>
@@ -405,6 +409,7 @@ export default function PublicPage() {
       pixKey: usePix ? profile?.pixKey : undefined,
       pixKeyType: usePix ? profile?.pixKeyType : undefined,
       pixQRCodeImage: usePix ? profile?.pixQRCodeImage : undefined,
+      canReceivePayments: profile?.canReceivePayments ?? true,
     };
   }, [profile]);
 
@@ -414,6 +419,7 @@ export default function PublicPage() {
     location: profile?.location,
     profilePhoto: profile?.profilePhoto,
     socialLinks: profile?.socialLinks,
+    canReceivePayments: profile?.canReceivePayments ?? true,
     ...paymentConfig,
   }), [profile, paymentConfig]);
 
@@ -553,6 +559,7 @@ export default function PublicPage() {
                   pixKey={profileData.pixKey}
                   pixKeyType={profileData.pixKeyType}
                   pixQRCodeImage={profileData.pixQRCodeImage}
+                  canReceivePayments={profileData.canReceivePayments}
                 />
               </div>
             </div>

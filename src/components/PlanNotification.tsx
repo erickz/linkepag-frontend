@@ -178,9 +178,6 @@ export function PlanNotification({ planInfo: externalPlanInfo }: PlanNotificatio
                 <p className="font-medium text-rose-900 text-sm">
                   Seu plano expirou
                 </p>
-                <p className="text-rose-700 text-xs">
-                  Renove agora para continuar recebendo pagamentos
-                </p>
               </div>
             </div>
             <div className="flex items-center gap-3">

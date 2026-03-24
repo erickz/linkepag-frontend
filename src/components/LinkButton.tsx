@@ -49,6 +49,7 @@ interface LinkButtonProps {
   pixKey?: string;
   pixKeyType?: string;
   pixQRCodeImage?: string;
+  canReceivePayments?: boolean; // Indica se o vendedor pode receber pagamentos (billing em dia)
 }
 
 // Mapeamento de emojis para ícones - memoizado fora do componente
@@ -94,6 +95,7 @@ function LinkButtonComponent({
   pixKey,
   pixKeyType,
   pixQRCodeImage,
+  canReceivePayments,
 }: LinkButtonProps) {
   // Memoizar handlers para evitar recriação a cada render
   const handleLinkClick = useCallback(() => {
@@ -250,6 +252,7 @@ function LinkButtonComponent({
             pixKey={pixKey}
             pixKeyType={pixKeyType}
             pixQRCodeImage={pixQRCodeImage}
+            canReceivePayments={canReceivePayments}
           />
         </div>
       )}
