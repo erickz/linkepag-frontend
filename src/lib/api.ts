@@ -868,6 +868,34 @@ export async function createSubscription(
   return response.json();
 }
 
+/**
+ * Verifica status de uma assinatura específica
+ * Usado pelo botão "Já paguei" do PIX no upgrade de planos
+ * GET /subscriptions/:id/status
+ */
+export async function checkSubscriptionStatus(subscriptionId: string): Promise<{
+  success: boolean;
+  data: {
+    status: string;
+    isConfirmed: boolean;
+    isPending: boolean;
+    isFailed: boolean;
+    message: string;
+  }
+}> {
+  const response = await fetch(`${API_BASE_URL}/subscriptions/${subscriptionId}/status`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Erro ao verificar status da assinatura');
+  }
+
+  return response.json();
+}
+
 export async function cancelSubscription(reason?: string) {
   const response = await fetch(`${API_BASE_URL}/subscriptions/cancel`, {
     method: 'PATCH',

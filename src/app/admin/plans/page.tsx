@@ -37,6 +37,7 @@ interface PlanUsageData {
 // Hook para billing
 import { useBilling } from '@/hooks/useBilling';
 import { checkBillingPaymentStatus } from '@/lib/api-billing';
+import { checkSubscriptionStatus } from '@/lib/api';
 
 // Configuração de cores por plano
 const PLAN_COLORS: Record<number, { bg: string; border: string; gradient: string; badge: string; text: string }> = {
@@ -223,6 +224,8 @@ export default function PlansPage() {
   const cardBrandRef = useRef<string | null>(null);
   const [isCardTokenized, setIsCardTokenized] = useState(false);
   const [shouldTokenize, setShouldTokenize] = useState(false);
+  const [isCheckingSubscription, setIsCheckingSubscription] = useState(false);
+  const [currentSubscriptionId, setCurrentSubscriptionId] = useState<string | null>(null);
   const [pixData, setPixData] = useState<{
     pixCode: string;
     qrCodeUrl: string;
@@ -439,12 +442,17 @@ export default function PlansPage() {
         return;
       }
 
+      // Salva o ID da subscription para verificação posterior
+      if (result.subscription?.id) {
+        setCurrentSubscriptionId(result.subscription.id);
+      }
+
       if (result.pixData) {
         // Pagamento PIX: mostra QR code
         setPixData(result.pixData);
       } else {
         // Pagamento com cartão: aprovado ou pendente
-        setMessage({ type: 'success', text: 'Pagamento crado com sucesso, aguarde a confirmação para ativar seu plano!' });
+        setMessage({ type: 'success', text: 'Pagamento criado com sucesso, aguarde a confirmação para ativar seu plano!' });
         setSelectedPlan(null);
       }
     } catch (error: any) {
@@ -496,6 +504,41 @@ export default function PlansPage() {
     setTimeout(() => {
       createSubscriptionWithToken();
     }, 0);
+  };
+
+  // Função para verificar status da assinatura (botão "Já paguei" do upgrade de planos)
+  const handleCheckSubscription = async () => {
+    const subscriptionIdToCheck = currentSubscriptionId || subscription?.id;
+    
+    if (!subscriptionIdToCheck) {
+      setMessage({ type: 'error', text: 'ID da assinatura não encontrado' });
+      return;
+    }
+    
+    setIsCheckingSubscription(true);
+    
+    try {
+      const response = await checkSubscriptionStatus(subscriptionIdToCheck);
+      
+      if (response.data.isConfirmed) {
+        setMessage({ type: 'success', text: 'Pagamento confirmado! Seu plano foi ativado.' });
+        setPixData(null);
+        setSelectedPlan(null);
+        refetchSubscription();
+      } else if (response.data.isFailed) {
+        setMessage({ type: 'error', text: 'Pagamento falhou. Por favor, tente novamente.' });
+      } else {
+        setMessage({ 
+          type: 'info', 
+          text: 'Pagamento ainda sendo processado. Aguarde alguns instantes e tente novamente.' 
+        });
+      }
+    } catch (error: any) {
+      console.error('[CheckSubscription] Erro:', error);
+      setMessage({ type: 'error', text: error.message || 'Erro ao verificar status da assinatura' });
+    } finally {
+      setIsCheckingSubscription(false);
+    }
   };
 
   const handleCancel = async () => {
@@ -1211,21 +1254,25 @@ export default function PlansPage() {
             <button
               onClick={() => {
                 if (paymentMethod === 'pix' && pixData) {
-                  // PIX já gerado: mostra mensagem de aguardando
-                  setMessage({ type: 'info', text: 'Aguardando confirmação do pagamento PIX. Assim que confirmado, sua assinatura será ativada automaticamente.' });
+                  // PIX já gerado: verifica status do pagamento
+                  handleCheckSubscription();
                 } else {
                   handleSubscribe();
                 }
               }}
-              disabled={isCreatingSubscription || shouldTokenize || (paymentMethod === 'credit_card' && !isCardTokenized && !shouldTokenize)}
+              disabled={isCreatingSubscription || shouldTokenize || isCheckingSubscription || (paymentMethod === 'credit_card' && !isCardTokenized && !shouldTokenize)}
               className="w-full py-3 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isCreatingSubscription 
                 ? 'Processando...' 
                 : shouldTokenize
                 ? 'Processando...'
+                : isCheckingSubscription
+                ? 'Verificando...'
                 : paymentMethod === 'pix' && !pixData
                 ? 'Gerar Pagamento'
+                : paymentMethod === 'pix' && pixData
+                ? 'Já paguei'
                 : 'Confirmar Pagamento'
               }
             </button>
