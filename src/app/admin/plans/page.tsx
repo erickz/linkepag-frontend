@@ -324,35 +324,28 @@ export default function PlansPage() {
   useEffect(() => {
     if (!pendingPaymentId || !pendingPixData) return;
     
-    console.log('[Polling] Iniciando verificação automática | Payment:', pendingPaymentId);
-    
     // Verifica a cada 5 segundos
     const interval = setInterval(async () => {
       try {
         const response = await checkBillingPaymentStatus(pendingPaymentId);
-        console.log('[Polling] Status:', response.data.status, '| Confirmed:', response.data.isConfirmed);
         
         if (response.data.isConfirmed) {
-          // Pagamento confirmado!
-          console.log('[Polling] Pagamento confirmado! Atualizando UI...');
           setMessage({ type: 'success', text: 'Pagamento confirmado! Suas pendências foram regularizadas.' });
           setShowPendingPaymentSection(false);
           setPendingPixData(null);
           setPendingPaymentId(null);
-          refreshBilling(); // Atualiza o currentBalance
+          refreshBilling();
           clearInterval(interval);
         } else if (response.data.isFailed) {
           setMessage({ type: 'error', text: 'Pagamento falhou. Por favor, tente novamente.' });
           clearInterval(interval);
         }
-        // Se ainda pendente, continua verificando...
       } catch (error) {
         console.error('[Polling] Erro:', error);
       }
     }, 5000);
     
     return () => {
-      console.log('[Polling] Limpando intervalo');
       clearInterval(interval);
     };
   }, [pendingPaymentId, pendingPixData, refreshBilling]);
@@ -565,11 +558,6 @@ export default function PlansPage() {
   };
 
   const handlePendingCardTokenGenerated = (token: string) => {
-    console.log('[CardTokenGenerated] Token recebido:', { 
-      length: token.length, 
-      prefix: token.substring(0, 15),
-      timestamp: new Date().toISOString()
-    });
     setPendingCardToken(token);
     pendingCardTokenRef.current = token;
     setIsPendingCardTokenized(true);
@@ -585,27 +573,11 @@ export default function PlansPage() {
         ? pendingCardTokenRef.current || pendingCardToken || undefined 
         : undefined;
 
-      console.log('[CreatePendingPayment] Estado atual:', {
-        method: pendingPaymentMethod,
-        hasRefToken: !!pendingCardTokenRef.current,
-        hasStateToken: !!pendingCardToken,
-        isCardTokenized: isPendingCardTokenized,
-        tokenPrefix: pendingCardTokenRef.current?.substring(0, 15)
-      });
-
       if (pendingPaymentMethod === 'credit_card' && !tokenToSend) {
         throw new Error('Token do cartão não disponível. Por favor, preencha os dados do cartão novamente.');
       }
-
-      console.log('[PagarPendencias] Iniciando pagamento:', { 
-        method: pendingPaymentMethod, 
-        hasToken: !!tokenToSend,
-        tokenLength: tokenToSend?.length || 0
-      });
       
       const result = await payFees(pendingPaymentMethod, tokenToSend);
-      
-      console.log('[PagarPendencias] Resultado:', result);
       
       // Salva o ID do pagamento para verificação posterior
       if (result.paymentId) {
@@ -613,10 +585,8 @@ export default function PlansPage() {
       }
 
       if (result.pixData) {
-        console.log('[PagarPendencias] PIX gerado com sucesso');
         setPendingPixData(result.pixData);
       } else {
-        console.log('[PagarPendencias] Pagamento processado sem PIX');
         setMessage({ type: 'success', text: 'Pagamento processado com sucesso! Suas pendências foram regularizadas.' });
         setShowPendingPaymentSection(false);
         setPendingPixData(null);
@@ -660,20 +630,14 @@ export default function PlansPage() {
     // Aguarda um pouco mais para garantir que a ref foi atualizada
     setTimeout(() => {
       const token = pendingCardTokenRef.current;
-      console.log('[TokenizationComplete] Token na ref:', { 
-        hasToken: !!token, 
-        length: token?.length || 0,
-        prefix: token?.substring(0, 15)
-      });
       
       if (!token) {
-        console.error('[TokenizationComplete] Token não encontrado na ref!');
         setPendingPaymentError('Erro ao processar o cartão. Por favor, tente novamente.');
         return;
       }
       
       createPendingPaymentWithToken();
-    }, 100); // Aumentado para 100ms para garantir sincronização
+    }, 100);
   };
 
   // Função para verificar status do pagamento (botão "Já paguei")
