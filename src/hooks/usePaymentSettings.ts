@@ -140,7 +140,8 @@ export function usePaymentSettings(): UsePaymentSettingsReturn {
         getMercadoPagoCredentials(),
       ]);
 
-      const hasMP = mpData.isConfigured && mpData.mercadoPagoPublicKey;
+      // Verifica MP configurado: pode ser via OAuth (isOAuth) ou credenciais legadas (publicKey)
+      const hasMP = mpData.isConfigured && (mpData.mercadoPagoPublicKey || mpData.isOAuth);
       const hasPix = !!profileData.pixKey;
 
       // O método ativo vem do backend (activePaymentMethod)
@@ -202,7 +203,8 @@ export function usePaymentSettings(): UsePaymentSettingsReturn {
         getMercadoPagoCredentials(),
       ]);
 
-      const hasMP = mpData.isConfigured && mpData.mercadoPagoPublicKey;
+      // Verifica MP configurado: pode ser via OAuth (isOAuth) ou credenciais legadas (publicKey)
+      const hasMP = mpData.isConfigured && (mpData.mercadoPagoPublicKey || mpData.isOAuth);
       const hasPix = !!profileData.pixKey;
 
       if (method === 'mercadopago' && !hasMP) {
