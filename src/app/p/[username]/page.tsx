@@ -383,7 +383,8 @@ export default function PublicPage() {
   // Regra: Usa o método que o usuário escolheu como ativo (activePaymentMethod)
   // Se não houver preferência definida, verifica qual está configurado
   const paymentConfig = useMemo(() => {
-    const hasMP = !!(profile?.mercadoPagoConfigured && profile?.mercadoPagoPublicKey);
+    // mercadoPagoConfigured agora considera tanto OAuth quanto credenciais legadas
+    const hasMP = !!profile?.mercadoPagoConfigured;
     const hasPix = !!(profile?.pixConfigured && profile?.pixKey);
     const activeMethod = profile?.activePaymentMethod;
 
