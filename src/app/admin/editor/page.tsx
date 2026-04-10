@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { useAuth, useProtectedRoute } from '@/hooks/useAuth';
 import { usePageEditor, LinkItem, headerGradients, backgroundOptions, paidLinkAccentColors } from '@/hooks/usePageEditor';
 import { uploadLinkFile, deleteLinkFile } from '@/lib/api';
-import { maskPriceInput, parsePrice, formatPrice, formatUrl } from '@/lib/masks';
+import { maskPriceInput, parsePrice, formatPrice, formatUrl, priceToInputValue } from '@/lib/masks';
 import { useSubscription } from '@/hooks/useSubscription';
 import { PlanLimitWarning, PlanUpgradeModal } from '@/components/PlanUpgradeModal';
 
@@ -413,7 +413,7 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Título *</label><input type="text" value={formData.title} onChange={e => setFormData(p => ({ ...p, title: e.target.value }))} required className="w-full h-10 px-3 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm" placeholder="Ex: Meu Curso" /></div>
-              <div><label className="block text-sm font-medium text-slate-700 mb-1">URL {formData.isPaid ? '(opcional)' : '*'}</label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">https://</span><input type="text" value={formData.url?.replace(/^https?:\/\//, '') || ''} onChange={e => setFormData(p => ({ ...p, url: `https://${e.target.value.replace(/^https?:\/\//, '')}` }))} required={!formData.isPaid} className="w-full h-10 pl-14 pr-3 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm" placeholder={formData.isPaid ? 'Opcional para links com arquivo' : 'seusite.com'} /></div></div>
+              <div><label className="block text-sm font-medium text-slate-700 mb-1">URL {formData.isPaid ? '(redireciona após o pagamento)' : '*'}</label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">https://</span><input type="text" value={formData.url?.replace(/^https?:\/\//, '') || ''} onChange={e => setFormData(p => ({ ...p, url: `https://${e.target.value.replace(/^https?:\/\//, '')}` }))} required={!formData.isPaid} className="w-full h-10 pl-14 pr-3 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm" placeholder={formData.isPaid ? 'Opcional para links com arquivo' : 'seusite.com'} /></div></div>
             </div>
             <div><label className="block text-sm font-medium text-slate-700 mb-1">Descrição (opcional)</label><input type="text" value={formData.description} onChange={e => setFormData(p => ({ ...p, description: e.target.value }))} className="w-full h-10 px-3 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm" placeholder="Breve descrição" /></div>
             <div className="bg-slate-50 rounded-xl p-4 space-y-3">
@@ -449,7 +449,7 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
                       <input 
                         type="text" 
                         inputMode="decimal" 
-                        value={formData.price > 0 ? maskPriceInput((formData.price * 100).toString()) : ''} 
+                        value={priceToInputValue(formData.price)} 
                         onChange={e => setFormData(p => ({ ...p, price: parsePrice(maskPriceInput(e.target.value)) }))} 
                         required={formData.isPaid} 
                         className="w-full h-10 pl-10 pr-3 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm" 

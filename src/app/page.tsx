@@ -107,8 +107,8 @@ export default function Home() {
                 <AuthNavButton className="inline-flex items-center justify-center h-12 px-8 rounded-xl bg-indigo-600 text-white font-semibold shadow-lg hover:bg-indigo-700 hover:shadow-xl transition">
                   Criar página grátis
                 </AuthNavButton>
-                <a href="#how-it-works" className="inline-flex items-center justify-center h-12 px-8 rounded-xl bg-white text-slate-700 font-medium hover:bg-slate-50 transition border border-slate-200">
-                  Ver como funciona
+                <a href="/p/anathecreator" target='_blank' className="inline-flex items-center justify-center h-12 px-8 rounded-xl bg-white text-slate-700 font-medium hover:bg-slate-50 transition border border-slate-200">
+                  Ver página exemplo
                 </a>
               </div>
 

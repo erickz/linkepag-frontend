@@ -35,6 +35,10 @@ export function parsePrice(value: string): number {
 /**
  * Masks price input in real-time
  * Formats as user types: 1234 -> 12,34 -> 123,45 -> 1.234,56
+ * 
+ * ⚠️ IMPORTANTE: Esta função espera receber apenas dígitos (centavos).
+ * Se estiver convertendo de um número, use priceToInputValue() ou
+ * Math.round(price * 100).toString() para evitar erros de ponto flutuante.
  */
 export function maskPriceInput(value: string): string {
   // Remove non-numeric characters
@@ -42,8 +46,14 @@ export function maskPriceInput(value: string): string {
   
   if (!numericValue) return '';
   
+  // Limita a 12 dígitos (centavos) para evitar overflow
+  // 12 dígitos = 999.999.999.999,99 (centenas de bilhões)
+  const limitedValue = numericValue.slice(0, 12);
+  
   // Convert to number (treating input as cents)
-  const cents = parseInt(numericValue, 10);
+  const cents = parseInt(limitedValue, 10);
+  
+  if (isNaN(cents)) return '';
   
   // Format with 2 decimal places
   const formatted = (cents / 100).toLocaleString('pt-BR', {
@@ -52,6 +62,29 @@ export function maskPriceInput(value: string): string {
   });
   
   return formatted;
+}
+
+/**
+ * Converte um valor numérico de preço para o formato de input.
+ * Usa Math.round() para evitar erros de ponto flutuante.
+ * 
+ * Exemplo de uso no React:
+ *   value={priceToInputValue(formData.price)}
+ * 
+ * ⚠️ NUNCA use: maskPriceInput((price * 100).toString())
+ *    Isso causa bugs com valores como 0.14 -> 140.000.000.000.000,02
+ */
+export function priceToInputValue(price: number | string | undefined): string {
+  if (price === undefined || price === null || price === '') return '';
+  
+  const numPrice = typeof price === 'string' ? parseFloat(price) : price;
+  if (isNaN(numPrice) || numPrice <= 0) return '';
+  
+  // CORREÇÃO CRÍTICA: Usar Math.round para evitar erro de ponto flutuante
+  // Ex: 0.14 * 100 = 14.000000000000002 -> Math.round = 14
+  const centavos = Math.round(numPrice * 100);
+  
+  return maskPriceInput(centavos.toString());
 }
 
 /**
