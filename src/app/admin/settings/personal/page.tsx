@@ -207,7 +207,7 @@ export default function PersonalSettingsPage() {
                 {profileData?.cpf ? (
                   <p className="text-xs text-slate-400 mt-1">CPF não pode ser alterado após cadastrado</p>
                 ) : (
-                  <p className="text-xs text-slate-400 mt-1">CPF necessário para receber pagamentos via PIX</p>
+                  <p className="text-xs text-slate-400 mt-1">CPF necessário para receber pagamentos via PIX com gateways</p>
                 )}
               </div>
             </div>
