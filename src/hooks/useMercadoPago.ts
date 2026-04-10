@@ -34,10 +34,7 @@ interface UseMercadoPagoReturn {
   getDeviceId: () => string | null;
 }
 
-// DEBUG: Log da chave pública usada
 const MP_PUBLIC_KEY = process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY || '';
-console.log('[MP SDK DEBUG] Public Key Prefix:', MP_PUBLIC_KEY.substring(0, 20));
-console.log('[MP SDK DEBUG] Public Key Tipo:', MP_PUBLIC_KEY.startsWith('TEST') ? 'TEST' : MP_PUBLIC_KEY.startsWith('APP_USR') ? 'PROD' : 'DESCONHECIDO');
 
 export function useMercadoPago(): UseMercadoPagoReturn {
   const [isLoading, setIsLoading] = useState(true);
@@ -78,7 +75,6 @@ export function useMercadoPago(): UseMercadoPagoReturn {
         throw new Error('SDK do MercadoPago não disponível');
       }
 
-      console.log('[MP SDK DEBUG] Inicializando SDK com chave:', MP_PUBLIC_KEY.substring(0, 15) + '...');
       const mp = new window.MercadoPago(MP_PUBLIC_KEY, {
         locale: 'pt-BR',
       });
@@ -86,7 +82,6 @@ export function useMercadoPago(): UseMercadoPagoReturn {
       mpInstanceRef.current = mp;
       setIsReady(true);
       setIsLoading(false);
-      console.log('[MP SDK DEBUG] SDK inicializado com sucesso');
     } catch (err) {
       console.error('[MP SDK DEBUG] Erro ao inicializar:', err);
       setError(err instanceof Error ? err.message : 'Erro ao inicializar MercadoPago');
@@ -95,7 +90,6 @@ export function useMercadoPago(): UseMercadoPagoReturn {
   };
 
   const createCardToken = useCallback(async (cardData: CardTokenData, abortSignal?: AbortSignal): Promise<string | null> => {
-    console.log('[MP SDK DEBUG] Criando token do cartão...');
     if (!mpInstanceRef.current) {
       console.error('[MP SDK DEBUG] SDK não inicializado');
       setError('SDK do MercadoPago não inicializado');
@@ -132,7 +126,6 @@ export function useMercadoPago(): UseMercadoPagoReturn {
         return null;
       }
       
-      console.log('[MP SDK DEBUG] Token criado com sucesso:', result.id.substring(0, 15) + '...');
       return result.id;
     } catch (err: any) {
       if (abortSignal?.aborted) {

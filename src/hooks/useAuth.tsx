@@ -183,7 +183,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Valor memoizado para evitar re-renders desnecessários
   const value = useMemo(() => {
-    console.log('[useAuth] Creating value object, refreshUser type:', typeof refreshUser);
     return {
       user,
       token,

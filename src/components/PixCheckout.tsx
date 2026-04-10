@@ -94,13 +94,9 @@ export default function PixCheckout({
     setLastCheckMessage(null);
 
     try {
-      console.log('Creating payment for link:', linkId, 'isPixDirect:', isPixDirect);
-      
       const response = isPixDirect 
         ? await createPixDirectPayment(linkId, { email, name: name.trim() })
         : await createPayment(linkId, { email, name: name.trim() });
-      
-      console.log('Payment response:', response);
       
       if (!response.success) {
         throw new Error(response.error || 'Erro ao criar pagamento');
@@ -740,12 +736,8 @@ export default function PixCheckout({
           </div>
           <h4 className="text-lg font-bold text-slate-900 mb-2">Pagamento confirmado!</h4>
           <p className="text-slate-600 text-sm mb-4">
-            Seu pagamento foi recebido com sucesso.
+            Seu pagamento foi recebido com sucesso. <br /> Você receberá o conteúdo por email em instantes.
           </p>
-          <div className="flex items-center justify-center gap-2 text-emerald-600 text-sm font-medium">
-            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-            Redirecionando para o conteúdo...
-          </div>
         </div>
       )}
     </div>
