@@ -164,20 +164,6 @@ export default function RootLayout({
           id="mercadopago-sdk"
         />
         
-        {/* Google Analytics */}
-        <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-Q4RBPEVS59"
-          strategy="afterInteractive"
-        />
-        <Script id="google-analytics" strategy="afterInteractive">
-          {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', 'G-Q4RBPEVS59');
-          `}
-        </Script>
-        
         {/* Hotjar Tracking Code */}
         <Script id="hotjar" strategy="afterInteractive">
           {`
