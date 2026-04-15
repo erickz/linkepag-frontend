@@ -178,6 +178,34 @@ export default function RootLayout({
           `}
         </Script>
         
+        {/* Hotjar Tracking Code */}
+        <Script id="hotjar" strategy="afterInteractive">
+          {`
+            (function(h,o,t,j,a,r){
+                h.hj=h.hj||function(){(h.hj.q=h.hj.q||[]).push(arguments)};
+                h._hjSettings={hjid:6691457,hjsv:6};
+                a=o.getElementsByTagName('head')[0];
+                r=o.createElement('script');r.async=1;
+                r.src=t+h._hjSettings.hjid+j+h._hjSettings.hjsv;
+                a.appendChild(r);
+            })(window,document,'https://static.hotjar.com/c/hotjar-','.js?sv=');
+          `}
+        </Script>
+        
+        {/* Google Analytics - G-F80PQZNQHW */}
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-F80PQZNQHW"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics-2" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-F80PQZNQHW');
+          `}
+        </Script>
+        
         {/* Desabilitar React DevTools em produção */}
         {!isDevelopment && (
           <script dangerouslySetInnerHTML={{__html: `
