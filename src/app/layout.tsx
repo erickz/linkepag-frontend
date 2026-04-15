@@ -181,9 +181,9 @@ export default function RootLayout({
         {/* Google Analytics - G-F80PQZNQHW */}
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-F80PQZNQHW"
-          strategy="afterInteractive"
+          strategy="beforeInteractive"
         />
-        <Script id="google-analytics-2" strategy="afterInteractive">
+        <Script id="google-analytics-2" strategy="beforeInteractive">
           {`
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
