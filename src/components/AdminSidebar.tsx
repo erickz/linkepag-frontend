@@ -180,11 +180,17 @@ export function AdminSidebar() {
 
   const SidebarContent = () => (
     <>
-      {/* Logo */}
-      <div className="p-4 border-b border-slate-200">
-        <Link href="/admin/dashboard" className="flex items-center gap-2">
+      {/* Logo + Close Button */}
+      <div className="p-4 border-b border-slate-200 flex items-center justify-between gap-2">
+        <Link href="/admin/dashboard" className="flex items-center gap-2 min-w-0">
           <Logo size="sm" showText={true} />
         </Link>
+        <button
+          onClick={() => setIsMobileMenuOpen(false)}
+          className="lg:hidden flex-shrink-0 p-2 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition"
+        >
+          <IconX className="w-5 h-5" />
+        </button>
       </div>
 
       {/* Scrollable Content */}
@@ -284,13 +290,15 @@ export function AdminSidebar() {
 
   return (
     <>
-      {/* Mobile Menu Button */}
-      <button
-        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-white rounded-lg shadow-md border border-slate-200 text-slate-600 hover:text-slate-900"
-      >
-        {isMobileMenuOpen ? <IconX className="w-5 h-5" /> : <IconMenu className="w-5 h-5" />}
-      </button>
+      {/* Mobile Menu Button (floating - only when closed) */}
+      {!isMobileMenuOpen && (
+        <button
+          onClick={() => setIsMobileMenuOpen(true)}
+          className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-white rounded-lg shadow-md border border-slate-200 text-slate-600 hover:text-slate-900"
+        >
+          <IconMenu className="w-5 h-5" />
+        </button>
+      )}
 
       {/* Mobile Overlay */}
       {isMobileMenuOpen && (
@@ -303,7 +311,8 @@ export function AdminSidebar() {
       {/* Sidebar - Desktop (fixed) & Mobile (slide-over) */}
       <aside
         className={`
-          fixed lg:sticky top-0 left-0 z-40
+          fixed lg:sticky top-0 left-0
+          ${isMobileMenuOpen ? 'z-50' : 'z-40'}
           h-screen w-72 bg-white border-r border-slate-200
           flex flex-col
           transition-transform duration-300 ease-in-out

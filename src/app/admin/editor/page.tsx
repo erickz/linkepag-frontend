@@ -62,64 +62,66 @@ function PagePreview({ data, links }: { data: any, links: LinkItem[] }) {
   );
 
   return (
-    <div className={`rounded-2xl overflow-hidden shadow-lg border border-slate-200 ${bgOption.class}`}>
-      <div className={`h-16 ${gradient}`} />
-      <div className="px-4 pb-4 -mt-8">
-        <div className="flex justify-center mb-2">
-          <div className="w-16 h-16 rounded-full border-4 border-white shadow-md overflow-hidden bg-white">
-            {data.profilePhoto ? (
-              <img src={data.profilePhoto} alt="" className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center">
-                <Icon path={Icons.user} className="w-8 h-8 text-indigo-300" />
+    <div className={`p-3 ${bgOption.class}`}>
+      <div className="rounded-2xl overflow-hidden shadow-lg border border-slate-200 bg-white/95">
+        <div className={`h-16 ${gradient}`} />
+        <div className="px-4 pb-4 -mt-8">
+          <div className="flex justify-center mb-2">
+            <div className="w-16 h-16 rounded-full border-4 border-white shadow-md overflow-hidden bg-white">
+              {data.profilePhoto ? (
+                <img src={data.profilePhoto} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center">
+                  <Icon path={Icons.user} className="w-8 h-8 text-indigo-300" />
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="text-center">
+            <p className="font-bold text-slate-900 text-sm">@{data.username || 'username'}</p>
+            {data.displayName && <p className="text-xs text-indigo-600">{data.displayName}</p>}
+            {data.bio && <p className="text-xs text-slate-500 mt-1 line-clamp-2">{data.bio}</p>}
+            
+            {/* Location */}
+            {data.location && (
+              <div className="flex items-center justify-center gap-1 text-slate-400 text-xs mt-1.5">
+                <Icon path={Icons.location} className="w-3 h-3" />
+                <span className="truncate max-w-[150px]">{data.location}</span>
+              </div>
+            )}
+            
+            {/* Social Links */}
+            {activeSocialLinks.length > 0 && (
+              <div className="flex items-center justify-center flex-wrap gap-1.5 mt-2">
+                {activeSocialLinks.map(platform => (
+                  <div 
+                    key={platform}
+                    className="w-6 h-6 rounded-md bg-slate-100 flex items-center justify-center text-slate-500"
+                    title={platform.charAt(0).toUpperCase() + platform.slice(1)}
+                  >
+                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d={(SocialIcons as Record<string, string>)[platform]} />
+                    </svg>
+                  </div>
+                ))}
               </div>
             )}
           </div>
-        </div>
-        <div className="text-center">
-          <p className="font-bold text-slate-900 text-sm">@{data.username || 'username'}</p>
-          {data.displayName && <p className="text-xs text-indigo-600">{data.displayName}</p>}
-          {data.bio && <p className="text-xs text-slate-500 mt-1 line-clamp-2">{data.bio}</p>}
-          
-          {/* Location */}
-          {data.location && (
-            <div className="flex items-center justify-center gap-1 text-slate-400 text-xs mt-1.5">
-              <Icon path={Icons.location} className="w-3 h-3" />
-              <span className="truncate max-w-[150px]">{data.location}</span>
-            </div>
-          )}
-          
-          {/* Social Links */}
-          {activeSocialLinks.length > 0 && (
-            <div className="flex items-center justify-center flex-wrap gap-1.5 mt-2">
-              {activeSocialLinks.map(platform => (
-                <div 
-                  key={platform}
-                  className="w-6 h-6 rounded-md bg-slate-100 flex items-center justify-center text-slate-500"
-                  title={platform.charAt(0).toUpperCase() + platform.slice(1)}
-                >
-                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d={(SocialIcons as Record<string, string>)[platform]} />
-                  </svg>
+          <div className="mt-3 space-y-2">
+            {activeLinks.length === 0 ? (
+              <div className="text-center py-4 text-xs text-slate-400">Nenhum link ativo</div>
+            ) : (
+              activeLinks.map(link => (
+                <div key={link.id} className={`h-8 rounded-lg flex items-center px-3 text-xs ${link.isPaid ? `bg-gradient-to-r from-slate-800 to-slate-900 text-white ${accent.borderClass}` : 'bg-white text-slate-700 border border-slate-200'}`}>
+                  <span className="flex-1 truncate">{link.title}</span>
+                  {link.isPaid && <span className={`font-bold ${accent.textClass}`}>R$ {formatPrice(link.price ?? 0)}</span>}
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="mt-3 space-y-2">
-          {activeLinks.length === 0 ? (
-            <div className="text-center py-4 text-xs text-slate-400">Nenhum link ativo</div>
-          ) : (
-            activeLinks.map(link => (
-              <div key={link.id} className={`h-8 rounded-lg flex items-center px-3 text-xs ${link.isPaid ? `bg-gradient-to-r from-slate-800 to-slate-900 text-white ${accent.borderClass}` : 'bg-white text-slate-700 border border-slate-200'}`}>
-                <span className="flex-1 truncate">{link.title}</span>
-                {link.isPaid && <span className={`font-bold ${accent.textClass}`}>R$ {formatPrice(link.price ?? 0)}</span>}
-              </div>
-            ))
-          )}
-          {links.filter(l => l.isActive).length > 3 && (
-            <div className="text-center text-xs text-slate-400">+ {links.filter(l => l.isActive).length - 3} links</div>
-          )}
+              ))
+            )}
+            {links.filter(l => l.isActive).length > 3 && (
+              <div className="text-center text-xs text-slate-400">+ {links.filter(l => l.isActive).length - 3} links</div>
+            )}
+          </div>
         </div>
       </div>
     </div>
