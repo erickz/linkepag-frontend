@@ -14,7 +14,7 @@ import {
   CACHE_KEYS 
 } from '@/lib/api';
 import { formatUrl } from '@/lib/masks';
-import { IconCheck, IconArrowRight, IconArrowLeft, IconUser, IconCreditCard, IconLink, IconAlert, IconHelp, IconRefresh, IconUnlink } from '@/components/icons';
+import { IconCheck, IconArrowRight, IconArrowLeft, IconUser, IconCreditCard, IconLink, IconAlert, IconHelp, IconRefresh, IconUnlink, IconLock, IconDownload, IconCalendar } from '@/components/icons';
 import { AdminHeader } from '@/components/AdminHeader';
 
 interface OnboardingStep {
@@ -69,7 +69,7 @@ export default function OnboardingPage() {
     description: '',
     url: '',
     price: '',
-    type: 'paid' as 'free' | 'paid',
+    template: 'direct' as 'direct' | 'paid_access' | 'digital_product' | 'scheduling',
     openInNewTab: true,
   });
   const [isCreatingLink, setIsCreatingLink] = useState(false);
@@ -188,9 +188,9 @@ export default function OnboardingPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     
-    // Só permite arquivo em links monetizados
-    if (link.type !== 'paid') {
-      setFileError('Apenas links monetizados podem ter arquivos para download');
+    // Só permite arquivo em Produto Digital
+    if (link.template !== 'digital_product') {
+      setFileError('Apenas Produtos Digitais podem ter arquivos para download');
       return;
     }
     
@@ -220,8 +220,9 @@ export default function OnboardingPage() {
   };
 
   const handleCreateLink = async () => {
-    // Validação: link gratuito precisa de URL, monetizado precisa de preço
-    if (!link.title.trim() || (link.type === 'paid' && !link.price) || (link.type === 'free' && !link.url.trim())) return;
+    const isMonetized = link.template === 'paid_access' || link.template === 'digital_product';
+    // Validação por template
+    if (!link.title.trim() || (isMonetized && !link.price) || (!isMonetized && !link.url.trim())) return;
     
     // Validação do arquivo
     if (selectedFile && selectedFile.size > 300 * 1024 * 1024) {
@@ -231,37 +232,32 @@ export default function OnboardingPage() {
     
     setIsCreatingLink(true);
     try {
-      // Para links monetizados, URL é opcional (pode ter apenas arquivo)
       const formattedUrl = formatUrl(link.url);
       const linkData: any = { 
         title: link.title, 
         description: link.description, 
         openInNewTab: link.openInNewTab, 
-        type: link.type, 
-        isPaid: link.type === 'paid', 
-        price: link.type === 'paid' ? parseFloat(link.price) : 0,
+        template: link.template,
+        price: isMonetized ? parseFloat(link.price) : 0,
       };
       
-      // Só inclui URL se tiver valor (evita enviar string vazia)
+      // URL obrigatória para direct e scheduling
       if (formattedUrl && formattedUrl.trim() !== '' && formattedUrl !== 'https://') {
         linkData.url = formattedUrl;
-      } else if (link.type === 'free') {
-        // Link gratuito precisa de URL
+      } else if (!isMonetized) {
         linkData.url = '';
       }
-      // Links monetizados sem URL não recebem o campo (undefined)
       
       const result = await createLink(linkData);
       const linkId = result.link?.id || result.id;
       
-      // Upload do arquivo se selecionado (apenas para links monetizados)
-      if (selectedFile && linkId && link.type === 'paid') {
+      // Upload do arquivo se selecionado (apenas para Produto Digital)
+      if (selectedFile && linkId && link.template === 'digital_product') {
         setIsUploadingFile(true);
         try {
           await uploadLinkFile(linkId, selectedFile);
         } catch (err: any) {
           console.error('Erro no upload:', err);
-          // Não bloqueia o fluxo, apenas loga o erro
         } finally {
           setIsUploadingFile(false);
         }
@@ -638,58 +634,40 @@ export default function OnboardingPage() {
                   Que tipo de link você quer criar? *
                 </label>
                 <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setLink({ ...link, type: 'paid', price: link.price || '' })}
-                    className={`p-4 rounded-xl border-2 transition text-left ${
-                      link.type === 'paid'
-                        ? 'border-indigo-500 bg-indigo-50'
-                        : 'border-slate-200 hover:border-indigo-200 hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                        link.type === 'paid' ? 'border-indigo-500' : 'border-slate-300'
-                      }`}>
-                        {link.type === 'paid' && <div className="w-2.5 h-2.5 rounded-full bg-indigo-500" />}
-                      </div>
-                      <span className={`font-semibold ${link.type === 'paid' ? 'text-indigo-900' : 'text-slate-700'}`}>
-                        Link Monetizado
-                      </span>
-                    </div>
-                    <p className={`text-xs ${link.type === 'paid' ? 'text-indigo-600' : 'text-slate-500'}`}>
-                      Venda seu produto! O cliente paga via PIX e recebe o link de acesso/arquivo por email!
-                    </p>
-                  </button>
-                  
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLink({ ...link, type: 'free', price: '' });
-                      // Limpar arquivo selecionado ao mudar para link comum
-                      setSelectedFile(null);
-                      setFileError(null);
-                    }}
-                    className={`p-4 rounded-xl border-2 transition text-left ${
-                      link.type === 'free'
-                        ? 'border-emerald-500 bg-emerald-50'
-                        : 'border-slate-200 hover:border-emerald-200 hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                        link.type === 'free' ? 'border-emerald-500' : 'border-slate-300'
-                      }`}>
-                        {link.type === 'free' && <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />}
-                      </div>
-                      <span className={`font-semibold ${link.type === 'free' ? 'text-emerald-900' : 'text-slate-700'}`}>
-                        Link Comum
-                      </span>
-                    </div>
-                    <p className={`text-xs ${link.type === 'free' ? 'text-emerald-600' : 'text-slate-500'}`}>
-                      Compartilhe seu site, grupos ou qualquer link sem cobrança.
-                    </p>
-                  </button>
+                  {[
+                    { id: 'direct', label: 'Direto', desc: 'Redireciona para qualquer site', icon: IconLink, color: 'emerald' },
+                    { id: 'digital_product', label: 'Produto Digital', desc: 'Venda arquivos para download', icon: IconDownload, color: 'amber' },
+                    { id: 'paid_access', label: 'Acesso Pago', desc: 'Cobre para liberar um link', icon: IconLock, color: 'indigo' },
+                    { id: 'scheduling', label: 'Agendamento', desc: 'WhatsApp, Telegram, Calendário', icon: IconCalendar, color: 'violet' },
+                  ].map((t) => {
+                    const isSelected = link.template === (t.id as any);
+                    const colors: Record<string, { border: string; bg: string; text: string; iconBg: string; iconText: string }> = {
+                      emerald: { border: 'border-emerald-500', bg: 'bg-emerald-50', text: 'text-emerald-900', iconBg: 'bg-emerald-100', iconText: 'text-emerald-600' },
+                      violet: { border: 'border-violet-500', bg: 'bg-violet-50', text: 'text-violet-900', iconBg: 'bg-violet-100', iconText: 'text-violet-600' },
+                      indigo: { border: 'border-indigo-500', bg: 'bg-indigo-50', text: 'text-indigo-900', iconBg: 'bg-indigo-100', iconText: 'text-indigo-600' },
+                      amber: { border: 'border-amber-500', bg: 'bg-amber-50', text: 'text-amber-900', iconBg: 'bg-amber-100', iconText: 'text-amber-600' },
+                    };
+                    const c = colors[t.color];
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => {
+                          setLink({ ...link, template: t.id as any });
+                          if (t.id !== 'digital_product') { setSelectedFile(null); setFileError(null); }
+                        }}
+                        className={`flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition text-center ${isSelected ? `${c.border} ${c.bg} shadow-sm` : 'border-slate-200 bg-white hover:border-slate-300'}`}
+                      >
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isSelected ? c.iconBg : 'bg-slate-100'}`}>
+                          <t.icon className={`w-4 h-4 ${isSelected ? c.iconText : 'text-slate-400'}`} />
+                        </div>
+                        <div>
+                          <p className={`text-xs font-semibold ${isSelected ? c.text : 'text-slate-700'}`}>{t.label}</p>
+                          <p className="text-[10px] text-slate-400 leading-tight mt-0.5">{t.desc}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -703,7 +681,7 @@ export default function OnboardingPage() {
                     type="text"
                     value={link.title}
                     onChange={(e) => setLink({ ...link, title: e.target.value })}
-                    placeholder={link.type === 'paid' ? "Ex: E-book de Receitas Saudáveis" : "Ex: Meu Instagram"}
+                    placeholder="Ex: Meu Curso"
                     className="w-full h-12 px-4 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition"
                   />
                 </div>
@@ -715,7 +693,7 @@ export default function OnboardingPage() {
                   <textarea
                     value={link.description}
                     onChange={(e) => setLink({ ...link, description: e.target.value })}
-                    placeholder={link.type === 'paid' ? "Descreva o que o cliente vai receber após pagar" : "Descreva para onde esse link leva"}
+                    placeholder="Breve descrição do link"
                     rows={2}
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition resize-none"
                   />
@@ -724,28 +702,33 @@ export default function OnboardingPage() {
                 {/* URL do Link */}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
-                    URL do link {link.type === 'paid' ? '(opcional)' : '*'}
+                    URL do link {(link.template === 'direct' || link.template === 'scheduling') ? '*' : '(opcional)'}
                   </label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs">https://</span>
-                    <input
-                      type="text"
-                      value={link.url?.replace(/^https?:\/\//, '') || ''}
-                      onChange={(e) => setLink({ ...link, url: `https://${e.target.value.replace(/^https?:\/\//, '')}` })}
-                      placeholder="seusite.com"
-                      required={link.type === 'free'}
-                      className="w-full h-12 pl-14 pr-4 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition"
-                    />
-                  </div>
+                  <input
+                    type="url"
+                    value={link.url || ''}
+                    onChange={(e) => setLink({ ...link, url: e.target.value })}
+                    placeholder={
+                      link.template === 'scheduling' 
+                        ? 'https://wa.me/5511999999999' 
+                        : link.template === 'paid_access'
+                          ? 'https://seusite.com (opcional)'
+                          : 'https://seusite.com'
+                    }
+                    required={link.template === 'direct' || link.template === 'scheduling'}
+                    className="w-full h-12 px-4 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition"
+                  />
                   <p className="text-xs text-slate-400 mt-1">
-                    {link.type === 'paid' 
-                      ? "Link que o cliente acessará após o pagamento" 
-                      : "Endereço para onde seus visitantes serão direcionados"}
+                    {(link.template === 'paid_access' || link.template === 'digital_product')
+                      ? "Link que o cliente acessará após o pagamento (opcional)" 
+                      : link.template === 'scheduling'
+                        ? "Cole o link do WhatsApp, Telegram ou Calendário"
+                        : "Endereço para onde seus visitantes serão direcionados"}
                   </p>
                 </div>
 
                 {/* Preço e Upload - só aparece se for pago */}
-                {link.type === 'paid' && (
+                {(link.template === 'paid_access' || link.template === 'digital_product') && (
                   <div className="space-y-5 animate-in fade-in slide-in-from-top-2 duration-200">
                     {/* Preço */}
                     <div>
@@ -768,10 +751,10 @@ export default function OnboardingPage() {
                     </div>
                     
                     {/* Upload de Arquivo */}
-                    <div className="bg-indigo-50 rounded-xl p-4 space-y-3 border border-indigo-100">
+                    <div className={`rounded-xl p-4 space-y-3 border ${link.template === 'digital_product' ? 'bg-amber-50 border-amber-100' : 'bg-indigo-50 border-indigo-100'}`}>
                       <div className="flex items-center justify-between">
-                        <label className="block text-sm font-medium text-indigo-900">Arquivo para Download (opcional)</label>
-                        <span className="text-xs text-indigo-600">Máx 300MB</span>
+                        <label className={`block text-sm font-medium ${link.template === 'digital_product' ? 'text-amber-900' : 'text-indigo-900'}`}>Arquivo para Download {link.template === 'digital_product' ? '(opcional)' : '(só em Produto Digital)'}</label>
+                        <span className={`text-xs ${link.template === 'digital_product' ? 'text-amber-600' : 'text-indigo-600'}`}>Máx 300MB</span>
                       </div>
                       
                       {selectedFile && (
@@ -803,8 +786,8 @@ export default function OnboardingPage() {
                               file:mr-4 file:py-2 file:px-4
                               file:rounded-lg file:border-0
                               file:text-sm file:font-medium
-                              file:bg-indigo-100 file:text-indigo-700
-                              hover:file:bg-indigo-200
+                              file:bg-amber-100 file:text-amber-700
+                              hover:file:bg-amber-200
                               cursor-pointer
                             "
                           />
@@ -815,9 +798,9 @@ export default function OnboardingPage() {
                         <p className="text-xs text-rose-600">{fileError}</p>
                       )}
                       
-                      <p className="text-xs text-indigo-700">
+                      <p className={`text-xs ${link.template === 'digital_product' ? 'text-amber-700' : 'text-indigo-700'}`}>
                         PDF, imagens, vídeos (MP4, MOV), áudios (MP3), planilhas e documentos.
-                        O arquivo será enviado ao comprador após o pagamento.
+                        {link.template === 'digital_product' ? ' O arquivo será enviado ao comprador após o pagamento.' : ' Disponível apenas para Produto Digital.'}
                       </p>
                     </div>
                   </div>
@@ -841,7 +824,7 @@ export default function OnboardingPage() {
                   </button>
                   <button
                     onClick={handleCreateLink}
-                    disabled={!link.title.trim() || (link.type === 'free' && !link.url.trim()) || (link.type === 'paid' && !link.price) || isCreatingLink || isUploadingFile}
+                    disabled={!link.title.trim() || ((link.template === 'direct' || link.template === 'scheduling') && !link.url.trim()) || ((link.template === 'paid_access' || link.template === 'digital_product') && !link.price) || isCreatingLink || isUploadingFile}
                     className="inline-flex items-center gap-2 px-6 h-12 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
                   >
                     {isUploadingFile ? (

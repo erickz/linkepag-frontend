@@ -14,6 +14,7 @@ import { getLinks, scheduleDowngrade, getScheduledDowngrade } from '@/lib/api';
 interface LinkItem {
   _id: string;
   title: string;
+  template?: 'direct' | 'paid_access' | 'digital_product' | 'scheduling';
   isPaid?: boolean;
   isActive?: boolean;
 }
@@ -300,7 +301,7 @@ export default function PlansPage() {
   // Contar links monetizados (isPaid = true)
   const paidLinksCount = useMemo(() => {
     if (!linksData) return 0;
-    return linksData.filter(link => link.isPaid === true).length;
+    return linksData.filter(link => link.template === 'paid_access' || link.template === 'digital_product').length;
   }, [linksData]);
 
   // Carregar pixData da subscription pendente ou do estado

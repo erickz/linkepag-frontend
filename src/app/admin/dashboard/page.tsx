@@ -25,6 +25,7 @@ interface LinkItem {
   id: string;
   title: string;
   isActive: boolean;
+  template?: 'direct' | 'paid_access' | 'digital_product' | 'scheduling';
   isPaid?: boolean;
 }
 
@@ -78,7 +79,7 @@ export default function AdminDashboard() {
   const profile = data?.profile;
 
   const activeLinks = links.filter((l: LinkItem) => l.isActive).length;
-  const paidLinks = links.filter((l: LinkItem) => l.isPaid).length;
+  const paidLinks = links.filter((l: LinkItem) => l.template === 'paid_access' || l.template === 'digital_product').length;
 
   useEffect(() => {
     if (isAuthenticated) {

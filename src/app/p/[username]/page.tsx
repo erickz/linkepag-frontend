@@ -87,6 +87,7 @@ interface ApiLink {
   order: number;
   isActive: boolean;
   openInNewTab?: boolean;
+  template?: 'direct' | 'paid_access' | 'digital_product' | 'scheduling';
   type?: 'free' | 'paid';
   isPaid?: boolean;
   price?: number;

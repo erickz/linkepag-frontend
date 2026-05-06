@@ -9,6 +9,8 @@ import { uploadLinkFile, deleteLinkFile } from '@/lib/api';
 import { maskPriceInput, parsePrice, formatPrice, formatUrl, priceToInputValue } from '@/lib/masks';
 import { useSubscription } from '@/hooks/useSubscription';
 import { PlanLimitWarning, PlanUpgradeModal } from '@/components/PlanUpgradeModal';
+import { detectPlatformFromUrl } from '@/lib/platform-detector';
+import { IconLink, IconLock, IconDownload, IconCalendar, IconTelegram, IconWhatsApp, IconGoogleCalendar } from '@/components/icons';
 
 // Icons
 const Icon = ({ path, className = "w-5 h-5" }: { path: string, className?: string }) => (
@@ -112,9 +114,9 @@ function PagePreview({ data, links }: { data: any, links: LinkItem[] }) {
               <div className="text-center py-4 text-xs text-slate-400">Nenhum link ativo</div>
             ) : (
               activeLinks.map(link => (
-                <div key={link.id} className={`h-8 rounded-lg flex items-center px-3 text-xs ${link.isPaid ? `bg-gradient-to-r from-slate-800 to-slate-900 text-white ${accent.borderClass}` : 'bg-white text-slate-700 border border-slate-200'}`}>
+                <div key={link.id} className={`h-8 rounded-lg flex items-center px-3 text-xs ${link.template === 'paid_access' || link.template === 'digital_product' ? `bg-gradient-to-r from-slate-800 to-slate-900 text-white ${accent.borderClass}` : 'bg-white text-slate-700 border border-slate-200'}`}>
                   <span className="flex-1 truncate">{link.title}</span>
-                  {link.isPaid && <span className={`font-bold ${accent.textClass}`}>R$ {formatPrice(link.price ?? 0)}</span>}
+                  {(link.template === 'paid_access' || link.template === 'digital_product') && <span className={`font-bold ${accent.textClass}`}>R$ {formatPrice(link.price ?? 0)}</span>}
                 </div>
               ))
             )}
@@ -229,7 +231,7 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [localLinks, setLocalLinks] = useState<LinkItem[]>(links);
   const [isReorderingLocal, setIsReorderingLocal] = useState(false);
-  const [formData, setFormData] = useState({ title: '', description: '', url: '', openInNewTab: true, isPaid: false, price: 0, type: 'free' as 'free' | 'paid', paymentTimeoutMinutes: 30 });
+  const [formData, setFormData] = useState({ title: '', description: '', url: '', openInNewTab: true, template: 'direct' as 'direct' | 'paid_access' | 'digital_product' | 'scheduling', price: 0, paymentTimeoutMinutes: 30 });
   
   // Upload de arquivo
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -251,12 +253,12 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
 
   useEffect(() => { setLocalLinks(links); setCurrentPage(1); }, [links]);
 
-  const paidLinksCount = localLinks.filter((l: LinkItem) => l.isPaid).length;
+  const paidLinksCount = localLinks.filter((l: LinkItem) => l.template === 'paid_access' || l.template === 'digital_product').length;
   const paidLinksUsage = currentPlan ? getPaidLinksUsage(paidLinksCount) : { used: 0, limit: null, percentage: 0 };
   const canCreatePaid = canCreatePaidLink(paidLinksCount);
 
   const resetForm = () => {
-    setFormData({ title: '', description: '', url: '', openInNewTab: true, isPaid: false, price: 0, type: 'free', paymentTimeoutMinutes: 30 });
+    setFormData({ title: '', description: '', url: '', openInNewTab: true, template: 'direct', price: 0, paymentTimeoutMinutes: 30 });
     setSelectedFile(null);
     setFileError(null);
   };
@@ -268,7 +270,8 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
     
     // Só valida limite de links monetizados quando está CRIANDO um novo link
     // Não valida quando está EDITANDO um link existente
-    if (!editingLink && formData.isPaid && !canCreatePaid.allowed) {
+    const isMonetized = formData.template === 'paid_access' || formData.template === 'digital_product';
+    if (!editingLink && isMonetized && !canCreatePaid.allowed) {
       setMessage({ type: 'error', text: canCreatePaid.message || 'Não é possível criar link monetizado' });
       if (paidLinksUsage.limit !== null && paidLinksCount >= paidLinksUsage.limit) setShowUpgradeModal(true);
       return;
@@ -280,26 +283,23 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
       return;
     }
     
-    // Para links monetizados, URL é opcional (pode ter apenas arquivo)
     const formattedUrl = formatUrl(formData.url);
     const linkData: any = { 
       title: formData.title, 
       description: formData.description, 
       openInNewTab: formData.openInNewTab, 
-      type: formData.type, 
-      isPaid: formData.isPaid, 
-      price: formData.isPaid ? formData.price : 0, 
+      template: formData.template,
+      price: isMonetized ? formData.price : 0, 
       paymentTimeoutMinutes: formData.paymentTimeoutMinutes 
     };
     
-    // Só inclui URL se tiver valor (evita enviar string vazia)
+    // URL obrigatória para direct e scheduling, opcional para paid_access
     if (formattedUrl && formattedUrl.trim() !== '' && formattedUrl !== 'https://') {
       linkData.url = formattedUrl;
-    } else if (!formData.isPaid) {
-      // Link gratuito precisa de URL
+    } else if (formData.template === 'direct' || formData.template === 'scheduling') {
       linkData.url = '';
     }
-    // Links monetizados sem URL não recebem o campo (undefined)
+    // paid_access e digital_product podem não ter URL
     
     try {
       let linkId: string;
@@ -314,8 +314,8 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
         setMessage({ type: 'success', text: 'Link criado!' });
       }
       
-      // Upload do arquivo se selecionado (apenas para links monetizados)
-      if (selectedFile && linkId && formData.isPaid) {
+      // Upload do arquivo se selecionado (apenas para Produto Digital)
+      if (selectedFile && linkId && formData.template === 'digital_product') {
         setIsUploadingFile(true);
         try {
           await uploadLinkFile(linkId, selectedFile);
@@ -339,9 +339,9 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
     const file = e.target.files?.[0];
     if (!file) return;
     
-    // Só permite arquivo em links monetizados
-    if (!formData.isPaid) {
-      setFileError('Apenas links monetizados podem ter arquivos para download');
+    // Só permite arquivo em Produto Digital
+    if (formData.template !== 'digital_product') {
+      setFileError('Apenas Produtos Digitais podem ter arquivos para download');
       return;
     }
     
@@ -384,7 +384,7 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
 
   const handleEdit = (link: LinkItem & { hasDeliverableFile?: boolean; deliverableFile?: { originalName: string; size: number; extension: string } | null }) => {
     setEditingLink(link);
-    setFormData({ title: link.title, description: link.description || '', url: link.url, openInNewTab: link.openInNewTab ?? true, isPaid: link.isPaid || false, price: link.price || 0, type: (link.type as 'free' | 'paid') || 'free', paymentTimeoutMinutes: link.paymentTimeoutMinutes || 30 });
+    setFormData({ title: link.title, description: link.description || '', url: link.url || '', openInNewTab: link.openInNewTab ?? true, template: (link.template as any) || 'direct', price: link.price || 0, paymentTimeoutMinutes: link.paymentTimeoutMinutes || 30 });
     setSelectedFile(null);
     setFileError(null);
     setShowForm(true);
@@ -413,58 +413,100 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
           <h3 className="text-lg font-bold text-slate-900 mb-4">{editingLink ? 'Editar Link' : 'Novo Link'}</h3>
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="bg-slate-50 rounded-xl p-4 space-y-3">
+              <label className="block text-sm font-medium text-slate-700">Tipo de Link</label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[
+                  { id: 'direct', label: 'Direto', desc: 'Redireciona para qualquer site', icon: IconLink, color: 'emerald' },
+                  { id: 'digital_product', label: 'Produto Digital', desc: 'Venda arquivos para download', icon: IconDownload, color: 'amber' },
+                  { id: 'paid_access', label: 'Acesso Pago', desc: 'Cobre para liberar um link', icon: IconLock, color: 'indigo' },
+                  { id: 'scheduling', label: 'Agendamento', desc: 'WhatsApp, Telegram, Calendário', icon: IconCalendar, color: 'violet' },
+                ].map((t) => {
+                  const isSelected = formData.template === (t.id as any);
+                  const colors: Record<string, { border: string; bg: string; text: string; iconBg: string; iconText: string }> = {
+                    emerald: { border: 'border-emerald-500', bg: 'bg-emerald-50', text: 'text-emerald-700', iconBg: 'bg-emerald-100', iconText: 'text-emerald-600' },
+                    violet: { border: 'border-violet-500', bg: 'bg-violet-50', text: 'text-violet-700', iconBg: 'bg-violet-100', iconText: 'text-violet-600' },
+                    indigo: { border: 'border-indigo-500', bg: 'bg-indigo-50', text: 'text-indigo-700', iconBg: 'bg-indigo-100', iconText: 'text-indigo-600' },
+                    amber: { border: 'border-amber-500', bg: 'bg-amber-50', text: 'text-amber-700', iconBg: 'bg-amber-100', iconText: 'text-amber-600' },
+                  };
+                  const c = colors[t.color];
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => {
+                        setFormData(p => ({ ...p, template: t.id as any }));
+                        if (t.id !== 'digital_product') { setSelectedFile(null); setFileError(null); }
+                      }}
+                      className={`flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all text-center ${isSelected ? `${c.border} ${c.bg} shadow-sm` : 'border-slate-200 bg-white hover:border-slate-300'}`}
+                    >
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${isSelected ? c.iconBg : 'bg-slate-100'}`}>
+                        <t.icon className={`w-5 h-5 ${isSelected ? c.iconText : 'text-slate-400'}`} />
+                      </div>
+                      <div>
+                        <p className={`text-xs font-semibold ${isSelected ? c.text : 'text-slate-700'}`}>{t.label}</p>
+                        <p className="text-[10px] text-slate-400 leading-tight mt-0.5">{t.desc}</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Título *</label><input type="text" value={formData.title} onChange={e => setFormData(p => ({ ...p, title: e.target.value }))} required className="w-full h-10 px-3 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm" placeholder="Ex: Meu Curso" /></div>
-              <div><label className="block text-sm font-medium text-slate-700 mb-1">URL {formData.isPaid ? '(redireciona após o pagamento)' : '*'}</label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">https://</span><input type="text" value={formData.url?.replace(/^https?:\/\//, '') || ''} onChange={e => setFormData(p => ({ ...p, url: `https://${e.target.value.replace(/^https?:\/\//, '')}` }))} required={!formData.isPaid} className="w-full h-10 pl-14 pr-3 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm" placeholder={formData.isPaid ? 'Opcional para links com arquivo' : 'seusite.com'} /></div></div>
+              {(formData.template === 'direct' || formData.template === 'scheduling') && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">URL *</label>
+                  <input 
+                    type="url" 
+                    value={formData.url || ''} 
+                    onChange={e => setFormData(p => ({ ...p, url: e.target.value }))} 
+                    required 
+                    className="w-full h-10 px-3 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm" 
+                    placeholder={formData.template === 'scheduling' ? 'https://wa.me/5511999999999' : 'https://seusite.com'} 
+                  />
+                </div>
+              )}
+              {formData.template === 'paid_access' && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">URL (redireciona após pagamento)</label>
+                  <input 
+                    type="url" 
+                    value={formData.url || ''} 
+                    onChange={e => setFormData(p => ({ ...p, url: e.target.value }))} 
+                    className="w-full h-10 px-3 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm" 
+                    placeholder="https://seusite.com (opcional)" 
+                  />
+                </div>
+              )}
             </div>
             <div><label className="block text-sm font-medium text-slate-700 mb-1">Descrição (opcional)</label><input type="text" value={formData.description} onChange={e => setFormData(p => ({ ...p, description: e.target.value }))} className="w-full h-10 px-3 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm" placeholder="Breve descrição" /></div>
-            <div className="bg-slate-50 rounded-xl p-4 space-y-3">
-              <div className="flex items-center gap-3 p-1 bg-slate-200 rounded-lg w-fit">
-                <button 
-                  type="button" 
-                  onClick={() => {
-                    setFormData(p => ({ ...p, type: 'free', isPaid: false }));
-                    // Limpar arquivo selecionado ao mudar para link comum
-                    setSelectedFile(null);
-                    setFileError(null);
-                  }} 
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${formData.type === 'free' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'}`}
-                >
-                  Link Comum
-                </button>
-                <button 
-                  type="button" 
-                  onClick={() => setFormData(p => ({ ...p, type: 'paid', isPaid: true }))} 
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${formData.type === 'paid' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600'}`}
-                >
-                  Link Monetizado
-                </button>
-              </div>
-              
-              {formData.isPaid && (
-                <div className="space-y-4">
-                  {/* Preço */}
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Preço (R$)</label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">R$</span>
-                      <input 
-                        type="text" 
-                        inputMode="decimal" 
-                        value={priceToInputValue(formData.price)} 
-                        onChange={e => setFormData(p => ({ ...p, price: parsePrice(maskPriceInput(e.target.value)) }))} 
-                        required={formData.isPaid} 
-                        className="w-full h-10 pl-10 pr-3 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm" 
-                        placeholder="0,00" 
-                      />
-                    </div>
+            
+            {(formData.template === 'paid_access' || formData.template === 'digital_product') && (
+              <div className="space-y-4">
+                {/* Preço */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Preço (R$) *</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">R$</span>
+                    <input 
+                      type="text" 
+                      inputMode="decimal" 
+                      value={priceToInputValue(formData.price)} 
+                      onChange={e => setFormData(p => ({ ...p, price: parsePrice(maskPriceInput(e.target.value)) }))} 
+                      required 
+                      className="w-full h-10 pl-10 pr-3 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm" 
+                      placeholder="0,00" 
+                    />
                   </div>
-                  
-                  {/* Upload de Arquivo - APENAS para links monetizados */}
-                  <div className="bg-indigo-50 rounded-xl p-4 space-y-3 border border-indigo-100">
+                </div>
+                
+                {/* Upload de Arquivo - APENAS para Produto Digital */}
+                {formData.template === 'digital_product' && (
+                  <div className="bg-amber-50 rounded-xl p-4 space-y-3 border border-amber-100">
                     <div className="flex items-center justify-between">
-                      <label className="block text-sm font-medium text-indigo-900">Arquivo para Download (opcional)</label>
-                      <span className="text-xs text-indigo-600">Máx 300MB</span>
+                      <label className="block text-sm font-medium text-amber-900">Arquivo para Download (opcional)</label>
+                      <span className="text-xs text-amber-600">Máx 300MB</span>
                     </div>
                     
                     {editingLink?.hasDeliverableFile && editingLink.deliverableFile && !selectedFile && (
@@ -515,8 +557,8 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
                             file:mr-4 file:py-2 file:px-4
                             file:rounded-lg file:border-0
                             file:text-sm file:font-medium
-                            file:bg-indigo-100 file:text-indigo-700
-                            hover:file:bg-indigo-200
+                            file:bg-amber-100 file:text-amber-700
+                            hover:file:bg-amber-200
                             cursor-pointer
                           "
                         />
@@ -527,14 +569,14 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
                       <p className="text-xs text-rose-600">{fileError}</p>
                     )}
                     
-                    <p className="text-xs text-indigo-700">
+                    <p className="text-xs text-amber-700">
                       PDF, imagens, vídeos (MP4, MOV), áudios (MP3), planilhas e documentos.
                       O arquivo será enviado ao comprador após o pagamento.
                     </p>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
             
             <div className="flex items-center gap-2"><input type="checkbox" id="openInNewTab" checked={formData.openInNewTab} onChange={e => setFormData(p => ({ ...p, openInNewTab: e.target.checked }))} className="w-4 h-4 rounded border-slate-300 text-indigo-600" /><label htmlFor="openInNewTab" className="text-sm text-slate-700">Abrir em nova aba</label></div>
             <div className="flex gap-3 pt-2">
@@ -554,7 +596,7 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
               {localLinks.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE).map((link, index) => {
                 const actualIndex = (currentPage - 1) * ITEMS_PER_PAGE + index;
                 return (
-                  <div key={link.id} className={`group flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-xl border transition-all ${link.isPaid ? 'border-slate-200 bg-slate-50/30' : 'border-slate-200 hover:border-indigo-300'} ${!link.isActive ? 'opacity-50' : ''}`}>
+                  <div key={link.id} className={`group flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-xl border transition-all ${link.template === 'paid_access' || link.template === 'digital_product' ? 'border-slate-200 bg-slate-50/30' : 'border-slate-200 hover:border-indigo-300'} ${!link.isActive ? 'opacity-50' : ''}`}>
                     {/* Ordenação - mais compacto no mobile */}
                     <div className="flex flex-col flex-shrink-0">
                       <button onClick={() => handleMove(actualIndex, 'up')} disabled={actualIndex === 0 || isReorderingLocal} className="p-0.5 text-slate-300 hover:text-slate-600 disabled:opacity-20 text-xs sm:text-sm">▲</button>
@@ -562,22 +604,43 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
                       <button onClick={() => handleMove(actualIndex, 'down')} disabled={actualIndex === localLinks.length - 1 || isReorderingLocal} className="p-0.5 text-slate-300 hover:text-slate-600 disabled:opacity-20 text-xs sm:text-sm">▼</button>
                     </div>
                     
-                    {/* Ícone */}
-                    <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0 text-sm sm:text-base ${link.isPaid ? 'bg-amber-100 text-amber-600' : 'bg-indigo-100 text-indigo-600'}`}>{link.isPaid ? '💰' : <Icon path={Icons.link} className="w-4 h-4 sm:w-5 sm:h-5" />}</div>
+                    {/* Ícone por template */}
+                    {(() => {
+                      const template = link.template || 'direct';
+                      const platform = template === 'scheduling' && link.url ? detectPlatformFromUrl(link.url) : null;
+                      if (template === 'direct') {
+                        return <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-indigo-100 text-indigo-600"><IconLink className="w-4 h-4 sm:w-5 sm:h-5" /></div>;
+                      }
+                      if (template === 'scheduling') {
+                        if (platform === 'telegram') return <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-sky-100 text-sky-600"><IconTelegram className="w-4 h-4 sm:w-5 sm:h-5" /></div>;
+                        if (platform === 'whatsapp') return <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-emerald-100 text-emerald-600"><IconWhatsApp className="w-4 h-4 sm:w-5 sm:h-5" /></div>;
+                        if (platform === 'google-calendar') return <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-red-100 text-red-600"><IconGoogleCalendar className="w-4 h-4 sm:w-5 sm:h-5" /></div>;
+                        return <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-violet-100 text-violet-600"><IconCalendar className="w-4 h-4 sm:w-5 sm:h-5" /></div>;
+                      }
+                      if (template === 'paid_access') {
+                        return <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-indigo-100 text-indigo-600"><IconLock className="w-4 h-4 sm:w-5 sm:h-5" /></div>;
+                      }
+                      if (template === 'digital_product') {
+                        return <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-amber-100 text-amber-600"><IconDownload className="w-4 h-4 sm:w-5 sm:h-5" /></div>;
+                      }
+                      return <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-indigo-100 text-indigo-600"><IconLink className="w-4 h-4 sm:w-5 sm:h-5" /></div>;
+                    })()}
                     
                     {/* Conteúdo */}
                     <div className="flex-1 min-w-0 overflow-hidden">
                       <div className="flex items-center gap-1.5 sm:gap-2">
                         <p className="font-medium text-slate-900 truncate text-sm sm:text-base">{link.title}</p>
                         {(link as LinkItem & { hasDeliverableFile?: boolean }).hasDeliverableFile && (
-                          <span title="Possui arquivo para download" className="text-indigo-500 text-xs sm:text-sm flex-shrink-0">📎</span>
+                          <span title="Possui arquivo para download" className="text-amber-500 text-xs sm:text-sm flex-shrink-0">📎</span>
                         )}
                       </div>
                       <div className="flex items-center gap-1.5 sm:gap-2 text-xs mt-0.5">
-                        {link.isPaid ? (
+                        {link.template === 'paid_access' || link.template === 'digital_product' ? (
                           <span className="font-bold text-amber-600 flex-shrink-0">R$ {formatPrice(link.price ?? 0)}</span>
                         ) : (
-                          <span className="text-slate-400 flex-shrink-0">Gratuito</span>
+                          <span className="text-slate-400 flex-shrink-0">
+                            {link.template === 'scheduling' ? 'Agendamento' : 'Direto'}
+                          </span>
                         )}
                         {link.url && (
                           <>

@@ -16,8 +16,13 @@ import {
   IconZap,
   IconTarget,
   IconCrown,
-  IconLock
+  IconLock,
+  IconCalendar,
+  IconTelegram,
+  IconWhatsApp,
+  IconGoogleCalendar
 } from './icons';
+import { detectPlatformFromUrl } from '@/lib/platform-detector';
 
 interface AccentColor {
   textClass: string;
@@ -33,6 +38,7 @@ interface LinkButtonProps {
     description?: string;
     url: string;
     icon?: string;
+    template?: 'direct' | 'paid_access' | 'digital_product' | 'scheduling';
     isPaid?: boolean;
     price?: number;
     openInNewTab?: boolean;
@@ -98,20 +104,32 @@ function LinkButtonComponent({
   canReceivePayments,
 }: LinkButtonProps) {
   // Memoizar handlers para evitar recriação a cada render
+  const isMonetized = link.template === 'paid_access' || link.template === 'digital_product';
+  const isDirect = link.template === 'direct' || link.template === 'scheduling';
+
   const handleLinkClick = useCallback(() => {
-    // Links gratuitos com URL abrem direto
-    if (!link.isPaid && link.url) {
+    // Links diretos e agendamento com URL abrem direto
+    if (isDirect && link.url) {
       window.open(link.url, link.openInNewTab ? '_blank' : '_self');
     }
     
     // Sempre chama onToggle (para abrir/fechar checkout de links monetizados)
     onToggle();
-  }, [link.isPaid, link.url, link.openInNewTab, onToggle]);
+  }, [isDirect, isMonetized, link.url, link.openInNewTab, onToggle]);
 
   // Memoizar ícone para evitar re-computação
   const IconComponent = useMemo(() => {
-    // Para links monetizados, sempre mostra ícone de cadeado (independente de expandido ou não)
-    if (link.isPaid) {
+    // Para links de agendamento, detecta plataforma pela URL
+    if (link.template === 'scheduling' && link.url) {
+      const platform = detectPlatformFromUrl(link.url);
+      if (platform === 'telegram') return IconTelegram;
+      if (platform === 'whatsapp') return IconWhatsApp;
+      if (platform === 'google-calendar') return IconGoogleCalendar;
+      return IconCalendar;
+    }
+
+    // Para links monetizados, sempre mostra ícone de cadeado
+    if (isMonetized) {
       return IconLock;
     }
     
@@ -126,13 +144,13 @@ function LinkButtonComponent({
       }
     }
     
-    // Ícone padrão para links gratuitos
+    // Ícone padrão para links diretos
     return IconLink;
-  }, [link.isPaid, link.icon]);
+  }, [link.template, link.url, isMonetized, link.icon]);
 
   // Memoizar classes do botão
   const buttonClasses = useMemo(() => {
-    if (link.isPaid) {
+    if (isMonetized) {
       const accentBorder = accentColor?.borderClass.replace('/30', '/50') || 'border-amber-400/50';
       const accentShadow = accentColor?.textClass.replace('text-', '') || 'amber-500';
       return `bg-gradient-to-br from-slate-800 via-slate-900 to-black text-white border border-slate-700 hover:${accentBorder} hover:shadow-xl hover:shadow-${accentShadow}/20 hover:scale-[1.02]`;
@@ -143,7 +161,7 @@ function LinkButtonComponent({
     }
     
     return 'bg-white text-slate-700 border border-slate-200 hover:border-indigo-300 hover:shadow-md hover:scale-[1.01]';
-  }, [link.isPaid, link.buttonColor, link.textColor, accentColor]);
+  }, [isMonetized, link.buttonColor, link.textColor, accentColor]);
 
   // Memoizar estilos inline
   const buttonStyle = useMemo(() => {
@@ -159,15 +177,22 @@ function LinkButtonComponent({
 
   // Memoizar classes do container do ícone
   const iconContainerClasses = useMemo(() => {
-    if (link.isPaid) {
+    if (link.template === 'scheduling' && link.url) {
+      const platform = detectPlatformFromUrl(link.url);
+      if (platform === 'telegram') return 'bg-sky-100 text-sky-600';
+      if (platform === 'whatsapp') return 'bg-emerald-100 text-emerald-600';
+      if (platform === 'google-calendar') return 'bg-red-100 text-red-600';
+      return 'bg-violet-100 text-violet-600';
+    }
+    if (isMonetized) {
       return `${accentColor?.bgClass || 'bg-amber-500/20'} ${accentColor?.textClass || 'text-amber-400'}`;
     }
     return 'bg-gradient-to-br from-indigo-50 to-purple-50 text-indigo-600';
-  }, [link.isPaid, accentColor]);
+  }, [link.template, link.url, isMonetized, accentColor]);
 
   // Memoizar conteúdo do lado direito
   const rightSideContent = useMemo(() => {
-    if (link.isPaid) {
+    if (isMonetized) {
       // Sempre mostra o preço e botão Comprar/Fechar
       return (
         <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
@@ -193,7 +218,7 @@ function LinkButtonComponent({
         <IconExternalLink className="w-4 h-4 sm:w-5 sm:h-5" />
       </div>
     );
-  }, [link.isPaid, link.price, isExpanded, accentColor, link.buttonColor, link.textColor]);
+  }, [isMonetized, link.price, isExpanded, accentColor, link.buttonColor, link.textColor]);
 
   return (
     <div className="relative">
@@ -220,7 +245,7 @@ function LinkButtonComponent({
             {link.title}
           </div>
           {link.description && (
-            <div className={`text-xs mt-1 leading-relaxed break-words ${link.isPaid ? 'text-white/70' : 'text-slate-500'}`}>
+            <div className={`text-xs mt-1 leading-relaxed break-words ${isMonetized ? 'text-white/70' : 'text-slate-500'}`}>
               {link.description}
             </div>
           )}
@@ -233,7 +258,7 @@ function LinkButtonComponent({
       </button>
 
       {/* Inline Checkout */}
-      {isExpanded && link.isPaid && (
+      {isExpanded && isMonetized && (
         <div className="mt-3">
           <PixCheckout
             linkId={link.id}
