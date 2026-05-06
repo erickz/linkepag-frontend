@@ -142,7 +142,7 @@ export default function Login() {
   // Redirecionamento é tratado pelo useAuth
 
   return (
-    <main className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-4 py-12">
+    <main className="min-h-screen bg-slate-50 flex flex-col items-center justify-start pt-20 pb-12 px-4 lg:justify-center lg:py-12">
       <div className="w-full max-w-sm">
         {/* Logo + Heading */}
         <div className="text-center mb-8">

@@ -37,7 +37,7 @@ interface NavSection {
 export function AdminSidebar() {
   const { user, logout } = useAuth();
   const pathname = usePathname();
-  const [profile, setProfile] = useState<{ username: string; displayName?: string } | null>(null);
+  const [profile, setProfile] = useState<{ username: string; displayName?: string; profilePhoto?: string } | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
@@ -52,44 +52,23 @@ export function AdminSidebar() {
     };
   }, []);
 
-  // Load profile from localStorage or useAuth
+  // Load profile from useAuth
   useEffect(() => {
-    // Primeiro tenta usar o user do useAuth (mais atualizado)
     if (user) {
       const newProfile = {
         username: user.username,
         displayName: user.fullName?.split(' ')[0] || user.username,
+        profilePhoto: user.profilePhoto,
       };
       
-      // Só atualiza se os valores realmente mudaram
       const shouldUpdate = !profile || 
         profile.username !== newProfile.username || 
-        profile.displayName !== newProfile.displayName;
+        profile.displayName !== newProfile.displayName ||
+        profile.profilePhoto !== newProfile.profilePhoto;
       
       if (shouldUpdate) {
         if (isMountedRef.current) {
           setProfile(newProfile);
-        }
-      }
-      return;
-    }
-    
-    // Fallback para localStorage (apenas se não temos user do auth E não temos profile)
-    if (!profile) {
-      const userData = localStorage.getItem('lp_user');
-      if (userData) {
-        try {
-          const parsed = JSON.parse(userData);
-          const newProfile = {
-            username: parsed.username,
-            displayName: parsed.displayName || parsed.fullName?.split(' ')[0] || parsed.username,
-          };
-          
-          if (isMountedRef.current) {
-            setProfile(newProfile);
-          }
-        } catch (error) {
-          console.error('[AdminSidebar] Erro ao parsear user do localStorage:', error);
         }
       }
     }
@@ -267,9 +246,17 @@ export function AdminSidebar() {
       {/* Footer - User Info & Logout */}
       <div className="p-4 border-t border-slate-200">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
-            {profile?.displayName?.[0]?.toUpperCase() || profile?.username?.[0]?.toUpperCase() || 'U'}
-          </div>
+          {profile?.profilePhoto ? (
+            <img
+              src={profile.profilePhoto}
+              alt={profile.displayName || profile.username}
+              className="w-9 h-9 rounded-full object-cover border border-slate-200"
+            />
+          ) : (
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
+              {profile?.displayName?.[0]?.toUpperCase() || profile?.username?.[0]?.toUpperCase() || 'U'}
+            </div>
+          )}
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-slate-900 truncate">
               {profile?.displayName || profile?.username || 'Usuário'}

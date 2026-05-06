@@ -1,12 +1,20 @@
 'use client';
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Logo } from "@/components/Logo";
 import { AuthNavButton } from "@/components/AuthNavButton";
 
 export function MobileMenu() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    setIsAuthenticated(!!token);
+  }, []);
 
   const handleNavClick = () => {
     setMobileMenuOpen(false);
@@ -52,6 +60,11 @@ export function MobileMenu() {
             <AuthNavButton onClick={handleNavClick} className="py-3 px-4 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition text-center">
               Começar grátis
             </AuthNavButton>
+            {mounted && !isAuthenticated && (
+              <Link href="/login" onClick={handleNavClick} className="py-3 px-4 rounded-lg border border-slate-300 text-slate-700 font-semibold hover:bg-slate-50 hover:text-indigo-600 transition text-center">
+                Entrar
+              </Link>
+            )}
           </div>
         </div>
       )}

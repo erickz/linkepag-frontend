@@ -12,6 +12,7 @@ export interface User {
   cpf: string;
   username: string;
   planId?: number;
+  profilePhoto?: string;
 }
 
 interface AuthContextType {
@@ -75,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const checkAuth = () => {
+    const checkAuth = async () => {
       try {
         // Check for existing auth on mount
         const storedToken = localStorage.getItem('token');
@@ -89,6 +90,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               const parsedUser = JSON.parse(storedUser);
               setToken(storedToken);
               setUser(parsedUser);
+              // Busca dados atualizados da API (inclui profilePhoto e outros campos)
+              try {
+                const response = await fetch(`${API_BASE_URL}/users/profile`, {
+                  method: 'GET',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${storedToken}`,
+                  },
+                });
+                if (response.ok) {
+                  const data = await response.json();
+                  const updatedUser: User = {
+                    id: data.id,
+                    fullName: data.fullName,
+                    email: data.email,
+                    cpf: data.cpf,
+                    username: data.username,
+                    planId: data.planId,
+                    profilePhoto: data.profilePhoto,
+                  };
+                  setUser(updatedUser);
+                  localStorage.setItem('user', JSON.stringify(updatedUser));
+                }
+              } catch (refreshErr) {
+                // Silencia erro — mantém parsedUser do localStorage
+              }
             } catch {
               // Erro ao fazer parse do usuário, limpa tudo
               clearAuth();
@@ -169,6 +196,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           cpf: data.cpf,
           username: data.username,
           planId: data.planId,
+          profilePhoto: data.profilePhoto,
         };
         
         setUser(updatedUser);
