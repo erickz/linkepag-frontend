@@ -52,7 +52,7 @@ export function BillingAlert() {
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-rose-900 text-lg">
-              Links bloqueados
+              Links monetizados bloqueados
             </h3>
             <p className="text-rose-700 mt-1">
               Seus links monetizados estão bloqueados porque você tem{' '}

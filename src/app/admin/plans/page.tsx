@@ -264,6 +264,7 @@ export default function PlansPage() {
     isLocked,
     daysUntilLock,
     currentBalance,
+    currentCycle,
     payFees,
     isPayingFees,
     refreshBilling,
@@ -901,6 +902,14 @@ export default function PlansPage() {
                     {pendingSalesFormatted}
                   </p>
                 </div>
+                {currentCycle?.endDate && (
+                  <div>
+                    <p className="text-xs text-slate-500">Encerra em</p>
+                    <p className="font-semibold text-slate-900">
+                      {formatDate(currentCycle.endDate)}
+                    </p>
+                  </div>
+                )}
                 {currentUserPlan?.id !== 1 && subscription?.expiresAt && (
                   <div>
                     <p className="text-xs text-slate-500">Renova em</p>
