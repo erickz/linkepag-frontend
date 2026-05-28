@@ -407,19 +407,19 @@ export default function Home() {
             {[
               {
                 q: "Como funciona o plano Starter?",
-                a: "Você pode cria vários links monetizados e paga R$0,70 APENAS se você vender."
+                a: "Você cria sua página de links, pode ter até 3 links monetizados e paga apenas 8% por venda — sem mensalidade."
               },
               {
-                q: "Posso trocar de plano depois?",
-                a: "Sim! Você pode fazer upgrade ou downgrade a qualquer momento."
+                q: "O dinheiro cai direto na minha conta?",
+                a: "Com PIX Direto, sim — o pagamento vai direto para sua chave PIX cadastrada. Se usar MercadoPago, o dinheiro vai para a sua conta do Mercado Pago."
               },
               {
-                q: "Posso receber pagamentos DIRETO na minha conta?",
-                a: "Sim, você cadastra a sua chave PIX e o dinheiro cai direto na sua conta bancária, sem intermediários."
+                q: "O que acontece se o plano expirar?",
+                a: "Links comuns continuam funcionando normalmente, porém o usuário será bloqueado de vender produtos pelos links até quitar o débito."
               },
               {
                 q: "Preciso de CNPJ?",
-                a: "Não. Você pode usar sua chave PIX pessoal (CPF) para receber os pagamentos."
+                a: "Não. Você pode usar sua chave PIX pessoal (CPF) para receber os pagamentos diretamente na sua conta."
               }
             ].map((faq, idx) => (
               <div key={idx} className="bg-slate-50 rounded-2xl p-6 hover:bg-slate-100 transition">
@@ -485,21 +485,21 @@ export default function Home() {
                 role: 'Criadora de Conteúdo',
                 image: 'AS',
                 text: 'Consegui monetizar meu Instagram em menos de 1 semana. O checkout PIX é um diferencial enorme!',
-                metric: 'R$ 3.450 em vendas',
+                metric: 'R$ 340 em 15 dias',
               },
               {
                 name: 'Carlos Mendes',
                 role: 'Coach Fitness',
                 image: 'CM',
                 text: 'Minha página de links ficou incrível e profissional. Agora vendo meus treinos direto pela bio.',
-                metric: '+150 alunos',
+                metric: '+12 alunos na primeira semana',
               },
               {
                 name: 'Julia Costa',
                 role: 'Designer',
                 image: 'JC',
                 text: 'Vendo templates e recursos para outros designers. A integração com Mercado Pago é perfeita.',
-                metric: 'R$ 8.200/mês',
+                metric: 'R$ 780 no primeiro mês',
               },
             ].map((testimonial, idx) => (
               <div key={idx} className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 hover:shadow-lg transition-shadow">

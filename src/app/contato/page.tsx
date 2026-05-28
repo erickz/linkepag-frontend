@@ -67,7 +67,7 @@ export default function ContatoPage() {
           <Link href="/#pricing" className="text-sm font-medium text-slate-600 hover:text-emerald-600 transition">
             Planos
           </Link>
-          <Link href="/faq" className="text-sm font-medium text-slate-600">
+          <Link href="/#faq" className="text-sm font-medium text-slate-600 hover:text-emerald-600 transition">
             FAQ
           </Link>
           <AuthNavButton className="inline-flex items-center justify-center h-9 px-5 rounded-full bg-emerald-500 text-white text-sm font-semibold hover:bg-emerald-600 transition shadow-md shadow-emerald-200">
