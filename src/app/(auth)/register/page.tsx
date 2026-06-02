@@ -5,6 +5,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { registerUser } from '@/lib/api';
+import { fbqTrack } from '@/lib/meta-pixel';
+import { ttqTrack } from '@/lib/tiktok-pixel';
 import { useMask } from '@/hooks/useMask';
 import { useLoginThrottle } from '@/hooks/useLoginThrottle';
 import { IconUser, IconMail, IconLock, IconCheck, IconArrowRight, IconAlert } from '@/components/icons';
@@ -178,6 +180,9 @@ export default function Signup() {
         .then((result) => {
           setSubmitted(true);
           recordSuccess();
+          // Tracking: Cadastro completo
+          fbqTrack('CompleteRegistration');
+          ttqTrack('CompleteRegistration');
           // Pass isNewUser=true para redirecionar para onboarding
           login(result.token, result.user, true);
           // Não precisa redirecionar manualmente, o useAuth faz isso

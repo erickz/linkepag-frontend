@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useEffect, createContext, useContext, ReactNode, useCallback, useMemo } from 'react';
+import { useState, useEffect, createContext, useContext, ReactNode, useCallback, useMemo, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { fbqIdentify } from '@/lib/meta-pixel';
+import { ttqIdentify } from '@/lib/tiktok-pixel';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.linkepag.com.br';
 
@@ -59,6 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
+  const identifiedUserRef = useRef<string | null>(null);
 
   // Função para limpar auth (centralizada)
   const clearAuth = useCallback(() => {
@@ -138,6 +141,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkAuth();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Advanced Matching (AAM) — dispara identify quando usuário autentica
+  useEffect(() => {
+    if (typeof window === 'undefined' || !user || identifiedUserRef.current === user.id) {
+      return;
+    }
+
+    // Aguarda scripts dos pixels carregarem (layout.tsx carrega com afterInteractive)
+    const timer = setTimeout(() => {
+      const nameParts = user.fullName ? user.fullName.trim().split(/\s+/) : [];
+      const firstName = nameParts[0] || undefined;
+      const lastName = nameParts.slice(1).join(' ') || undefined;
+
+      fbqIdentify(user.email, undefined, user.id, firstName, lastName);
+      ttqIdentify(user.email, undefined, user.id);
+
+      identifiedUserRef.current = user.id;
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [user]);
 
   useEffect(() => {
     // Redirect authenticated users away from auth pages
