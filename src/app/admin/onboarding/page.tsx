@@ -1259,16 +1259,6 @@ export default function OnboardingPage() {
             </div>
           )}
         </div>
-
-        {/* Help Section */}
-        <div className="max-w-2xl mx-auto mt-8 text-center">
-          <p className="text-sm text-slate-500">
-            Precisa de ajuda?{' '}
-            <a href="mailto:suporte@linkpagg.com" className="text-indigo-600 hover:underline">
-              Entre em contato com o suporte
-            </a>
-          </p>
-        </div>
       </main>
     </div>
   );

@@ -183,9 +183,12 @@ export default function Signup() {
           // Tracking: Cadastro completo
           fbqTrack('CompleteRegistration');
           ttqTrack('CompleteRegistration');
-          // Pass isNewUser=true para redirecionar para onboarding
-          login(result.token, result.user, true);
-          // Não precisa redirecionar manualmente, o useAuth faz isso
+          // Aguarda 500ms para o pixel enviar o evento antes do redirecionamento
+          setTimeout(() => {
+            // Pass isNewUser=true para redirecionar para onboarding
+            login(result.token, result.user, true);
+            // Não precisa redirecionar manualmente, o useAuth faz isso
+          }, 500);
         })
         .catch((error) => {
           recordFailure();

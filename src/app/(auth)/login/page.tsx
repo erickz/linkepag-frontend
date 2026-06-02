@@ -122,9 +122,12 @@ export default function Login() {
           // Tracking: Login bem-sucedido
           fbqTrack('Login');
           ttqTrack('Login');
-          // Pass isNewUser=false para redirecionar para dashboard
-          login(result.token, result.user, false);
-          // Não precisa redirecionar manualmente, o useAuth faz isso
+          // Aguarda 500ms para o pixel enviar o evento antes do redirecionamento
+          setTimeout(() => {
+            // Pass isNewUser=false para redirecionar para dashboard
+            login(result.token, result.user, false);
+            // Não precisa redirecionar manualmente, o useAuth faz isso
+          }, 500);
         })
         .catch((error) => {
           recordFailure();
