@@ -2,7 +2,7 @@
 
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback, useMemo, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { fbqIdentify } from '@/lib/meta-pixel';
+import { fbqIdentify, buildMetaAdvancedMatchingData } from '@/lib/meta-pixel';
 import { ttqIdentify } from '@/lib/tiktok-pixel';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.linkepag.com.br';
@@ -150,11 +150,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Aguarda scripts dos pixels carregarem (layout.tsx carrega com afterInteractive)
     const timer = setTimeout(() => {
-      const nameParts = user.fullName ? user.fullName.trim().split(/\s+/) : [];
-      const firstName = nameParts[0] || undefined;
-      const lastName = nameParts.slice(1).join(' ') || undefined;
+      // Meta Pixel — Advanced Matching completo (AAM)
+      const metaAm = buildMetaAdvancedMatchingData({
+        email: user.email,
+        fullName: user.fullName,
+        id: user.id,
+      });
+      fbqIdentify(metaAm);
 
-      fbqIdentify(user.email, undefined, user.id, firstName, lastName);
+      // TikTok Pixel — Advanced Matching (email + external_id)
       ttqIdentify(user.email, undefined, user.id);
 
       identifiedUserRef.current = user.id;
