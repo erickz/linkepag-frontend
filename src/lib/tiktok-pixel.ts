@@ -1,101 +1,84 @@
 /**
  * Utilitários para o TikTok Pixel
- * Segue o mesmo padrão do gtag para Google Analytics
  *
  * Uso:
- *   import { ttqTrack, ttqPage } from '@/lib/tiktok-pixel';
+ *   import { ttqTrack, ttqPage, ttqIdentify } from '@/lib/tiktok-pixel';
  *   ttqTrack('CompletePayment', { content_id: 'prod-123', value: 29.90, currency: 'BRL' });
- *   ttqPage(); // dispara PageView manualmente (o layout.tsx já dispara automaticamente no carregamento)
  */
 
-/** Tipos de eventos padrão suportados pelo TikTok Pixel */
-export type TiktokEventName =
-  | 'PageView'
-  | 'CompleteRegistration'
-  | 'CompletePayment'
-  | 'AddToCart'
-  | 'InitiateCheckout'
-  | 'Purchase'
-  | 'ViewContent'
-  | 'Search'
-  | 'AddPaymentInfo'
-  | 'Contact'
-  | 'SubmitForm'
-  | 'Subscribe'
-  | string;
-
-/** Propriedades comuns de eventos do TikTok Pixel */
-export interface TiktokEventParams {
-  content_id?: string;
-  content_type?: string;
-  content_name?: string;
-  content_category?: string;
-  value?: number;
-  currency?: string;
-  num_items?: number;
-  search_string?: string;
-  [key: string]: unknown;
+/** Verifica se o TikTok Pixel está carregado e disponível (com métodos prontos) */
+function isTiktokAvailable(): boolean {
+  if (typeof window === 'undefined') return false;
+  const ttq = (window as unknown as Record<string, unknown>).ttq;
+  if (!ttq) return false;
+  // O ttq começa como array vazio; só está "pronto" quando track é uma função
+  return typeof (ttq as Record<string, unknown>).track === 'function';
 }
 
-/** Verifica se o TikTok Pixel está carregado e disponível */
-function isTiktokAvailable(): boolean {
-  return typeof window !== 'undefined' && !!(window as unknown as Record<string, unknown>).ttq;
+/** Log de debug apenas em development */
+function pixelLog(message: string): void {
+  if (process.env.NODE_ENV === 'development') {
+    // eslint-disable-next-line no-console
+    console.log(`[TikTok Pixel] ${message}`);
+  }
 }
 
 /**
  * Dispara um evento de tracking no TikTok Pixel.
- * Silenciosamente falha se o pixel não estiver carregado (ex: sem NEXT_PUBLIC_TIKTOK_PIXEL_ID).
+ * Se o pixel não estiver carregado, falha silenciosamente (use pixel-queue.ts para garantia).
  */
 export function ttqTrack(
-  eventName: TiktokEventName,
-  params?: TiktokEventParams
-): void {
+  eventName: string,
+  params?: Record<string, unknown>
+): boolean {
   if (!isTiktokAvailable()) {
-    if (process.env.NODE_ENV === 'development') {
-      // eslint-disable-next-line no-console
-      console.warn(`[TikTok Pixel] Tentativa de track("${eventName}") mas o pixel não está carregado.`);
-    }
-    return;
+    pixelLog(`⏸️ NÃO disparado "${eventName}" — pixel ainda carregando`);
+    return false;
   }
 
   try {
     const ttq = (window as unknown as Record<string, unknown>).ttq as {
-      track: (event: string, params?: TiktokEventParams) => void;
+      track: (event: string, params?: Record<string, unknown>) => void;
     };
     ttq.track(eventName, params);
-  } catch {
-    // Silenciosamente ignora erros de tracking para não quebrar a aplicação
+    pixelLog(`✅ Disparado "${eventName}"`);
+    return true;
+  } catch (err) {
+    pixelLog(`❌ Erro ao disparar "${eventName}": ${err}`);
+    return false;
   }
 }
 
-/**
- * Dispara manualmente um PageView no TikTok Pixel.
- * O layout.tsx já dispara PageView automaticamente no carregamento inicial,
- * mas pode ser útil em navegações client-side (SPA-like).
- */
-export function ttqPage(): void {
-  if (!isTiktokAvailable()) return;
+/** Dispara manualmente um PageView no TikTok Pixel. */
+export function ttqPage(): boolean {
+  if (!isTiktokAvailable()) {
+    pixelLog('⏸️ NÃO disparou PageView — pixel ainda carregando');
+    return false;
+  }
 
   try {
     const ttq = (window as unknown as Record<string, unknown>).ttq as {
       page: () => void;
     };
     ttq.page();
-  } catch {
-    // Silenciosamente ignora
+    pixelLog('✅ Disparou PageView');
+    return true;
+  } catch (err) {
+    pixelLog(`❌ Erro ao disparar PageView: ${err}`);
+    return false;
   }
 }
 
-/**
- * Identifica um usuário no TikTok Pixel (advanced matching).
- * Use com cuidado e apenas com consentimento do usuário (LGPD/GDPR).
- */
+/** Identifica um usuário no TikTok Pixel (advanced matching). */
 export function ttqIdentify(
   email?: string | null,
   phone?: string | null,
   externalId?: string | null
-): void {
-  if (!isTiktokAvailable()) return;
+): boolean {
+  if (!isTiktokAvailable()) {
+    pixelLog('⏸️ NÃO disparou identify — pixel ainda carregando');
+    return false;
+  }
 
   try {
     const ttq = (window as unknown as Record<string, unknown>).ttq as {
@@ -108,8 +91,12 @@ export function ttqIdentify(
 
     if (Object.keys(params).length > 0) {
       ttq.identify(params);
+      pixelLog('✅ Disparou identify');
+      return true;
     }
-  } catch {
-    // Silenciosamente ignora
+    return false;
+  } catch (err) {
+    pixelLog(`❌ Erro ao disparar identify: ${err}`);
+    return false;
   }
 }

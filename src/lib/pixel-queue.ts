@@ -1,49 +1,21 @@
 /**
  * Fila persistente de eventos de pixel (Meta + TikTok)
  *
- * Problema: quando o usuário completa uma ação (cadastro, compra) e é
- * redirecionado imediatamente, os scripts dos pixels podem não ter
- * carregado ainda, e o navegador cancela as requisições pendentes.
- *
- * Solução: enfileirar os eventos no localStorage e fazer flush
- * na próxima página carregada, quando os pixels já estarão disponíveis.
- *
- * Uso:
- *   import { queuePixelEvent, flushPixelQueue } from '@/lib/pixel-queue';
- *   queuePixelEvent('meta', 'CompleteRegistration');
- *   queuePixelEvent('tiktok', 'CompleteRegistration');
- *   // Depois do redirecionamento, em qualquer página:
- *   flushPixelQueue();
+ * Quando o usuário é redirecionado rapidamente, os scripts dos pixels
+ * podem não ter carregado ainda. Esta fila salva os eventos no localStorage
+ * e os dispara quando os pixels estiverem prontos.
  */
 
 const QUEUE_KEY = 'lp_pixel_queue_v1';
 
-export interface QueuedPixelEvent {
+interface QueuedEvent {
   platform: 'meta' | 'tiktok';
   eventName: string;
   params?: Record<string, unknown>;
   timestamp: number;
 }
 
-/** Adiciona um evento à fila persistente */
-export function queuePixelEvent(
-  platform: 'meta' | 'tiktok',
-  eventName: string,
-  params?: Record<string, unknown>
-): void {
-  if (typeof window === 'undefined') return;
-
-  try {
-    const queue = getQueue();
-    queue.push({ platform, eventName, params, timestamp: Date.now() });
-    localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
-  } catch {
-    // Silenciosamente ignora erros de localStorage
-  }
-}
-
-/** Recupera a fila do localStorage */
-function getQueue(): QueuedPixelEvent[] {
+function getQueue(): QueuedEvent[] {
   if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(QUEUE_KEY);
@@ -53,7 +25,15 @@ function getQueue(): QueuedPixelEvent[] {
   }
 }
 
-/** Limpa a fila do localStorage */
+function saveQueue(queue: QueuedEvent[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+  } catch {
+    // ignora
+  }
+}
+
 function clearQueue(): void {
   if (typeof window === 'undefined') return;
   try {
@@ -63,60 +43,84 @@ function clearQueue(): void {
   }
 }
 
-/** Dispara todos os eventos pendentes e limpa a fila */
-export function flushPixelQueue(): void {
-  if (typeof window === 'undefined') return;
-
+/** Adiciona evento à fila */
+export function queuePixelEvent(
+  platform: 'meta' | 'tiktok',
+  eventName: string,
+  params?: Record<string, unknown>
+): void {
   const queue = getQueue();
-  if (queue.length === 0) return;
-
-  // Importa dinamicamente para evitar circular dependency
-  const { fbqTrack } = require('./meta-pixel') as typeof import('./meta-pixel');
-  const { ttqTrack } = require('./tiktok-pixel') as typeof import('./tiktok-pixel');
-
-  for (const event of queue) {
-    try {
-      if (event.platform === 'meta') {
-        fbqTrack(event.eventName, event.params);
-      } else if (event.platform === 'tiktok') {
-        ttqTrack(event.eventName, event.params);
-      }
-    } catch {
-      // Se um evento falhar, continua com os outros
-    }
-  }
-
-  clearQueue();
+  queue.push({ platform, eventName, params, timestamp: Date.now() });
+  saveQueue(queue);
 }
 
-/**
- * Versão híbrida: tenta disparar imediatamente, mas se falhar
- * (pixel não carregado), enfileira para flush posterior.
- */
+/** Tenta disparar evento; se falhar, enfileira para depois */
 export function trackOrQueue(
   platform: 'meta' | 'tiktok',
   eventName: string,
   params?: Record<string, unknown>
 ): void {
-  const isAvailable =
-    platform === 'meta'
-      ? typeof window !== 'undefined' && !!(window as unknown as Record<string, unknown>).fbq
-      : typeof window !== 'undefined' && !!(window as unknown as Record<string, unknown>).ttq;
+  const { fbqTrack } = require('./meta-pixel') as typeof import('./meta-pixel');
+  const { ttqTrack } = require('./tiktok-pixel') as typeof import('./tiktok-pixel');
 
-  if (isAvailable) {
-    // Pixel já carregou — dispara direto
-    const { fbqTrack } = require('./meta-pixel') as typeof import('./meta-pixel');
-    const { ttqTrack } = require('./tiktok-pixel') as typeof import('./tiktok-pixel');
+  let success = false;
+  try {
+    if (platform === 'meta') {
+      success = fbqTrack(eventName, params);
+    } else {
+      success = ttqTrack(eventName, params);
+    }
+  } catch {
+    success = false;
+  }
 
+  if (!success) {
+    queuePixelEvent(platform, eventName, params);
+    if (process.env.NODE_ENV === 'development') {
+      // eslint-disable-next-line no-console
+      console.log(`[PixelQueue] Evento "${eventName}" (${platform}) enfileirado — pixel não estava pronto`);
+    }
+  }
+}
+
+/** Dispara todos os eventos pendentes. Só limpa a fila se TODOS forem enviados com sucesso. */
+export function flushPixelQueue(): void {
+  const queue = getQueue();
+  if (queue.length === 0) return;
+
+  const { fbqTrack } = require('./meta-pixel') as typeof import('./meta-pixel');
+  const { ttqTrack } = require('./tiktok-pixel') as typeof import('./tiktok-pixel');
+
+  const remaining: QueuedEvent[] = [];
+
+  for (const event of queue) {
+    let success = false;
     try {
-      if (platform === 'meta') fbqTrack(eventName, params);
-      else ttqTrack(eventName, params);
-      return;
+      if (event.platform === 'meta') {
+        success = fbqTrack(event.eventName, event.params);
+      } else {
+        success = ttqTrack(event.eventName, event.params);
+      }
     } catch {
-      // Se disparar falhar, cai no fallback de enfileirar
+      success = false;
+    }
+
+    if (!success) {
+      remaining.push(event);
     }
   }
 
-  // Pixel não carregou ainda — enfileira para flush na próxima página
-  queuePixelEvent(platform, eventName, params);
+  if (remaining.length === 0) {
+    clearQueue();
+    if (process.env.NODE_ENV === 'development') {
+      // eslint-disable-next-line no-console
+      console.log(`[PixelQueue] Flush OK — ${queue.length} eventos enviados`);
+    }
+  } else {
+    saveQueue(remaining);
+    if (process.env.NODE_ENV === 'development') {
+      // eslint-disable-next-line no-console
+      console.log(`[PixelQueue] Flush parcial — ${queue.length - remaining.length}/${queue.length} enviados, ${remaining.length} permanecem na fila`);
+    }
+  }
 }

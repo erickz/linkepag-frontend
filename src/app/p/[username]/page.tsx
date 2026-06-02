@@ -20,8 +20,7 @@ import {
   IconExternalLink,
   IconInbox
 } from '@/components/icons';
-import { fbqTrack } from '@/lib/meta-pixel';
-import { ttqTrack } from '@/lib/tiktok-pixel';
+import { trackOrQueue } from '@/lib/pixel-queue';
 
 // Configurações de gradientes (devem corresponder às da página de aparência)
 const headerGradients: Record<string, string> = {
@@ -359,14 +358,14 @@ export default function PublicPage() {
         .map((l: ApiLink) => l._id || l.id)
         .slice(0, 5);
 
-      fbqTrack('ViewContent', {
+      trackOrQueue('meta', 'ViewContent', {
         content_name: profile.displayName || profile.username,
         content_type: 'profile',
         content_ids: contentIds,
         value: 0,
         currency: 'BRL',
       });
-      ttqTrack('ViewContent', {
+      trackOrQueue('tiktok', 'ViewContent', {
         content_name: profile.displayName || profile.username,
         content_type: 'profile',
         content_id: profile.username,

@@ -1,116 +1,56 @@
 /**
  * Utilitários para o Meta (Facebook) Pixel
- * Segue o mesmo padrão do gtag (Google Analytics) e ttq (TikTok Pixel)
- *
- * Uso:
- *   import { fbqTrack, fbqPage, fbqIdentify, buildMetaAdvancedMatchingData } from '@/lib/meta-pixel';
- *   fbqTrack('Purchase', { value: 29.90, currency: 'BRL', content_ids: ['prod-123'] });
- *   fbqPage(); // PageView manual
- *   const am = buildMetaAdvancedMatchingData({ email: 'a@b.com', fullName: 'João Silva', id: '123' });
- *   fbqIdentify(am);
  */
-
-/** Tipos de eventos padrão suportados pelo Meta Pixel */
-export type MetaPixelEventName =
-  | 'PageView'
-  | 'AddPaymentInfo'
-  | 'AddToCart'
-  | 'CompleteRegistration'
-  | 'Contact'
-  | 'FindLocation'
-  | 'InitiateCheckout'
-  | 'Lead'
-  | 'Purchase'
-  | 'Schedule'
-  | 'Search'
-  | 'StartTrial'
-  | 'SubmitApplication'
-  | 'Subscribe'
-  | 'ViewContent'
-  | string;
-
-/** Propriedades comuns de eventos do Meta Pixel (standard events) */
-export interface MetaPixelEventParams {
-  content_ids?: string[];
-  content_name?: string;
-  content_type?: string;
-  contents?: Array<{
-    id: string;
-    quantity: number;
-    item_price?: number;
-  }>;
-  currency?: string;
-  value?: number;
-  num_items?: number;
-  status?: boolean;
-  search_string?: string;
-  [key: string]: unknown;
-}
 
 /** Dados de Advanced Matching (AAM) para o Meta Pixel */
 export interface MetaAdvancedMatchingData {
-  em?: string;              // Email (normalizado: lowercase, sem espaços)
-  fn?: string;              // First name
-  ln?: string;              // Last name
-  ph?: string;              // Phone (apenas dígitos)
-  external_id?: string;     // Identificador externo (user.id)
-  fbc?: string;             // Cookie de ID de clique (_fbc)
-  fbp?: string;             // Cookie de ID do navegador (_fbp)
-  country?: string;         // País (código ISO, ex: 'BR')
-  client_user_agent?: string; // User agent
-  // Nota: client_ip_address é capturado automaticamente pelo Meta no lado do servidor
+  em?: string;
+  fn?: string;
+  ln?: string;
+  ph?: string;
+  external_id?: string;
+  fbc?: string;
+  fbp?: string;
+  country?: string;
+  client_user_agent?: string;
 }
 
 /** Verifica se o Meta Pixel (fbq) está carregado e disponível */
 function isFbqAvailable(): boolean {
-  return typeof window !== 'undefined' && !!(window as unknown as Record<string, unknown>).fbq;
+  return typeof window !== 'undefined' && typeof (window as unknown as Record<string, unknown>).fbq === 'function';
 }
 
-/**
- * Lê o valor de um cookie pelo nome.
- */
+/** Log de debug apenas em development */
+function pixelLog(message: string): void {
+  if (process.env.NODE_ENV === 'development') {
+    // eslint-disable-next-line no-console
+    console.log(`[Meta Pixel] ${message}`);
+  }
+}
+
+/** Lê cookie */
 function getCookie(name: string): string | undefined {
   if (typeof document === 'undefined') return undefined;
   const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
   return match ? decodeURIComponent(match[2]) : undefined;
 }
 
-/**
- * Lê o parâmetro _fbc da URL (click ID do Meta Ads) ou do cookie _fbc.
- */
+/** Lê fbc (cookie ou URL) */
 function getFbc(): string | undefined {
   if (typeof window === 'undefined') return undefined;
-
-  // 1. Tenta o cookie _fbc
   const cookieFbc = getCookie('_fbc');
   if (cookieFbc) return cookieFbc;
-
-  // 2. Tenta o parâmetro URL _fbc
-  const urlParams = new URLSearchParams(window.location.search);
-  const urlFbc = urlParams.get('_fbc');
-  if (urlFbc) return urlFbc;
-
-  // 3. Tenta extrair fbclid da URL e construir _fbc
-  const fbclid = urlParams.get('fbclid');
-  if (fbclid) {
-    const version = 'fb.1';
-    const timestamp = String(Math.floor(Date.now() / 1000));
-    return `${version}.${timestamp}.${fbclid}`;
-  }
-
+  const fbclid = new URLSearchParams(window.location.search).get('fbclid');
+  if (fbclid) return `fb.1.${Math.floor(Date.now() / 1000)}.${fbclid}`;
   return undefined;
 }
 
-/**
- * Lê o cookie _fbp (Facebook Browser ID).
- */
+/** Lê fbp */
 function getFbp(): string | undefined {
   return getCookie('_fbp');
 }
 
-/**
- * Infere o país a partir do locale do navegador.
- */
+/** Infere país */
 function inferCountry(): string | undefined {
   if (typeof navigator === 'undefined') return undefined;
   const locale = navigator.language || (navigator as unknown as Record<string, string>).userLanguage;
@@ -119,13 +59,7 @@ function inferCountry(): string | undefined {
   return parts.length > 1 ? parts[1].toUpperCase() : parts[0].toUpperCase();
 }
 
-/**
- * Monta o objeto completo de Advanced Matching combinando dados do navegador
- * com dados do usuário.
- *
- * @param user - Dados do usuário logado
- * @returns Objeto pronto para passar no fbqIdentify()
- */
+/** Monta objeto de Advanced Matching */
 export function buildMetaAdvancedMatchingData(user?: {
   email?: string | null;
   fullName?: string | null;
@@ -133,126 +67,92 @@ export function buildMetaAdvancedMatchingData(user?: {
   phone?: string | null;
 }): MetaAdvancedMatchingData {
   const data: MetaAdvancedMatchingData = {};
-
-  // Dados do navegador (sempre disponíveis)
   data.fbc = getFbc();
   data.fbp = getFbp();
   data.client_user_agent = typeof navigator !== 'undefined' ? navigator.userAgent : undefined;
   data.country = inferCountry();
-
-  // Dados do usuário
-  if (user?.email) {
-    data.em = user.email.toLowerCase().trim();
-  }
-  if (user?.phone) {
-    data.ph = user.phone.replace(/\D/g, '');
-  }
-  if (user?.id) {
-    data.external_id = user.id;
-  }
+  if (user?.email) data.em = user.email.toLowerCase().trim();
+  if (user?.phone) data.ph = user.phone.replace(/\D/g, '');
+  if (user?.id) data.external_id = user.id;
   if (user?.fullName) {
     const parts = user.fullName.trim().split(/\s+/);
     if (parts.length > 0) data.fn = parts[0];
     if (parts.length > 1) data.ln = parts.slice(1).join(' ');
   }
-
   return data;
 }
 
+/** Eventos padrão do Meta Pixel */
+const STANDARD_EVENTS = new Set([
+  'PageView', 'AddPaymentInfo', 'AddToCart', 'CompleteRegistration', 'Contact',
+  'FindLocation', 'InitiateCheckout', 'Lead', 'Purchase', 'Schedule',
+  'Search', 'StartTrial', 'SubmitApplication', 'Subscribe', 'ViewContent',
+]);
+
 /**
- * Dispara um evento de tracking no Meta Pixel.
- * Silenciosamente falha se o pixel não estiver carregado.
+ * Dispara um evento no Meta Pixel.
+ * Retorna true se disparou, false se pixel não estava pronto.
  */
 export function fbqTrack(
-  eventName: MetaPixelEventName,
-  params?: MetaPixelEventParams
-): void {
+  eventName: string,
+  params?: Record<string, unknown>
+): boolean {
   if (!isFbqAvailable()) {
-    if (process.env.NODE_ENV === 'development') {
-      // eslint-disable-next-line no-console
-      console.warn(`[Meta Pixel] Tentativa de track("${eventName}") mas o pixel não está carregado.`);
-    }
-    return;
+    pixelLog(`⏸️ NÃO disparado "${eventName}" — pixel ainda carregando`);
+    return false;
   }
 
   try {
     const fbq = (window as unknown as Record<string, unknown>).fbq as (
-      cmd: 'track' | 'trackCustom',
-      event: string,
-      params?: MetaPixelEventParams
+      cmd: string, event: string, params?: Record<string, unknown>
     ) => void;
 
-    if (eventName === 'PageView' || isStandardEvent(eventName)) {
+    const isStandard = STANDARD_EVENTS.has(eventName);
+    if (isStandard) {
       fbq('track', eventName, params);
     } else {
       fbq('trackCustom', eventName, params);
     }
-  } catch {
-    // Silenciosamente ignora erros de tracking
+    pixelLog(`✅ Disparado "${eventName}" (${isStandard ? 'standard' : 'custom'})`);
+    return true;
+  } catch (err) {
+    pixelLog(`❌ Erro ao disparar "${eventName}": ${err}`);
+    return false;
   }
 }
 
-/**
- * Dispara manualmente um PageView no Meta Pixel.
- */
-export function fbqPage(): void {
-  fbqTrack('PageView');
+/** PageView manual */
+export function fbqPage(): boolean {
+  return fbqTrack('PageView');
 }
 
-/**
- * Identifica um usuário no Meta Pixel via Advanced Matching (AAM).
- * Reexecuta fbq('init') com os dados enriquecidos para melhorar o match rate.
- *
- * Use apenas com consentimento do usuário (LGPD/GDPR).
- */
-export function fbqIdentify(data: MetaAdvancedMatchingData): void {
-  if (!isFbqAvailable()) return;
+/** Advanced Matching */
+export function fbqIdentify(data: MetaAdvancedMatchingData): boolean {
+  if (!isFbqAvailable()) {
+    pixelLog('⏸️ NÃO disparou identify — pixel ainda carregando');
+    return false;
+  }
 
   try {
     const fbq = (window as unknown as Record<string, unknown>).fbq as (
-      cmd: 'init',
-      pixelId: string,
-      data?: Record<string, unknown>
+      cmd: string, pixelId: string, data?: Record<string, unknown>
     ) => void;
-
     const pixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID;
-    if (!pixelId) return;
+    if (!pixelId) return false;
 
-    // Remove campos undefined para não poluir o payload
-    const cleanData: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(data)) {
-      if (value !== undefined && value !== null && value !== '') {
-        cleanData[key] = value;
-      }
+    const clean: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(data)) {
+      if (v !== undefined && v !== null && v !== '') clean[k] = v;
     }
 
-    if (Object.keys(cleanData).length > 0) {
-      fbq('init', pixelId, cleanData);
+    if (Object.keys(clean).length > 0) {
+      fbq('init', pixelId, clean);
+      pixelLog('✅ Disparou identify');
+      return true;
     }
-  } catch {
-    // Silenciosamente ignora
+    return false;
+  } catch (err) {
+    pixelLog(`❌ Erro ao disparar identify: ${err}`);
+    return false;
   }
-}
-
-/** Eventos padrão (standard events) do Meta Pixel */
-const STANDARD_EVENTS = new Set<string>([
-  'PageView',
-  'AddPaymentInfo',
-  'AddToCart',
-  'CompleteRegistration',
-  'Contact',
-  'FindLocation',
-  'InitiateCheckout',
-  'Lead',
-  'Purchase',
-  'Schedule',
-  'Search',
-  'StartTrial',
-  'SubmitApplication',
-  'Subscribe',
-  'ViewContent',
-]);
-
-function isStandardEvent(event: string): boolean {
-  return STANDARD_EVENTS.has(event);
 }
