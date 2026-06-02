@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { createPayment, createPixDirectPayment, uploadReceipt, checkPaymentStatus } from '@/lib/api';
 import { useMercadoPago } from '@/hooks/useMercadoPago';
 import { formatPrice } from '@/lib/masks';
+import { fbqTrack } from '@/lib/meta-pixel';
+import { ttqTrack } from '@/lib/tiktok-pixel';
 
 interface PixCheckoutProps {
   linkId: string;
@@ -182,6 +184,23 @@ export default function PixCheckout({
 
       if (response.status === 'confirmed') {
         setStatus('confirmed');
+        
+        // Tracking: Purchase quando pagamento é confirmado
+        fbqTrack('Purchase', {
+          content_name: title,
+          content_ids: [linkId],
+          content_type: 'product',
+          value: price,
+          currency: 'BRL',
+          num_items: 1,
+        });
+        ttqTrack('Purchase', {
+          content_name: title,
+          content_id: linkId,
+          content_type: 'product',
+          value: price,
+          currency: 'BRL',
+        });
         
         // Aguarda 2 segundos para mostrar a mensagem de sucesso antes de redirecionar
         setTimeout(() => {

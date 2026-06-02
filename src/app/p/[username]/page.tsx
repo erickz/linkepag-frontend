@@ -20,6 +20,8 @@ import {
   IconExternalLink,
   IconInbox
 } from '@/components/icons';
+import { fbqTrack } from '@/lib/meta-pixel';
+import { ttqTrack } from '@/lib/tiktok-pixel';
 
 // Configurações de gradientes (devem corresponder às da página de aparência)
 const headerGradients: Record<string, string> = {
@@ -348,6 +350,29 @@ export default function PublicPage() {
       });
     }
   }, [profile]);
+
+  // Tracking: ViewContent quando perfil público carrega
+  useEffect(() => {
+    if (profile && !isLoading) {
+      const contentIds = profile.links
+        ?.filter((l: ApiLink) => l.isActive)
+        .map((l: ApiLink) => l._id || l.id)
+        .slice(0, 5);
+
+      fbqTrack('ViewContent', {
+        content_name: profile.displayName || profile.username,
+        content_type: 'profile',
+        content_ids: contentIds,
+        value: 0,
+        currency: 'BRL',
+      });
+      ttqTrack('ViewContent', {
+        content_name: profile.displayName || profile.username,
+        content_type: 'profile',
+        content_id: profile.username,
+      });
+    }
+  }, [profile, isLoading]);
 
   const handleToggle = useCallback((id: string) => {
     setExpandedId(prev => prev === id ? null : id);

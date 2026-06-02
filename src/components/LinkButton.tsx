@@ -23,6 +23,8 @@ import {
   IconGoogleCalendar
 } from './icons';
 import { detectPlatformFromUrl } from '@/lib/platform-detector';
+import { fbqTrack } from '@/lib/meta-pixel';
+import { ttqTrack } from '@/lib/tiktok-pixel';
 
 interface AccentColor {
   textClass: string;
@@ -113,9 +115,28 @@ function LinkButtonComponent({
       window.open(link.url, link.openInNewTab ? '_blank' : '_self');
     }
     
+    // Tracking: InitiateCheckout quando usuário clica em link pago pela primeira vez
+    if (isMonetized && !isExpanded && link.price) {
+      fbqTrack('InitiateCheckout', {
+        content_name: link.title,
+        content_ids: [link.id],
+        content_type: 'product',
+        value: link.price,
+        currency: 'BRL',
+        num_items: 1,
+      });
+      ttqTrack('InitiateCheckout', {
+        content_name: link.title,
+        content_id: link.id,
+        content_type: 'product',
+        value: link.price,
+        currency: 'BRL',
+      });
+    }
+    
     // Sempre chama onToggle (para abrir/fechar checkout de links monetizados)
     onToggle();
-  }, [isDirect, isMonetized, link.url, link.openInNewTab, onToggle]);
+  }, [isDirect, isMonetized, isExpanded, link.url, link.openInNewTab, link.price, link.title, link.id, onToggle]);
 
   // Memoizar ícone para evitar re-computação
   const IconComponent = useMemo(() => {
