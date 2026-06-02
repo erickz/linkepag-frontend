@@ -5,8 +5,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { loginUser } from '@/lib/api';
-import { fbqTrack } from '@/lib/meta-pixel';
-import { ttqTrack } from '@/lib/tiktok-pixel';
+import { trackOrQueue } from '@/lib/pixel-queue';
 import { useLoginThrottle } from '@/hooks/useLoginThrottle';
 import { IconMail, IconLock, IconCheck, IconArrowRight, IconAlert } from '@/components/icons';
 import { Logo } from '@/components/Logo';
@@ -119,15 +118,12 @@ export default function Login() {
         .then((result) => {
           setSubmitted(true);
           recordSuccess();
-          // Tracking: Login bem-sucedido
-          fbqTrack('Login');
-          ttqTrack('Login');
-          // Aguarda 500ms para o pixel enviar o evento antes do redirecionamento
-          setTimeout(() => {
-            // Pass isNewUser=false para redirecionar para dashboard
-            login(result.token, result.user, false);
-            // Não precisa redirecionar manualmente, o useAuth faz isso
-          }, 500);
+          // Tracking: Login bem-sucedido (failproof — enfileira se pixel não carregou)
+          trackOrQueue('meta', 'Login');
+          trackOrQueue('tiktok', 'Login');
+          // Pass isNewUser=false para redirecionar para dashboard
+          login(result.token, result.user, false);
+          // Não precisa redirecionar manualmente, o useAuth faz isso
         })
         .catch((error) => {
           recordFailure();

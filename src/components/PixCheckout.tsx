@@ -6,6 +6,7 @@ import { useMercadoPago } from '@/hooks/useMercadoPago';
 import { formatPrice } from '@/lib/masks';
 import { fbqTrack } from '@/lib/meta-pixel';
 import { ttqTrack } from '@/lib/tiktok-pixel';
+import { trackOrQueue } from '@/lib/pixel-queue';
 
 interface PixCheckoutProps {
   linkId: string;

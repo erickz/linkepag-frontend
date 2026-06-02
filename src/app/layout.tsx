@@ -4,6 +4,7 @@ import Script from "next/script";
 import "./globals.css";
 import { Providers } from "./providers";
 import { ErrorSuppressor } from "@/components/ErrorSuppressor";
+import { flushPixelQueue } from "@/lib/pixel-queue";
 
 // MercadoPago SDK V2 - necessário para integração segura e device fingerprinting
 const MERCADOPAGO_SDK_URL = "https://sdk.mercadopago.com/js/v2";
@@ -246,6 +247,44 @@ export default function RootLayout({
             }}
           />
         )}
+        
+        {/* Flush de eventos de pixel pendentes (da fila localStorage) */}
+        <script dangerouslySetInnerHTML={{__html: `
+          (function() {
+            if (typeof window === 'undefined') return;
+            // Espera o pixel carregar antes de tentar flush
+            var attempts = 0;
+            var maxAttempts = 20; // 20 * 250ms = 5s max
+            var interval = setInterval(function() {
+              attempts++;
+              var hasMeta = typeof window.fbq !== 'undefined';
+              var hasTikTok = typeof window.ttq !== 'undefined';
+              if ((hasMeta || hasTikTok) || attempts >= maxAttempts) {
+                clearInterval(interval);
+                // Tenta importar e executar o flush
+                try {
+                  var queueRaw = localStorage.getItem('lp_pixel_queue_v1');
+                  if (queueRaw) {
+                    var queue = JSON.parse(queueRaw);
+                    if (Array.isArray(queue) && queue.length > 0) {
+                      for (var i = 0; i < queue.length; i++) {
+                        var ev = queue[i];
+                        if (ev.platform === 'meta' && hasMeta) {
+                          window.fbq('track', ev.eventName, ev.params || {});
+                        } else if (ev.platform === 'tiktok' && hasTikTok) {
+                          window.ttq.track(ev.eventName, ev.params || {});
+                        }
+                      }
+                      localStorage.removeItem('lp_pixel_queue_v1');
+                    }
+                  }
+                } catch(e) {
+                  // Silenciosamente ignora erros
+                }
+              }
+            }, 250);
+          })();
+        `}} />
         
         {/* Desabilitar React DevTools em produção */}
         {!isDevelopment && (
