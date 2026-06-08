@@ -184,7 +184,9 @@ export default function PixCheckout({
       if (response.status === 'confirmed') {
         setStatus('confirmed');
         
-        // Tracking: Purchase quando pagamento é confirmado
+        // Tracking: Purchase + Identify do comprador
+        const buyerEmail = email.trim().toLowerCase();
+        const buyerName = name.trim();
         trackOrQueue('meta', 'Purchase', {
           content_name: title,
           content_ids: [linkId],
@@ -200,6 +202,11 @@ export default function PixCheckout({
           value: price,
           currency: 'BRL',
         });
+        // Identify do comprador para advanced matching
+        if (buyerEmail) {
+          trackOrQueue('meta', 'identify', { em: buyerEmail, fn: buyerName.split(' ')[0], ln: buyerName.split(' ').slice(1).join(' ') });
+          trackOrQueue('tiktok', 'identify', { email: buyerEmail });
+        }
         
         // Aguarda 2 segundos para mostrar a mensagem de sucesso antes de redirecionar
         setTimeout(() => {

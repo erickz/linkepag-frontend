@@ -121,6 +121,11 @@ export default function Login() {
           // Tracking: Login bem-sucedido (failproof — enfileira se pixel não carregou)
           trackOrQueue('meta', 'Login');
           trackOrQueue('tiktok', 'Login');
+          // Identify do usuário logado para advanced matching
+          if (result.user?.email) {
+            trackOrQueue('meta', 'identify', { em: result.user.email, fn: result.user.fullName?.split(' ')[0], ln: result.user.fullName?.split(' ').slice(1).join(' ') });
+            trackOrQueue('tiktok', 'identify', { email: result.user.email });
+          }
           // Pass isNewUser=false para redirecionar para dashboard
           login(result.token, result.user, false);
           // Não precisa redirecionar manualmente, o useAuth faz isso

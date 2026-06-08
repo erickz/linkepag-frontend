@@ -181,7 +181,17 @@ export default function Signup() {
           recordSuccess();
           // Tracking: Cadastro completo (failproof — enfileira se pixel não carregou)
           trackOrQueue('meta', 'CompleteRegistration');
-          trackOrQueue('tiktok', 'CompleteRegistration');
+          trackOrQueue('tiktok', 'CompleteRegistration', {
+            content_name: 'Cadastro',
+            content_type: 'registration',
+            value: 0,
+            currency: 'BRL',
+          });
+          // Identify do usuário recém-cadastrado para advanced matching
+          if (result.user?.email) {
+            trackOrQueue('meta', 'identify', { em: result.user.email, fn: result.user.fullName?.split(' ')[0], ln: result.user.fullName?.split(' ').slice(1).join(' ') });
+            trackOrQueue('tiktok', 'identify', { email: result.user.email });
+          }
           // Pass isNewUser=true para redirecionar para onboarding
           login(result.token, result.user, true);
           // Não precisa redirecionar manualmente, o useAuth faz isso

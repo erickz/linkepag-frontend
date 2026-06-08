@@ -9,6 +9,7 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { CreditCardForm } from '@/components/CreditCardForm';
 
 import { getLinks, scheduleDowngrade, getScheduledDowngrade } from '@/lib/api';
+import { trackOrQueue } from '@/lib/pixel-queue';
 
 // Types para Links
 interface LinkItem {
@@ -346,6 +347,13 @@ export default function PlansPage() {
           setPendingPaymentId(null);
           refreshBilling();
           clearInterval(interval);
+          // Tracking: pagamento de pendências confirmado
+          trackOrQueue('meta', 'Purchase', { currency: 'BRL' });
+          trackOrQueue('tiktok', 'Purchase', { currency: 'BRL' });
+          if (user?.email) {
+            trackOrQueue('meta', 'identify', { em: user.email, fn: user.fullName?.split(' ')[0], ln: user.fullName?.split(' ').slice(1).join(' ') });
+            trackOrQueue('tiktok', 'identify', { email: user.email });
+          }
         } else if (response.data.isFailed) {
           setMessage({ type: 'error', text: 'Pagamento falhou. Por favor, tente novamente.' });
           clearInterval(interval);
@@ -528,6 +536,13 @@ export default function PlansPage() {
         setPixData(null);
         setSelectedPlan(null);
         refetchSubscription();
+        // Tracking: upgrade de plano confirmado
+        trackOrQueue('meta', 'Purchase', { currency: 'BRL' });
+        trackOrQueue('tiktok', 'Purchase', { currency: 'BRL' });
+        if (user?.email) {
+          trackOrQueue('meta', 'identify', { em: user.email, fn: user.fullName?.split(' ')[0], ln: user.fullName?.split(' ').slice(1).join(' ') });
+          trackOrQueue('tiktok', 'identify', { email: user.email });
+        }
       } else if (response.data.isFailed) {
         setMessage({ type: 'error', text: 'Pagamento falhou. Por favor, tente novamente.' });
       } else {
@@ -721,6 +736,13 @@ export default function PlansPage() {
         setPendingPixData(null);
         setPendingPaymentId(null);
         refreshBilling();
+        // Tracking: pagamento de pendências confirmado
+        trackOrQueue('meta', 'Purchase', { currency: 'BRL' });
+        trackOrQueue('tiktok', 'Purchase', { currency: 'BRL' });
+        if (user?.email) {
+          trackOrQueue('meta', 'identify', { em: user.email, fn: user.fullName?.split(' ')[0], ln: user.fullName?.split(' ').slice(1).join(' ') });
+          trackOrQueue('tiktok', 'identify', { email: user.email });
+        }
       } else if (response.data.isFailed) {
         setMessage({ type: 'error', text: 'Pagamento falhou. Por favor, tente novamente.' });
       } else {
