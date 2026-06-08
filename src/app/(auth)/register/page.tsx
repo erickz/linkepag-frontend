@@ -179,6 +179,14 @@ export default function Signup() {
         .then((result) => {
           setSubmitted(true);
           recordSuccess();
+          // Tracking: Cadastro completo
+          trackOrQueue('meta', 'CompleteRegistration');
+          trackOrQueue('tiktok', 'CompleteRegistration', {
+            content_name: 'Cadastro',
+            content_type: 'registration',
+            value: 0,
+            currency: 'BRL',
+          });
           // Identify do usuário recém-cadastrado para advanced matching
           if (result.user?.email) {
             trackOrQueue('meta', 'identify', { em: result.user.email, fn: result.user.fullName?.split(' ')[0], ln: result.user.fullName?.split(' ').slice(1).join(' ') });

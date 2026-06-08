@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth, useProtectedRoute } from '@/hooks/useAuth';
-import { trackOrQueue } from '@/lib/pixel-queue';
 import { useMpOAuth } from '@/hooks/useMpOAuth';
 import { 
   getProfile, 
@@ -52,19 +51,6 @@ export default function OnboardingPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [currentStep, setCurrentStep] = useState(0);
-  
-  // Tracking: CompleteRegistration quando usuário chega no onboarding (novo cadastro)
-  useEffect(() => {
-    if (isAuthenticated && user) {
-      trackOrQueue('meta', 'CompleteRegistration');
-      trackOrQueue('tiktok', 'CompleteRegistration', {
-        content_name: 'Cadastro',
-        content_type: 'registration',
-        value: 0,
-        currency: 'BRL',
-      });
-    }
-  }, [isAuthenticated, user]);
   const [completedSteps, setCompletedSteps] = useState<string[]>([]);
   
   // Step 1: Profile
