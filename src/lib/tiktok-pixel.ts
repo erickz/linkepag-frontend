@@ -40,7 +40,8 @@ export function ttqTrack(
     const ttq = (window as unknown as Record<string, unknown>).ttq as {
       track: (event: string, params?: Record<string, unknown>) => void;
     };
-    ttq.track(eventName, params);
+    // TikTok exige objeto (mesmo vazio) — undefined envia evento vazio
+    ttq.track(eventName, params || {});
     pixelLog(`✅ Disparado "${eventName}"`);
     return true;
   } catch (err) {
