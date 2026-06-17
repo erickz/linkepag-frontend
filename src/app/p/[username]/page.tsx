@@ -367,7 +367,7 @@ export default function PublicPage() {
       });
       trackOrQueue('tiktok', 'ViewContent', {
         content_name: profile.displayName || profile.username,
-        content_type: 'profile',
+        content_type: 'product',
         content_id: profile.username,
       });
     }
