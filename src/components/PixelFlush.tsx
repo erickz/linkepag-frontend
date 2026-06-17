@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { flushPixelQueue } from '@/lib/pixel-queue';
+import { flushPixelQueue, flushPixelIdentifyQueue } from '@/lib/pixel-queue';
 
 /**
  * Componente invisível que faz flush da fila de pixels pendentes.
@@ -17,16 +17,19 @@ export function PixelFlush() {
     // Primeira tentativa: após hidratação inicial
     const timer1 = setTimeout(() => {
       flushPixelQueue();
+      flushPixelIdentifyQueue();
     }, 500);
 
     // Segunda tentativa: após 2s (caso pixel ainda não tenha carregado)
     const timer2 = setTimeout(() => {
       flushPixelQueue();
+      flushPixelIdentifyQueue();
     }, 2000);
 
     // Terceira tentativa: após 5s (última chance)
     const timer3 = setTimeout(() => {
       flushPixelQueue();
+      flushPixelIdentifyQueue();
     }, 5000);
 
     return () => {

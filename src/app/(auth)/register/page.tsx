@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { registerUser } from '@/lib/api';
-import { trackOrQueue } from '@/lib/pixel-queue';
+import { trackOrQueue, identifyOrQueue } from '@/lib/pixel-queue';
 import { useMask } from '@/hooks/useMask';
 import { useLoginThrottle } from '@/hooks/useLoginThrottle';
 import { IconUser, IconMail, IconLock, IconCheck, IconArrowRight, IconAlert } from '@/components/icons';
@@ -187,8 +187,12 @@ export default function Signup() {
           });
           // Identify do usuário recém-cadastrado para advanced matching
           if (result.user?.email) {
-            trackOrQueue('meta', 'identify', { em: result.user.email, fn: result.user.fullName?.split(' ')[0], ln: result.user.fullName?.split(' ').slice(1).join(' ') });
-            trackOrQueue('tiktok', 'identify', { email: result.user.email });
+            identifyOrQueue('meta', {
+              em: result.user.email,
+              fn: result.user.fullName?.split(' ')[0],
+              ln: result.user.fullName?.split(' ').slice(1).join(' '),
+            });
+            identifyOrQueue('tiktok', { email: result.user.email });
           }
           // Pass isNewUser=true para redirecionar para onboarding
           login(result.token, result.user, true);

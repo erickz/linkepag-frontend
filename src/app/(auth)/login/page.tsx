@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { loginUser } from '@/lib/api';
-import { trackOrQueue } from '@/lib/pixel-queue';
+import { trackOrQueue, identifyOrQueue } from '@/lib/pixel-queue';
 import { useLoginThrottle } from '@/hooks/useLoginThrottle';
 import { IconMail, IconLock, IconCheck, IconArrowRight, IconAlert } from '@/components/icons';
 import { Logo } from '@/components/Logo';
@@ -123,8 +123,12 @@ export default function Login() {
           trackOrQueue('tiktok', 'Login');
           // Identify do usuário logado para advanced matching
           if (result.user?.email) {
-            trackOrQueue('meta', 'identify', { em: result.user.email, fn: result.user.fullName?.split(' ')[0], ln: result.user.fullName?.split(' ').slice(1).join(' ') });
-            trackOrQueue('tiktok', 'identify', { email: result.user.email });
+            identifyOrQueue('meta', {
+              em: result.user.email,
+              fn: result.user.fullName?.split(' ')[0],
+              ln: result.user.fullName?.split(' ').slice(1).join(' '),
+            });
+            identifyOrQueue('tiktok', { email: result.user.email });
           }
           // Pass isNewUser=false para redirecionar para dashboard
           login(result.token, result.user, false);

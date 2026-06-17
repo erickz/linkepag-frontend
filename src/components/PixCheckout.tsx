@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createPayment, createPixDirectPayment, uploadReceipt, checkPaymentStatus } from '@/lib/api';
 import { useMercadoPago } from '@/hooks/useMercadoPago';
 import { formatPrice } from '@/lib/masks';
-import { trackOrQueue } from '@/lib/pixel-queue';
+import { trackOrQueue, identifyOrQueue } from '@/lib/pixel-queue';
 
 interface PixCheckoutProps {
   linkId: string;
@@ -204,8 +204,12 @@ export default function PixCheckout({
         });
         // Identify do comprador para advanced matching
         if (buyerEmail) {
-          trackOrQueue('meta', 'identify', { em: buyerEmail, fn: buyerName.split(' ')[0], ln: buyerName.split(' ').slice(1).join(' ') });
-          trackOrQueue('tiktok', 'identify', { email: buyerEmail });
+          identifyOrQueue('meta', {
+            em: buyerEmail,
+            fn: buyerName.split(' ')[0],
+            ln: buyerName.split(' ').slice(1).join(' '),
+          });
+          identifyOrQueue('tiktok', { email: buyerEmail });
         }
         
         // Aguarda 2 segundos para mostrar a mensagem de sucesso antes de redirecionar
