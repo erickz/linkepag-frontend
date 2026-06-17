@@ -127,8 +127,12 @@ export default function Login() {
               em: result.user.email,
               fn: result.user.fullName?.split(' ')[0],
               ln: result.user.fullName?.split(' ').slice(1).join(' '),
+            }).catch(() => {
+              // ignore — tracking não deve quebrar a UX
             });
-            identifyOrQueue('tiktok', { email: result.user.email });
+            identifyOrQueue('tiktok', { email: result.user.email }).catch(() => {
+              // ignore
+            });
           }
           // Pass isNewUser=false para redirecionar para dashboard
           login(result.token, result.user, false);

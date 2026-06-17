@@ -1,6 +1,16 @@
 /**
  * Utilitários para o Meta (Facebook) Pixel
+ *
+ * Advanced Matching: email, telefone e external_id são normalizados e
+ * hasheados com SHA-256 no client side, conforme recomendação oficial do Meta.
  */
+
+import {
+  sha256,
+  normalizeEmail,
+  normalizePhone,
+  normalizeExternalId,
+} from './pixel-hash';
 
 /** Dados de Advanced Matching (AAM) para o Meta Pixel */
 export interface MetaAdvancedMatchingData {
@@ -59,7 +69,13 @@ function inferCountry(): string | undefined {
   return parts.length > 1 ? parts[1].toUpperCase() : parts[0].toUpperCase();
 }
 
-/** Monta objeto de Advanced Matching */
+/**
+ * Monta objeto de Advanced Matching.
+ *
+ * Normaliza (mas NÃO hasheia) email, telefone e external_id.
+ * O hash é feito dentro de fbqIdentify para garantir que os dados só sejam
+ * enviados para o pixel já ofuscados.
+ */
 export function buildMetaAdvancedMatchingData(user?: {
   email?: string | null;
   fullName?: string | null;
@@ -71,9 +87,9 @@ export function buildMetaAdvancedMatchingData(user?: {
   data.fbp = getFbp();
   data.client_user_agent = typeof navigator !== 'undefined' ? navigator.userAgent : undefined;
   data.country = inferCountry();
-  if (user?.email) data.em = user.email.toLowerCase().trim();
-  if (user?.phone) data.ph = user.phone.replace(/\D/g, '');
-  if (user?.id) data.external_id = user.id;
+  if (user?.email) data.em = normalizeEmail(user.email) || undefined;
+  if (user?.phone) data.ph = normalizePhone(user.phone) || undefined;
+  if (user?.id) data.external_id = normalizeExternalId(user.id) || undefined;
   if (user?.fullName) {
     const parts = user.fullName.trim().split(/\s+/);
     if (parts.length > 0) data.fn = parts[0];
@@ -126,8 +142,14 @@ export function fbqPage(): boolean {
   return fbqTrack('PageView');
 }
 
-/** Advanced Matching */
-export function fbqIdentify(data: MetaAdvancedMatchingData): boolean {
+/**
+ * Advanced Matching.
+ *
+ * Hasheia com SHA-256 os campos sensíveis (em, ph, external_id) antes de
+ * enviar para o fbq('init'). Campos não sensíveis (fbc, fbp, country, etc.)
+ * são enviados em texto puro.
+ */
+export async function fbqIdentify(data: MetaAdvancedMatchingData): Promise<boolean> {
   if (!isFbqAvailable()) {
     pixelLog('⏸️ NÃO disparou identify — pixel ainda carregando');
     return false;
@@ -145,14 +167,48 @@ export function fbqIdentify(data: MetaAdvancedMatchingData): boolean {
       if (v !== undefined && v !== null && v !== '') clean[k] = v;
     }
 
-    if (Object.keys(clean).length > 0) {
-      fbq('init', pixelId, clean);
-      pixelLog('✅ Disparou identify');
-      return true;
-    }
-    return false;
+    if (Object.keys(clean).length === 0) return false;
+
+    // Hasheia campos sensíveis de forma assíncrona
+    const [hashedEm, hashedPh, hashedExternalId] = await Promise.all([
+      clean.em ? sha256(clean.em as string) : Promise.resolve(null),
+      clean.ph ? sha256(clean.ph as string) : Promise.resolve(null),
+      clean.external_id ? sha256(clean.external_id as string) : Promise.resolve(null),
+    ]);
+
+    if (hashedEm) clean.em = hashedEm;
+    if (hashedPh) clean.ph = hashedPh;
+    if (hashedExternalId) clean.external_id = hashedExternalId;
+
+    fbq('init', pixelId, clean);
+    pixelLog('✅ Disparou identify (hasheado)');
+    return true;
   } catch (err) {
     pixelLog(`❌ Erro ao disparar identify: ${err}`);
     return false;
   }
+}
+
+/**
+ * Versão síncrona de fbqIdentify para callers que não podem esperar.
+ * Faz hash e envio de forma fire-and-forget.
+ */
+export function fbqIdentifySync(data: MetaAdvancedMatchingData): boolean {
+  if (!isFbqAvailable()) {
+    pixelLog('⏸️ NÃO disparou identify — pixel ainda carregando');
+    return false;
+  }
+
+  const clean: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(data)) {
+    if (v !== undefined && v !== null && v !== '') clean[k] = v;
+  }
+
+  if (Object.keys(clean).length === 0) return false;
+
+  fbqIdentify(data).catch((err) => {
+    pixelLog(`❌ Erro ao hashear identify: ${err}`);
+  });
+
+  return true;
 }

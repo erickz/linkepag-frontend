@@ -208,8 +208,12 @@ export default function PixCheckout({
             em: buyerEmail,
             fn: buyerName.split(' ')[0],
             ln: buyerName.split(' ').slice(1).join(' '),
+          }).catch(() => {
+            // ignore — tracking não deve quebrar a UX
           });
-          identifyOrQueue('tiktok', { email: buyerEmail });
+          identifyOrQueue('tiktok', { email: buyerEmail }).catch(() => {
+            // ignore
+          });
         }
         
         // Aguarda 2 segundos para mostrar a mensagem de sucesso antes de redirecionar

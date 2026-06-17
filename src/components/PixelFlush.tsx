@@ -17,19 +17,25 @@ export function PixelFlush() {
     // Primeira tentativa: após hidratação inicial
     const timer1 = setTimeout(() => {
       flushPixelQueue();
-      flushPixelIdentifyQueue();
+      flushPixelIdentifyQueue().catch(() => {
+        // ignore — tracking não deve quebrar a UX
+      });
     }, 500);
 
     // Segunda tentativa: após 2s (caso pixel ainda não tenha carregado)
     const timer2 = setTimeout(() => {
       flushPixelQueue();
-      flushPixelIdentifyQueue();
+      flushPixelIdentifyQueue().catch(() => {
+        // ignore
+      });
     }, 2000);
 
     // Terceira tentativa: após 5s (última chance)
     const timer3 = setTimeout(() => {
       flushPixelQueue();
-      flushPixelIdentifyQueue();
+      flushPixelIdentifyQueue().catch(() => {
+        // ignore
+      });
     }, 5000);
 
     return () => {

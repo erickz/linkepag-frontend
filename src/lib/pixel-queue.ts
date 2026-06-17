@@ -119,19 +119,19 @@ export function trackOrQueue(
 }
 
 /** Tenta disparar identify/advanced matching; se falhar, enfileira para depois */
-export function identifyOrQueue(
+export async function identifyOrQueue(
   platform: 'meta' | 'tiktok',
   data: Record<string, unknown>
-): void {
+): Promise<void> {
   const { fbqIdentify } = require('./meta-pixel') as typeof import('./meta-pixel');
   const { ttqIdentify } = require('./tiktok-pixel') as typeof import('./tiktok-pixel');
 
   let success = false;
   try {
     if (platform === 'meta') {
-      success = fbqIdentify(data);
+      success = await fbqIdentify(data);
     } else {
-      success = ttqIdentify(
+      success = await ttqIdentify(
         data.email as string | null | undefined,
         data.phone as string | null | undefined,
         data.external_id as string | null | undefined
@@ -195,7 +195,7 @@ export function flushPixelQueue(): void {
 }
 
 /** Dispara todos os identifies pendentes. Só limpa a fila se TODOS forem enviados com sucesso. */
-export function flushPixelIdentifyQueue(): void {
+export async function flushPixelIdentifyQueue(): Promise<void> {
   const queue = getIdentifyQueue();
   if (queue.length === 0) return;
 
@@ -208,9 +208,9 @@ export function flushPixelIdentifyQueue(): void {
     let success = false;
     try {
       if (item.platform === 'meta') {
-        success = fbqIdentify(item.data);
+        success = await fbqIdentify(item.data);
       } else {
-        success = ttqIdentify(
+        success = await ttqIdentify(
           item.data.email as string | null | undefined,
           item.data.phone as string | null | undefined,
           item.data.external_id as string | null | undefined

@@ -355,8 +355,12 @@ export default function PlansPage() {
               em: user.email,
               fn: user.fullName?.split(' ')[0],
               ln: user.fullName?.split(' ').slice(1).join(' '),
+            }).catch(() => {
+              // ignore — tracking não deve quebrar a UX
             });
-            identifyOrQueue('tiktok', { email: user.email });
+            identifyOrQueue('tiktok', { email: user.email }).catch(() => {
+              // ignore
+            });
           }
         } else if (response.data.isFailed) {
           setMessage({ type: 'error', text: 'Pagamento falhou. Por favor, tente novamente.' });
@@ -548,8 +552,12 @@ export default function PlansPage() {
             em: user.email,
             fn: user.fullName?.split(' ')[0],
             ln: user.fullName?.split(' ').slice(1).join(' '),
+          }).catch(() => {
+            // ignore — tracking não deve quebrar a UX
           });
-          identifyOrQueue('tiktok', { email: user.email });
+          identifyOrQueue('tiktok', { email: user.email }).catch(() => {
+            // ignore
+          });
         }
       } else if (response.data.isFailed) {
         setMessage({ type: 'error', text: 'Pagamento falhou. Por favor, tente novamente.' });
@@ -752,8 +760,12 @@ export default function PlansPage() {
             em: user.email,
             fn: user.fullName?.split(' ')[0],
             ln: user.fullName?.split(' ').slice(1).join(' '),
+          }).catch(() => {
+            // ignore — tracking não deve quebrar a UX
           });
-          identifyOrQueue('tiktok', { email: user.email });
+          identifyOrQueue('tiktok', { email: user.email }).catch(() => {
+            // ignore
+          });
         }
       } else if (response.data.isFailed) {
         setMessage({ type: 'error', text: 'Pagamento falhou. Por favor, tente novamente.' });

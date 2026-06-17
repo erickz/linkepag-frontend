@@ -191,8 +191,12 @@ export default function Signup() {
               em: result.user.email,
               fn: result.user.fullName?.split(' ')[0],
               ln: result.user.fullName?.split(' ').slice(1).join(' '),
+            }).catch(() => {
+              // ignore — tracking não deve quebrar a UX
             });
-            identifyOrQueue('tiktok', { email: result.user.email });
+            identifyOrQueue('tiktok', { email: result.user.email }).catch(() => {
+              // ignore
+            });
           }
           // Pass isNewUser=true para redirecionar para onboarding
           login(result.token, result.user, true);

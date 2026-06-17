@@ -150,18 +150,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Aguarda scripts dos pixels carregarem (layout.tsx carrega com afterInteractive)
     const timer = setTimeout(() => {
-      // Meta Pixel — Advanced Matching completo (AAM)
-      const metaAm = buildMetaAdvancedMatchingData({
-        email: user.email,
-        fullName: user.fullName,
-        id: user.id,
-      });
-      fbqIdentify(metaAm);
+      void (async () => {
+        try {
+          // Meta Pixel — Advanced Matching completo (AAM)
+          const metaAm = buildMetaAdvancedMatchingData({
+            email: user.email,
+            fullName: user.fullName,
+            id: user.id,
+          });
+          await fbqIdentify(metaAm);
 
-      // TikTok Pixel — Advanced Matching (email + external_id)
-      ttqIdentify(user.email, undefined, user.id);
+          // TikTok Pixel — Advanced Matching (email + external_id)
+          await ttqIdentify(user.email, undefined, user.id);
 
-      identifiedUserRef.current = user.id;
+          identifiedUserRef.current = user.id;
+        } catch {
+          // Silencia erros de pixel — não deve quebrar a autenticação
+        }
+      })();
     }, 500);
 
     return () => clearTimeout(timer);
