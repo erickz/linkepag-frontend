@@ -30,7 +30,6 @@ function isTiktokAvailable(): boolean {
 /** Log de debug apenas em development */
 function pixelLog(message: string): void {
   if (process.env.NODE_ENV === 'development') {
-    // eslint-disable-next-line no-console
     console.log(`[TikTok Pixel] ${message}`);
   }
 }
@@ -83,12 +82,21 @@ function normalizeTikTokParams(
     normalized.content_id || normalized.content_type || normalized.content_name;
 
   if (hasEcommerceFields) {
+    const quantity =
+      typeof normalized.quantity === 'number' && normalized.quantity > 0
+        ? normalized.quantity
+        : 1;
+
+    const value =
+      typeof normalized.value === 'number' ? normalized.value : undefined;
+
     normalized.contents = [
       {
         content_id: normalized.content_id,
         content_type: normalized.content_type,
         content_name: normalized.content_name,
-        quantity: 1,
+        quantity,
+        price: value !== undefined ? value / quantity : undefined,
       },
     ];
   }

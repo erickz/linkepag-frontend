@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createPayment, createPixDirectPayment, uploadReceipt, checkPaymentStatus } from '@/lib/api';
 import { useMercadoPago } from '@/hooks/useMercadoPago';
 import { formatPrice } from '@/lib/masks';
-import { trackOrQueue, identifyOrQueue } from '@/lib/pixel-queue';
+import { trackEcommerceEvent, identifyUser } from '@/lib/pixel-tracker';
 
 interface PixCheckoutProps {
   linkId: string;
@@ -187,32 +187,16 @@ export default function PixCheckout({
         // Tracking: Purchase + Identify do comprador
         const buyerEmail = email.trim().toLowerCase();
         const buyerName = name.trim();
-        trackOrQueue('meta', 'Purchase', {
-          content_name: title,
-          content_ids: [linkId],
-          content_type: 'product',
+        trackEcommerceEvent('Purchase', {
+          contentId: linkId,
+          contentName: title,
           value: price,
-          currency: 'BRL',
-          num_items: 1,
-        });
-        trackOrQueue('tiktok', 'Purchase', {
-          content_name: title,
-          content_id: linkId,
-          content_type: 'product',
-          value: price,
-          currency: 'BRL',
         });
         // Identify do comprador para advanced matching
         if (buyerEmail) {
-          identifyOrQueue('meta', {
-            em: buyerEmail,
-            fn: buyerName.split(' ')[0],
-            ln: buyerName.split(' ').slice(1).join(' '),
-          }).catch(() => {
-            // ignore — tracking não deve quebrar a UX
-          });
-          identifyOrQueue('tiktok', { email: buyerEmail }).catch(() => {
-            // ignore
+          identifyUser({
+            email: buyerEmail,
+            fullName: buyerName,
           });
         }
         

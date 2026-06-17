@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { registerUser } from '@/lib/api';
-import { trackOrQueue, identifyOrQueue } from '@/lib/pixel-queue';
+import { trackConversion, identifyUser } from '@/lib/pixel-tracker';
 import { useMask } from '@/hooks/useMask';
 import { useLoginThrottle } from '@/hooks/useLoginThrottle';
 import { IconUser, IconMail, IconLock, IconCheck, IconArrowRight, IconAlert } from '@/components/icons';
@@ -180,22 +180,16 @@ export default function Signup() {
           setSubmitted(true);
           recordSuccess();
           // Tracking: Cadastro completo
-          trackOrQueue('meta', 'CompleteRegistration');
-          trackOrQueue('tiktok', 'CompleteRegistration', {
-            content_name: 'Cadastro',
-            content_type: 'registration',
+          trackConversion('CompleteRegistration', {
+            contentName: 'Cadastro',
+            contentType: 'registration',
           });
           // Identify do usuário recém-cadastrado para advanced matching
           if (result.user?.email) {
-            identifyOrQueue('meta', {
-              em: result.user.email,
-              fn: result.user.fullName?.split(' ')[0],
-              ln: result.user.fullName?.split(' ').slice(1).join(' '),
-            }).catch(() => {
-              // ignore — tracking não deve quebrar a UX
-            });
-            identifyOrQueue('tiktok', { email: result.user.email }).catch(() => {
-              // ignore
+            identifyUser({
+              email: result.user.email,
+              fullName: result.user.fullName || undefined,
+              id: result.user.id || undefined,
             });
           }
           // Pass isNewUser=true para redirecionar para onboarding

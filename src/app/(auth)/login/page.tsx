@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { loginUser } from '@/lib/api';
-import { trackOrQueue, identifyOrQueue } from '@/lib/pixel-queue';
+import { trackConversion, identifyUser } from '@/lib/pixel-tracker';
 import { useLoginThrottle } from '@/hooks/useLoginThrottle';
 import { IconMail, IconLock, IconCheck, IconArrowRight, IconAlert } from '@/components/icons';
 import { Logo } from '@/components/Logo';
@@ -119,19 +119,13 @@ export default function Login() {
           setSubmitted(true);
           recordSuccess();
           // Tracking: Login bem-sucedido (failproof — enfileira se pixel não carregou)
-          trackOrQueue('meta', 'Login');
-          trackOrQueue('tiktok', 'Login');
+          trackConversion('Login');
           // Identify do usuário logado para advanced matching
           if (result.user?.email) {
-            identifyOrQueue('meta', {
-              em: result.user.email,
-              fn: result.user.fullName?.split(' ')[0],
-              ln: result.user.fullName?.split(' ').slice(1).join(' '),
-            }).catch(() => {
-              // ignore — tracking não deve quebrar a UX
-            });
-            identifyOrQueue('tiktok', { email: result.user.email }).catch(() => {
-              // ignore
+            identifyUser({
+              email: result.user.email,
+              fullName: result.user.fullName || undefined,
+              id: result.user.id || undefined,
             });
           }
           // Pass isNewUser=false para redirecionar para dashboard

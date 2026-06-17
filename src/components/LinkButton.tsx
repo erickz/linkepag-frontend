@@ -23,7 +23,7 @@ import {
   IconGoogleCalendar
 } from './icons';
 import { detectPlatformFromUrl } from '@/lib/platform-detector';
-import { trackOrQueue } from '@/lib/pixel-queue';
+import { trackEcommerceEvent } from '@/lib/pixel-tracker';
 
 interface AccentColor {
   textClass: string;
@@ -116,20 +116,10 @@ function LinkButtonComponent({
     
     // Tracking: InitiateCheckout quando usuário clica em link pago pela primeira vez
     if (isMonetized && !isExpanded && link.price) {
-      trackOrQueue('meta', 'InitiateCheckout', {
-        content_name: link.title,
-        content_ids: [link.id],
-        content_type: 'product',
+      trackEcommerceEvent('InitiateCheckout', {
+        contentId: link.id,
+        contentName: link.title,
         value: link.price,
-        currency: 'BRL',
-        num_items: 1,
-      });
-      trackOrQueue('tiktok', 'InitiateCheckout', {
-        content_name: link.title,
-        content_id: link.id,
-        content_type: 'product',
-        value: link.price,
-        currency: 'BRL',
       });
     }
     

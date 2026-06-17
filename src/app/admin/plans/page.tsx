@@ -9,7 +9,7 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { CreditCardForm } from '@/components/CreditCardForm';
 
 import { getLinks, scheduleDowngrade, getScheduledDowngrade } from '@/lib/api';
-import { trackOrQueue, identifyOrQueue } from '@/lib/pixel-queue';
+import { trackEcommerceEvent, identifyUser } from '@/lib/pixel-tracker';
 
 // Types para Links
 interface LinkItem {
@@ -183,6 +183,7 @@ export default function PlansPage() {
   
   // Estados locais
   const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
+  const [selectedPlanPrice, setSelectedPlanPrice] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState<'credit_card' | 'pix'>('pix');
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showDowngradeModal, setShowDowngradeModal] = useState(false);
@@ -272,6 +273,22 @@ export default function PlansPage() {
     refreshBilling,
   } = useBilling();
 
+  // Helper para tracking de Purchase de plano/assinatura
+  const trackPlanPurchase = useCallback((value: number, contentName: string) => {
+    trackEcommerceEvent('Purchase', {
+      contentId: `plan-${selectedPlan || user?.planId || 'unknown'}`,
+      contentName,
+      value,
+    });
+    if (user?.email) {
+      identifyUser({
+        email: user.email,
+        fullName: user.fullName || undefined,
+        id: user.id || undefined,
+      });
+    }
+  }, [selectedPlan, user]);
+
   // Valor pendente é o total de taxas acumuladas do billing (ex: 8% das vendas no Starter)
   const pendingSalesFormatted = useMemo(() => {
     return formatCurrency(currentBalance || 0);
@@ -348,20 +365,7 @@ export default function PlansPage() {
           refreshBilling();
           clearInterval(interval);
           // Tracking: pagamento de pendências confirmado
-          trackOrQueue('meta', 'Purchase', { currency: 'BRL' });
-          trackOrQueue('tiktok', 'Purchase', { currency: 'BRL' });
-          if (user?.email) {
-            identifyOrQueue('meta', {
-              em: user.email,
-              fn: user.fullName?.split(' ')[0],
-              ln: user.fullName?.split(' ').slice(1).join(' '),
-            }).catch(() => {
-              // ignore — tracking não deve quebrar a UX
-            });
-            identifyOrQueue('tiktok', { email: user.email }).catch(() => {
-              // ignore
-            });
-          }
+          trackPlanPurchase(currentBalance || 0, 'Pagamento de Pendências');
         } else if (response.data.isFailed) {
           setMessage({ type: 'error', text: 'Pagamento falhou. Por favor, tente novamente.' });
           clearInterval(interval);
@@ -374,11 +378,12 @@ export default function PlansPage() {
     return () => {
       clearInterval(interval);
     };
-  }, [pendingPaymentId, pendingPixData, refreshBilling]);
+  }, [pendingPaymentId, pendingPixData, refreshBilling, currentBalance, trackPlanPurchase]);
 
   const handleSelectPlan = (planId: number) => {
     if (planId === selectedPlan) {
       setSelectedPlan(null);
+      setSelectedPlanPrice(0);
       setPixData(null);
       // Limpa token ao cancelar seleção
       setCardToken(null);
@@ -386,6 +391,7 @@ export default function PlansPage() {
       return;
     }
     setSelectedPlan(planId);
+    setSelectedPlanPrice(plans.find(p => p.id === planId)?.monthlyPrice || 0);
     // Limpa tokens ao selecionar novo plano para evitar uso de token antigo
     setCardToken(null);
     cardTokenRef.current = null;
@@ -545,20 +551,10 @@ export default function PlansPage() {
         setSelectedPlan(null);
         refetchSubscription();
         // Tracking: upgrade de plano confirmado
-        trackOrQueue('meta', 'Purchase', { currency: 'BRL' });
-        trackOrQueue('tiktok', 'Purchase', { currency: 'BRL' });
-        if (user?.email) {
-          identifyOrQueue('meta', {
-            em: user.email,
-            fn: user.fullName?.split(' ')[0],
-            ln: user.fullName?.split(' ').slice(1).join(' '),
-          }).catch(() => {
-            // ignore — tracking não deve quebrar a UX
-          });
-          identifyOrQueue('tiktok', { email: user.email }).catch(() => {
-            // ignore
-          });
-        }
+        trackPlanPurchase(
+          selectedPlanPrice || plans.find(p => p.id === Number(subscription?.planId))?.monthlyPrice || 0,
+          plans.find(p => p.id === Number(subscription?.planId))?.name || 'Upgrade de Plano'
+        );
       } else if (response.data.isFailed) {
         setMessage({ type: 'error', text: 'Pagamento falhou. Por favor, tente novamente.' });
       } else {
@@ -753,20 +749,7 @@ export default function PlansPage() {
         setPendingPaymentId(null);
         refreshBilling();
         // Tracking: pagamento de pendências confirmado
-        trackOrQueue('meta', 'Purchase', { currency: 'BRL' });
-        trackOrQueue('tiktok', 'Purchase', { currency: 'BRL' });
-        if (user?.email) {
-          identifyOrQueue('meta', {
-            em: user.email,
-            fn: user.fullName?.split(' ')[0],
-            ln: user.fullName?.split(' ').slice(1).join(' '),
-          }).catch(() => {
-            // ignore — tracking não deve quebrar a UX
-          });
-          identifyOrQueue('tiktok', { email: user.email }).catch(() => {
-            // ignore
-          });
-        }
+        trackPlanPurchase(currentBalance || 0, 'Pagamento de Pendências');
       } else if (response.data.isFailed) {
         setMessage({ type: 'error', text: 'Pagamento falhou. Por favor, tente novamente.' });
       } else {
