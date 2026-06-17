@@ -179,9 +179,12 @@ export default function Signup() {
         .then((result) => {
           setSubmitted(true);
           recordSuccess();
-          // Tracking: Cadastro completo (sem value/currency — não é evento de e-commerce)
+          // Tracking: Cadastro completo
           trackOrQueue('meta', 'CompleteRegistration');
-          trackOrQueue('tiktok', 'CompleteRegistration');
+          trackOrQueue('tiktok', 'CompleteRegistration', {
+            content_name: 'Cadastro',
+            content_type: 'registration',
+          });
           // Identify do usuário recém-cadastrado para advanced matching
           if (result.user?.email) {
             trackOrQueue('meta', 'identify', { em: result.user.email, fn: result.user.fullName?.split(' ')[0], ln: result.user.fullName?.split(' ').slice(1).join(' ') });
