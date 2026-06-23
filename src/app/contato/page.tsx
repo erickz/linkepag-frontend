@@ -155,7 +155,7 @@ export default function ContatoPage() {
               <span className="text-white font-bold">LinkePag</span>
             </div>
             <p className="text-slate-500 text-sm">
-              © 2026 LinkePag - Monetize sua audiência.
+              © 2026 LinkePag - Seu link na bio que vende mais.
             </p>
             <Link href="/termos" className="text-slate-500 hover:text-slate-300 transition text-sm">
               Termos de uso

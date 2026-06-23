@@ -2,7 +2,7 @@ import { ImageResponse } from 'next/og';
 
 export const runtime = 'edge';
 
-export const alt = 'LinkePag - Monetize sua audiência';
+export const alt = 'LinkePag - Seu link na bio que vende mais';
 export const size = {
   width: 1200,
   height: 630,

@@ -24,12 +24,12 @@ import {
 
 // Metadados otimizados para SEO
 export const metadata: Metadata = {
-  title: "LinkePag - Monetize sua audiência",
+  title: "LinkePag - Seu link na bio que vende mais",
   description: "Crie uma página única para seus links e receba pagamentos via PIX. Sua link-in-bio que vende mais.",
   keywords: ["link in bio", "links", "pix", "pagamentos", "criadores", "monetização"],
   authors: [{ name: "LinkePag" }],
   openGraph: {
-    title: "LinkePag - Monetize sua audiência",
+    title: "LinkePag - Seu link na bio que vende mais",
     description: "Crie uma página única para seus links e receba pagamentos via PIX",
     type: "website",
   },
@@ -577,7 +577,7 @@ export default function Home() {
           
           <div className="pt-8 border-t border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-slate-500 text-sm">
-              © 2026 LinkePag - Monetize sua audiência.
+              © 2026 LinkePag - Seu link na bio que vende mais.
             </p>
             <div className="flex items-center gap-6 text-xs text-slate-500">
               <Link href="/termos" className="hover:text-slate-300 transition">Termos de uso</Link>
