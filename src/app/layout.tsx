@@ -36,7 +36,7 @@ export const viewport: Viewport = {
 // Metadados otimizados
 export const metadata: Metadata = {
   title: {
-    default: "LinkePag - Monetize sua audiência",
+    default: "LinkePag - Seu link na bio que vende mais",
     template: "%s | LinkePag",
   },
   description: "Crie uma página única para seus links e receba pagamentos via PIX. Sua link-in-bio que vende mais.",
@@ -58,20 +58,20 @@ export const metadata: Metadata = {
     locale: "pt_BR",
     url: "/",
     siteName: "LinkePag",
-    title: "LinkePag - Monetize sua audiência",
+    title: "LinkePag - Seu link na bio que vende mais",
     description: "Crie uma página única para seus links e receba pagamentos via PIX. Sua link-in-bio que vende mais.",
     images: [
       {
         url: "/opengraph-image",
         width: 1200,
         height: 630,
-        alt: "LinkePag - Monetize sua audiência",
+        alt: "LinkePag - Seu link na bio que vende mais",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "LinkePag - Monetize sua audiência",
+    title: "LinkePag - Seu link na bio que vende mais",
     description: "Crie uma página única para seus links e receba pagamentos via PIX. Sua link-in-bio que vende mais.",
     images: ["/opengraph-image"],
   },
