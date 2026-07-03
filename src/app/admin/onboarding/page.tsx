@@ -35,7 +35,7 @@ const steps: OnboardingStep[] = [
   {
     id: 'link',
     title: 'Cadastre um link',
-    description: 'Adicione um link e comece a vender',
+    description: 'Adicione um link. Você poderá editar tudo depois, leva menos de 30 segundos',
     icon: <IconLink className="w-6 h-6" />,
   },
   {
