@@ -7,6 +7,7 @@ import { useAuth, useProtectedRoute } from '@/hooks/useAuth';
 import { useMpOAuth } from '@/hooks/useMpOAuth';
 import { 
   getProfile, 
+  getLinks,
   updateProfile, 
   updateUsername,
   createLink,
@@ -14,7 +15,17 @@ import {
   CACHE_KEYS 
 } from '@/lib/api';
 import { formatUrl } from '@/lib/masks';
-import { IconCheck, IconArrowRight, IconArrowLeft, IconUser, IconCreditCard, IconLink, IconAlert, IconHelp, IconRefresh, IconUnlink, IconLock, IconDownload, IconCalendar } from '@/components/icons';
+import {
+  getDefaultLinkTemplate,
+  getTitlePlaceholder,
+  getUrlLabel,
+  getUrlPlaceholder,
+  getUrlHelpText,
+  isMonetizedTemplate,
+  isUrlRequired,
+} from '@/lib/link-templates';
+import { LinkTemplateSelector } from '@/components/LinkTemplateSelector';
+import { IconCheck, IconArrowRight, IconArrowLeft, IconUser, IconCreditCard, IconLink, IconAlert, IconHelp, IconRefresh, IconUnlink } from '@/components/icons';
 import { AdminHeader } from '@/components/AdminHeader';
 
 interface OnboardingStep {
@@ -35,7 +46,7 @@ const steps: OnboardingStep[] = [
   {
     id: 'link',
     title: 'Cadastre um link',
-    description: 'Adicione um link. Você poderá editar tudo depois, leva menos de 30 segundos',
+    description: 'Seu link na bio esta quase pronto! Crie um link, leva menos de 30 segundos',
     icon: <IconLink className="w-6 h-6" />,
   },
   {
@@ -69,10 +80,13 @@ export default function OnboardingPage() {
     description: '',
     url: '',
     price: '',
-    template: 'direct' as 'direct' | 'paid_access' | 'digital_product' | 'scheduling',
+    template: getDefaultLinkTemplate(),
     openInNewTab: true,
   });
+  const [showAdvancedLinkFields, setShowAdvancedLinkFields] = useState(false);
   const [isCreatingLink, setIsCreatingLink] = useState(false);
+  const [existingLinks, setExistingLinks] = useState<any[]>([]);
+  const [showNewLinkForm, setShowNewLinkForm] = useState(false);
   
   // Upload de arquivo (apenas para links monetizados)
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -90,6 +104,7 @@ export default function OnboardingPage() {
     pixQRCodeImage: '',
   });
   const [isSavingPix, setIsSavingPix] = useState(false);
+  const [showQrCodeField, setShowQrCodeField] = useState(false);
 
   // MercadoPago OAuth (novo fluxo)
   const {
@@ -108,6 +123,7 @@ export default function OnboardingPage() {
   useEffect(() => {
     if (isAuthenticated) {
       loadProfile();
+      loadExistingLinks();
     }
   }, [isAuthenticated]);
 
@@ -140,8 +156,33 @@ export default function OnboardingPage() {
       if (data.displayName) {
         setCompletedSteps(prev => [...new Set([...prev, 'profile'])]);
       }
+      // Detecta configuração de pagamento PIX já existente
+      if (data.pixKey) {
+        setPixConfig({
+          pixKey: data.pixKey,
+          pixKeyType: data.pixKeyType || 'CPF',
+          pixQRCodeImage: data.pixQRCodeImage || '',
+        });
+        if (data.pixQRCodeImage) {
+          setShowQrCodeField(true);
+        }
+        setCompletedSteps(prev => [...new Set([...prev, 'payment'])]);
+      }
     } catch (err) {
       console.error('Erro ao carregar perfil:', err);
+    }
+  };
+
+  const loadExistingLinks = async () => {
+    try {
+      const data = await getLinks();
+      const links = Array.isArray(data) ? data : (data.links || []);
+      setExistingLinks(links);
+      if (links.length > 0) {
+        setCompletedSteps(prev => [...new Set([...prev, 'link'])]);
+      }
+    } catch (err) {
+      console.error('Erro ao carregar links:', err);
     }
   };
 
@@ -587,17 +628,19 @@ export default function OnboardingPage() {
                 </div>
               </div>
 
-              <div className="flex justify-between mt-8">
-                <button
-                  onClick={skipStep}
-                  className="text-slate-500 hover:text-slate-700 font-medium transition"
-                >
-                  Pular etapa
-                </button>
+              <div className={`mt-8 ${completedSteps.includes('profile') ? 'flex justify-end' : 'flex flex-col-reverse sm:flex-row gap-3 sm:gap-0 justify-between'}`}>
+                {!completedSteps.includes('profile') && (
+                  <button
+                    onClick={skipStep}
+                    className="inline-flex items-center justify-center gap-2 px-4 h-12 w-full sm:w-auto text-slate-600 hover:text-slate-900 hover:bg-slate-50 font-medium transition"
+                  >
+                    Pular etapa
+                  </button>
+                )}
                 <button
                   onClick={handleSaveProfile}
                   disabled={!profile.displayName.trim() || isLoadingProfile}
-                  className="inline-flex items-center gap-2 px-6 h-12 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                  className="inline-flex items-center justify-center gap-2 px-6 h-12 w-full sm:w-auto bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
                 >
                   {isLoadingProfile ? (
                     <>
@@ -622,54 +665,59 @@ export default function OnboardingPage() {
                 <div className="w-14 h-14 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center">
                   <IconLink className="w-7 h-7" />
                 </div>
-                <div>
-                  <h2 className="text-xl font-bold text-slate-900">{steps[1].title}</h2>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-1">
+                    <h2 className="text-xl font-bold text-slate-900">{steps[1].title}</h2>
+                    <span className="inline-flex items-center self-start px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+                      Etapa 2 de 3
+                    </span>
+                  </div>
                   <p className="text-slate-500">{steps[1].description}</p>
                 </div>
               </div>
 
-              {/* Tipo de Link - Escolha primeiro */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-slate-700 mb-3">
-                  Que tipo de link você quer criar? *
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { id: 'direct', label: 'Direto', desc: 'Redireciona para qualquer site', icon: IconLink, color: 'emerald' },
-                    { id: 'digital_product', label: 'Produto Digital', desc: 'Venda arquivos para download', icon: IconDownload, color: 'amber' },
-                    { id: 'paid_access', label: 'Acesso Pago', desc: 'Cobre para liberar um link', icon: IconLock, color: 'indigo' },
-                    { id: 'scheduling', label: 'Agendamento', desc: 'WhatsApp, Telegram, Calendário', icon: IconCalendar, color: 'violet' },
-                  ].map((t) => {
-                    const isSelected = link.template === (t.id as any);
-                    const colors: Record<string, { border: string; bg: string; text: string; iconBg: string; iconText: string }> = {
-                      emerald: { border: 'border-emerald-500', bg: 'bg-emerald-50', text: 'text-emerald-900', iconBg: 'bg-emerald-100', iconText: 'text-emerald-600' },
-                      violet: { border: 'border-violet-500', bg: 'bg-violet-50', text: 'text-violet-900', iconBg: 'bg-violet-100', iconText: 'text-violet-600' },
-                      indigo: { border: 'border-indigo-500', bg: 'bg-indigo-50', text: 'text-indigo-900', iconBg: 'bg-indigo-100', iconText: 'text-indigo-600' },
-                      amber: { border: 'border-amber-500', bg: 'bg-amber-50', text: 'text-amber-900', iconBg: 'bg-amber-100', iconText: 'text-amber-600' },
-                    };
-                    const c = colors[t.color];
-                    return (
-                      <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => {
-                          setLink({ ...link, template: t.id as any });
-                          if (t.id !== 'digital_product') { setSelectedFile(null); setFileError(null); }
-                        }}
-                        className={`flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition text-center ${isSelected ? `${c.border} ${c.bg} shadow-sm` : 'border-slate-200 bg-white hover:border-slate-300'}`}
-                      >
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isSelected ? c.iconBg : 'bg-slate-100'}`}>
-                          <t.icon className={`w-4 h-4 ${isSelected ? c.iconText : 'text-slate-400'}`} />
-                        </div>
-                        <div>
-                          <p className={`text-xs font-semibold ${isSelected ? c.text : 'text-slate-700'}`}>{t.label}</p>
-                          <p className="text-[10px] text-slate-400 leading-tight mt-0.5">{t.desc}</p>
-                        </div>
-                      </button>
-                    );
-                  })}
+              {/* Estado: usuário já tem links */}
+              {existingLinks.length > 0 && !showNewLinkForm && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-6 text-center animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-3">
+                    <IconCheck className="w-6 h-6" />
+                  </div>
+                  <h3 className="font-bold text-slate-900 mb-1">
+                    Você já tem {existingLinks.length} link{existingLinks.length !== 1 ? 's' : ''}
+                  </h3>
+                  <p className="text-sm text-slate-500 mb-4">
+                    Sua página já está pronta para receber visitantes.
+                  </p>
+                  <div className="flex justify-center">
+                    <button
+                      onClick={() => setShowNewLinkForm(true)}
+                      className="inline-flex items-center justify-center gap-2 px-4 h-10 border border-emerald-200 text-emerald-700 bg-white rounded-lg font-medium hover:bg-emerald-50 transition"
+                    >
+                      Criar outro link
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* Formulário de criação de link */}
+              {(existingLinks.length === 0 || showNewLinkForm) && (
+                <>
+                  {/* Tipo de Link - Escolha primeiro */}
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-slate-700 mb-3">
+                      Que tipo de link você quer criar? *
+                    </label>
+                    <LinkTemplateSelector
+                      value={link.template}
+                      onChange={(template) => {
+                        setLink({ ...link, template });
+                        if (template !== 'digital_product') {
+                          setSelectedFile(null);
+                          setFileError(null);
+                        }
+                      }}
+                    />
+                  </div>
 
               {/* Form do Link */}
               <div className="space-y-5">
@@ -681,153 +729,168 @@ export default function OnboardingPage() {
                     type="text"
                     value={link.title}
                     onChange={(e) => setLink({ ...link, title: e.target.value })}
-                    placeholder="Ex: Meu Curso"
+                    placeholder={getTitlePlaceholder(link.template)}
                     className="w-full h-12 px-4 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Descrição (opcional)
-                  </label>
-                  <textarea
-                    value={link.description}
-                    onChange={(e) => setLink({ ...link, description: e.target.value })}
-                    placeholder="Breve descrição do link"
-                    rows={2}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition resize-none"
-                  />
-                </div>
-
-                {/* URL do Link */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    URL do link {(link.template === 'direct' || link.template === 'scheduling') ? '*' : '(opcional)'}
-                  </label>
-                  <input
-                    type="url"
-                    value={link.url || ''}
-                    onChange={(e) => setLink({ ...link, url: e.target.value })}
-                    placeholder={
-                      link.template === 'scheduling' 
-                        ? 'https://wa.me/5511999999999' 
-                        : link.template === 'paid_access'
-                          ? 'https://seusite.com (opcional)'
-                          : 'https://seusite.com'
-                    }
-                    required={link.template === 'direct' || link.template === 'scheduling'}
-                    className="w-full h-12 px-4 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition"
-                  />
-                  <p className="text-xs text-slate-400 mt-1">
-                    {(link.template === 'paid_access' || link.template === 'digital_product')
-                      ? "Link que o cliente acessará após o pagamento (opcional)" 
-                      : link.template === 'scheduling'
-                        ? "Cole o link do WhatsApp, Telegram ou Calendário"
-                        : "Endereço para onde seus visitantes serão direcionados"}
-                  </p>
-                </div>
-
-                {/* Preço e Upload - só aparece se for pago */}
-                {(link.template === 'paid_access' || link.template === 'digital_product') && (
-                  <div className="space-y-5 animate-in fade-in slide-in-from-top-2 duration-200">
-                    {/* Preço */}
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Preço (R$) *
-                      </label>
-                      <div className="relative">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-medium">R$</span>
-                        <input
-                          type="number"
-                          value={link.price}
-                          onChange={(e) => setLink({ ...link, price: e.target.value })}
-                          placeholder="47,00"
-                          className="w-full h-12 pl-10 pr-4 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition"
-                        />
-                      </div>
-                      <p className="text-xs text-slate-400 mt-1">
-                        O cliente pagará via PIX para ter acesso a este conteúdo
-                      </p>
+                {/* Preço - aparece se for pago */}
+                {isMonetizedTemplate(link.template) && (
+                  <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Preço (R$) *
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-medium">R$</span>
+                      <input
+                        type="number"
+                        value={link.price}
+                        onChange={(e) => setLink({ ...link, price: e.target.value })}
+                        placeholder="47,00"
+                        className="w-full h-12 pl-10 pr-4 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition"
+                      />
                     </div>
-                    
-                    {/* Upload de Arquivo */}
-                    <div className={`rounded-xl p-4 space-y-3 border ${link.template === 'digital_product' ? 'bg-amber-50 border-amber-100' : 'bg-indigo-50 border-indigo-100'}`}>
-                      <div className="flex items-center justify-between">
-                        <label className={`block text-sm font-medium ${link.template === 'digital_product' ? 'text-amber-900' : 'text-indigo-900'}`}>Arquivo para Download {link.template === 'digital_product' ? '(opcional)' : '(só em Produto Digital)'}</label>
-                        <span className={`text-xs ${link.template === 'digital_product' ? 'text-amber-600' : 'text-indigo-600'}`}>Máx 300MB</span>
-                      </div>
-                      
-                      {selectedFile && (
-                        <div className="bg-white rounded-lg p-3 flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="text-2xl">📎</span>
-                            <div>
-                              <p className="text-sm font-medium text-slate-900">{selectedFile.name}</p>
-                              <p className="text-xs text-slate-500">{formatFileSize(selectedFile.size)}</p>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setSelectedFile(null)}
-                            className="text-rose-500 hover:text-rose-700 text-sm font-medium"
-                          >
-                            Remover
-                          </button>
-                        </div>
-                      )}
-                      
-                      {!selectedFile && (
-                        <label className="block">
-                          <span className="sr-only">Escolher arquivo</span>
-                          <input
-                            type="file"
-                            onChange={handleFileChange}
-                            className="block w-full text-sm text-slate-500
-                              file:mr-4 file:py-2 file:px-4
-                              file:rounded-lg file:border-0
-                              file:text-sm file:font-medium
-                              file:bg-amber-100 file:text-amber-700
-                              hover:file:bg-amber-200
-                              cursor-pointer
-                            "
-                          />
-                        </label>
-                      )}
-                      
-                      {fileError && (
-                        <p className="text-xs text-rose-600">{fileError}</p>
-                      )}
-                      
-                      <p className={`text-xs ${link.template === 'digital_product' ? 'text-amber-700' : 'text-indigo-700'}`}>
-                        PDF, imagens, vídeos (MP4, MOV), áudios (MP3), planilhas e documentos.
-                        {link.template === 'digital_product' ? ' O arquivo será enviado ao comprador após o pagamento.' : ' Disponível apenas para Produto Digital.'}
-                      </p>
-                    </div>
+                    <p className="text-xs text-slate-400 mt-1">
+                      O cliente pagará via PIX para ter acesso a este conteúdo
+                    </p>
                   </div>
                 )}
-              </div>
 
-              <div className="flex justify-between mt-8">
+                {/* URL do Link - obrigatória para direct/scheduling, opcional para monetizados */}
+                {(isUrlRequired(link.template) || showAdvancedLinkFields) && (
+                  <div className={isMonetizedTemplate(link.template) ? 'animate-in fade-in slide-in-from-top-2 duration-200' : ''}>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      {getUrlLabel(link.template)}
+                    </label>
+                    <input
+                      type="url"
+                      value={link.url || ''}
+                      onChange={(e) => setLink({ ...link, url: e.target.value })}
+                      placeholder={getUrlPlaceholder(link.template)}
+                      required={isUrlRequired(link.template)}
+                      className="w-full h-12 px-4 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition"
+                    />
+                    <p className="text-xs text-slate-400 mt-1">
+                      {getUrlHelpText(link.template)}
+                    </p>
+                  </div>
+                )}
+
+                {/* Campos avançados: descrição e upload de arquivo */}
+                {showAdvancedLinkFields && (
+                  <div className="space-y-5 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Descrição (opcional)
+                      </label>
+                      <textarea
+                        value={link.description}
+                        onChange={(e) => setLink({ ...link, description: e.target.value })}
+                        placeholder="Breve descrição do link"
+                        rows={2}
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition resize-none"
+                      />
+                    </div>
+
+                    {/* Upload de Arquivo - apenas Produto Digital */}
+                    {link.template === 'digital_product' && (
+                      <div className="rounded-xl p-4 space-y-3 border bg-amber-50 border-amber-100">
+                        <div className="flex items-center justify-between">
+                          <label className="block text-sm font-medium text-amber-900">Arquivo para Download (opcional)</label>
+                          <span className="text-xs text-amber-600">Máx 300MB</span>
+                        </div>
+                        
+                        {selectedFile && (
+                          <div className="bg-white rounded-lg p-3 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="text-2xl">📎</span>
+                              <div>
+                                <p className="text-sm font-medium text-slate-900">{selectedFile.name}</p>
+                                <p className="text-xs text-slate-500">{formatFileSize(selectedFile.size)}</p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedFile(null)}
+                              className="text-rose-500 hover:text-rose-700 text-sm font-medium"
+                            >
+                              Remover
+                            </button>
+                          </div>
+                        )}
+                        
+                        {!selectedFile && (
+                          <label className="block">
+                            <span className="sr-only">Escolher arquivo</span>
+                            <input
+                              type="file"
+                              onChange={handleFileChange}
+                              className="block w-full text-sm text-slate-500
+                                file:mr-4 file:py-2 file:px-4
+                                file:rounded-lg file:border-0
+                                file:text-sm file:font-medium
+                                file:bg-amber-100 file:text-amber-700
+                                hover:file:bg-amber-200
+                                cursor-pointer
+                              "
+                            />
+                          </label>
+                        )}
+                        
+                        {fileError && (
+                          <p className="text-xs text-rose-600">{fileError}</p>
+                        )}
+                        
+                        <p className="text-xs text-amber-700">
+                          PDF, imagens, vídeos (MP4, MOV), áudios (MP3), planilhas e documentos. O arquivo será enviado ao comprador após o pagamento.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Toggle campos avançados (só aparece quando há algo para expandir) */}
+                {link.template !== 'direct' && link.template !== 'scheduling' && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAdvancedLinkFields((v) => !v)}
+                    className="text-sm text-indigo-600 hover:text-indigo-700 font-medium transition"
+                  >
+                    {showAdvancedLinkFields ? 'Ocultar opções avançadas' : 'Mais opções (URL, descrição, arquivo)'}
+                  </button>
+                )}
+              </div>
+                </>
+              )}
+
+              <div className="flex flex-col-reverse sm:flex-row gap-3 sm:gap-0 justify-between mt-8">
                 <button
                   onClick={() => setCurrentStep(0)}
-                  className="inline-flex items-center gap-2 px-4 h-12 text-slate-600 hover:text-slate-900 font-medium transition"
+                  className="inline-flex items-center justify-center gap-2 px-4 h-12 w-full sm:w-auto text-slate-600 hover:text-slate-900 hover:bg-slate-50 font-medium transition"
                 >
                   <IconArrowLeft className="w-4 h-4" />
                   Voltar
                 </button>
-                <div className="flex items-center gap-3">
+                <div className={`flex flex-col sm:flex-row gap-3 ${completedSteps.includes('link') ? 'w-full sm:w-auto' : 'w-full sm:w-auto'}`}>
+                  {!completedSteps.includes('link') && (
+                    <button
+                      onClick={skipStep}
+                      className="inline-flex items-center justify-center gap-2 px-4 h-12 w-full sm:w-auto border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-xl font-medium transition"
+                    >
+                      Criar depois
+                    </button>
+                  )}
                   <button
-                    onClick={skipStep}
-                    className="text-slate-500 hover:text-slate-700 font-medium transition"
+                    onClick={completedSteps.includes('link') ? () => setCurrentStep(2) : handleCreateLink}
+                    disabled={completedSteps.includes('link') ? false : (!link.title.trim() || ((link.template === 'direct' || link.template === 'scheduling') && !link.url.trim()) || ((link.template === 'paid_access' || link.template === 'digital_product') && !link.price) || isCreatingLink || isUploadingFile)}
+                    className="inline-flex items-center justify-center gap-2 px-6 h-12 w-full sm:w-auto bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
                   >
-                    Pular etapa
-                  </button>
-                  <button
-                    onClick={handleCreateLink}
-                    disabled={!link.title.trim() || ((link.template === 'direct' || link.template === 'scheduling') && !link.url.trim()) || ((link.template === 'paid_access' || link.template === 'digital_product') && !link.price) || isCreatingLink || isUploadingFile}
-                    className="inline-flex items-center gap-2 px-6 h-12 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                  >
-                    {isUploadingFile ? (
+                    {completedSteps.includes('link') ? (
+                      <>
+                        Continuar
+                        <IconArrowRight className="w-4 h-4" />
+                      </>
+                    ) : isUploadingFile ? (
                       <>
                         <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                         Enviando arquivo...
@@ -907,20 +970,22 @@ export default function OnboardingPage() {
                     </button>
                   </div>
 
-                  <div className="flex justify-between">
+                  <div className={`${completedSteps.includes('payment') ? 'flex justify-end' : 'flex flex-col-reverse sm:flex-row gap-3 sm:gap-0 justify-between'}`}>
                     <button
                       onClick={() => setCurrentStep(1)}
-                      className="inline-flex items-center gap-2 px-4 h-12 text-slate-600 hover:text-slate-900 font-medium transition"
+                      className="inline-flex items-center justify-center gap-2 px-4 h-12 w-full sm:w-auto text-slate-600 hover:text-slate-900 hover:bg-slate-50 font-medium transition"
                     >
                       <IconArrowLeft className="w-4 h-4" />
                       Voltar
                     </button>
-                    <button
-                      onClick={skipStep}
-                      className="text-slate-500 hover:text-slate-700 font-medium transition"
-                    >
-                      Configurar depois
-                    </button>
+                    {!completedSteps.includes('payment') && (
+                      <button
+                        onClick={skipStep}
+                        className="inline-flex items-center justify-center gap-2 px-4 h-12 w-full sm:w-auto border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-xl font-medium transition"
+                      >
+                        Configurar depois
+                      </button>
+                    )}
                   </div>
                 </>
               )}
@@ -975,115 +1040,140 @@ export default function OnboardingPage() {
                       </div>
                     </div>
 
-                    {/* QR Code Upload */}
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-3">
-                        QR Code (opcional)
-                      </label>
-                      <div className="flex items-start gap-4">
-                        <div className="relative">
-                          <div className="w-28 h-28 rounded-xl overflow-hidden bg-slate-100 border-2 border-slate-200 flex items-center justify-center">
-                            {pixConfig.pixQRCodeImage ? (
-                              <img 
-                                src={pixConfig.pixQRCodeImage} 
-                                alt="QR Code" 
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <svg className="w-10 h-10 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-                              </svg>
-                            )}
-                          </div>
-                        </div>
-                        
-                        <div className="flex-1 space-y-2">
-                          <label className="inline-flex items-center gap-2 px-4 h-10 bg-emerald-600 text-white rounded-lg font-medium text-sm hover:bg-emerald-700 transition cursor-pointer">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                            {pixConfig.pixQRCodeImage ? 'Trocar' : 'Adicionar QR Code'}
-                            <input
-                              type="file"
-                              accept="image/jpeg,image/png,image/webp"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (!file) return;
-                                if (file.size > 2 * 1024 * 1024) {
-                                  alert('A imagem deve ter no máximo 2MB');
-                                  return;
-                                }
-                                const reader = new FileReader();
-                                reader.onload = (event) => {
-                                  const result = event.target?.result as string;
-                                  const img = new Image();
-                                  img.onload = () => {
-                                    const canvas = document.createElement('canvas');
-                                    const MAX_SIZE = 400;
-                                    let width = img.width;
-                                    let height = img.height;
-                                    if (width > height) {
-                                      if (width > MAX_SIZE) {
-                                        height *= MAX_SIZE / width;
-                                        width = MAX_SIZE;
-                                      }
-                                    } else {
-                                      if (height > MAX_SIZE) {
-                                        width *= MAX_SIZE / height;
-                                        height = MAX_SIZE;
-                                      }
-                                    }
-                                    canvas.width = width;
-                                    canvas.height = height;
-                                    const ctx = canvas.getContext('2d');
-                                    ctx?.drawImage(img, 0, 0, width, height);
-                                    const optimizedImage = canvas.toDataURL('image/jpeg', 0.85);
-                                    setPixConfig({ ...pixConfig, pixQRCodeImage: optimizedImage });
-                                  };
-                                  img.src = result;
-                                };
-                                reader.readAsDataURL(file);
-                              }}
-                              className="hidden"
-                            />
+                    {/* QR Code Upload - opção avançada oculta */}
+                    {!showQrCodeField && !pixConfig.pixQRCodeImage && (
+                      <button
+                        type="button"
+                        onClick={() => setShowQrCodeField(true)}
+                        className="text-sm text-indigo-600 hover:text-indigo-700 font-medium transition"
+                      >
+                        Adicionar QR Code (opcional)
+                      </button>
+                    )}
+
+                    {(showQrCodeField || pixConfig.pixQRCodeImage) && (
+                      <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+                        <div className="flex items-center justify-between mb-3">
+                          <label className="block text-sm font-medium text-slate-700">
+                            QR Code (opcional)
                           </label>
-                          
-                          {pixConfig.pixQRCodeImage && (
+                          {!pixConfig.pixQRCodeImage && (
                             <button
                               type="button"
-                              onClick={() => setPixConfig({ ...pixConfig, pixQRCodeImage: '' })}
-                              className="ml-2 inline-flex items-center gap-2 px-4 h-10 border border-rose-200 text-rose-600 rounded-lg font-medium text-sm hover:bg-rose-50 transition"
+                              onClick={() => setShowQrCodeField(false)}
+                              className="text-xs text-slate-400 hover:text-slate-600 transition"
                             >
-                              Remover
+                              Ocultar
                             </button>
                           )}
-                          <p className="text-xs text-slate-400">
-                            JPG, PNG ou WebP. Máx 2MB.
-                          </p>
+                        </div>
+                        <div className="flex items-start gap-4">
+                          <div className="relative">
+                            <div className="w-28 h-28 rounded-xl overflow-hidden bg-slate-100 border-2 border-slate-200 flex items-center justify-center">
+                              {pixConfig.pixQRCodeImage ? (
+                                <img 
+                                  src={pixConfig.pixQRCodeImage} 
+                                  alt="QR Code" 
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <svg className="w-10 h-10 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                                </svg>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <div className="flex-1 space-y-2">
+                            <label className="inline-flex items-center gap-2 px-4 h-10 bg-emerald-600 text-white rounded-lg font-medium text-sm hover:bg-emerald-700 transition cursor-pointer">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                              {pixConfig.pixQRCodeImage ? 'Trocar' : 'Adicionar QR Code'}
+                              <input
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (!file) return;
+                                  if (file.size > 2 * 1024 * 1024) {
+                                    alert('A imagem deve ter no máximo 2MB');
+                                    return;
+                                  }
+                                  const reader = new FileReader();
+                                  reader.onload = (event) => {
+                                    const result = event.target?.result as string;
+                                    const img = new Image();
+                                    img.onload = () => {
+                                      const canvas = document.createElement('canvas');
+                                      const MAX_SIZE = 400;
+                                      let width = img.width;
+                                      let height = img.height;
+                                      if (width > height) {
+                                        if (width > MAX_SIZE) {
+                                          height *= MAX_SIZE / width;
+                                          width = MAX_SIZE;
+                                        }
+                                      } else {
+                                        if (height > MAX_SIZE) {
+                                          width *= MAX_SIZE / height;
+                                          height = MAX_SIZE;
+                                        }
+                                      }
+                                      canvas.width = width;
+                                      canvas.height = height;
+                                      const ctx = canvas.getContext('2d');
+                                      ctx?.drawImage(img, 0, 0, width, height);
+                                      const optimizedImage = canvas.toDataURL('image/jpeg', 0.85);
+                                      setPixConfig({ ...pixConfig, pixQRCodeImage: optimizedImage });
+                                    };
+                                    img.src = result;
+                                  };
+                                  reader.readAsDataURL(file);
+                                }}
+                                className="hidden"
+                              />
+                            </label>
+                            
+                            {pixConfig.pixQRCodeImage && (
+                              <button
+                                type="button"
+                                onClick={() => setPixConfig({ ...pixConfig, pixQRCodeImage: '' })}
+                                className="ml-2 inline-flex items-center gap-2 px-4 h-10 border border-rose-200 text-rose-600 rounded-lg font-medium text-sm hover:bg-rose-50 transition"
+                              >
+                                Remover
+                              </button>
+                            )}
+                            <p className="text-xs text-slate-400">
+                              JPG, PNG ou WebP. Máx 2MB.
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    )}
                   </div>
 
-                  <div className="flex justify-between mt-8">
+                  <div className="flex flex-col-reverse sm:flex-row gap-3 sm:gap-0 justify-between mt-8">
                     <button
                       onClick={() => setPaymentMethod(null)}
-                      className="inline-flex items-center gap-2 px-4 h-12 text-slate-600 hover:text-slate-900 font-medium transition"
+                      className="inline-flex items-center justify-center gap-2 px-4 h-12 w-full sm:w-auto text-slate-600 hover:text-slate-900 hover:bg-slate-50 font-medium transition"
                     >
                       <IconArrowLeft className="w-4 h-4" />
                       Voltar
                     </button>
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={skipStep}
-                        className="text-slate-500 hover:text-slate-700 font-medium transition"
-                      >
-                        Configurar depois
-                      </button>
+                    <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                      {!completedSteps.includes('payment') && (
+                        <button
+                          onClick={skipStep}
+                          className="inline-flex items-center justify-center gap-2 px-4 h-12 w-full sm:w-auto border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-xl font-medium transition"
+                        >
+                          Configurar depois
+                        </button>
+                      )}
                       <button
                         onClick={handleSavePix}
                         disabled={!pixConfig.pixKey || isSavingPix}
-                        className="inline-flex items-center gap-2 px-6 h-12 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                        className="inline-flex items-center justify-center gap-2 px-6 h-12 w-full sm:w-auto bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
                       >
                         {isSavingPix ? (
                           <>
@@ -1149,7 +1239,7 @@ export default function OnboardingPage() {
                       </p>
                       <button
                         onClick={handleOAuthSuccess}
-                        className="inline-flex items-center gap-2 px-6 h-12 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition"
+                        className="inline-flex items-center justify-center gap-2 px-6 h-12 w-full sm:w-auto bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition"
                       >
                         Concluir Onboarding
                         <IconArrowRight className="w-4 h-4" />
@@ -1237,20 +1327,22 @@ export default function OnboardingPage() {
                         )}
                       </button>
 
-                      <div className="flex justify-between mt-6">
+                      <div className={`${completedSteps.includes('payment') ? 'flex justify-end' : 'flex flex-col-reverse sm:flex-row gap-3 sm:gap-0 justify-between'} mt-6`}>
                         <button
                           onClick={() => setPaymentMethod(null)}
-                          className="inline-flex items-center gap-2 px-4 h-12 text-slate-600 hover:text-slate-900 font-medium transition"
+                          className="inline-flex items-center justify-center gap-2 px-4 h-12 w-full sm:w-auto text-slate-600 hover:text-slate-900 hover:bg-slate-50 font-medium transition"
                         >
                           <IconArrowLeft className="w-4 h-4" />
                           Voltar
                         </button>
-                        <button
-                          onClick={skipStep}
-                          className="text-slate-500 hover:text-slate-700 font-medium transition"
-                        >
-                          Configurar depois
-                        </button>
+                        {!completedSteps.includes('payment') && (
+                          <button
+                            onClick={skipStep}
+                            className="inline-flex items-center justify-center gap-2 px-4 h-12 w-full sm:w-auto border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-xl font-medium transition"
+                          >
+                            Configurar depois
+                          </button>
+                        )}
                       </div>
                     </>
                   )}

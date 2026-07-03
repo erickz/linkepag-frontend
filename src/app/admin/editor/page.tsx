@@ -7,6 +7,17 @@ import { useAuth, useProtectedRoute } from '@/hooks/useAuth';
 import { usePageEditor, LinkItem, headerGradients, backgroundOptions, paidLinkAccentColors } from '@/hooks/usePageEditor';
 import { uploadLinkFile, deleteLinkFile } from '@/lib/api';
 import { maskPriceInput, parsePrice, formatPrice, formatUrl, priceToInputValue } from '@/lib/masks';
+import {
+  getDefaultLinkTemplate,
+  getTitlePlaceholder,
+  getUrlLabel,
+  getUrlPlaceholder,
+  getUrlHelpText,
+  isMonetizedTemplate,
+  isUrlRequired,
+  type LinkTemplateId,
+} from '@/lib/link-templates';
+import { LinkTemplateSelector } from '@/components/LinkTemplateSelector';
 import { useSubscription } from '@/hooks/useSubscription';
 import { PlanLimitWarning, PlanUpgradeModal } from '@/components/PlanUpgradeModal';
 import { detectPlatformFromUrl } from '@/lib/platform-detector';
@@ -231,7 +242,8 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [localLinks, setLocalLinks] = useState<LinkItem[]>(links);
   const [isReorderingLocal, setIsReorderingLocal] = useState(false);
-  const [formData, setFormData] = useState({ title: '', description: '', url: '', openInNewTab: true, template: 'direct' as 'direct' | 'paid_access' | 'digital_product' | 'scheduling', price: 0, paymentTimeoutMinutes: 30 });
+  const [formData, setFormData] = useState({ title: '', description: '', url: '', openInNewTab: true, template: getDefaultLinkTemplate(), price: 0, paymentTimeoutMinutes: 30 });
+  const [showAdvancedLinkFields, setShowAdvancedLinkFields] = useState(false);
   
   // Upload de arquivo
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -258,9 +270,10 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
   const canCreatePaid = canCreatePaidLink(paidLinksCount);
 
   const resetForm = () => {
-    setFormData({ title: '', description: '', url: '', openInNewTab: true, template: 'direct', price: 0, paymentTimeoutMinutes: 30 });
+    setFormData({ title: '', description: '', url: '', openInNewTab: true, template: getDefaultLinkTemplate(), price: 0, paymentTimeoutMinutes: 30 });
     setSelectedFile(null);
     setFileError(null);
+    setShowAdvancedLinkFields(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -384,9 +397,11 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
 
   const handleEdit = (link: LinkItem & { hasDeliverableFile?: boolean; deliverableFile?: { originalName: string; size: number; extension: string } | null }) => {
     setEditingLink(link);
-    setFormData({ title: link.title, description: link.description || '', url: link.url || '', openInNewTab: link.openInNewTab ?? true, template: (link.template as any) || 'direct', price: link.price || 0, paymentTimeoutMinutes: link.paymentTimeoutMinutes || 30 });
+    setFormData({ title: link.title, description: link.description || '', url: link.url || '', openInNewTab: link.openInNewTab ?? true, template: (link.template as LinkTemplateId) || getDefaultLinkTemplate(), price: link.price || 0, paymentTimeoutMinutes: link.paymentTimeoutMinutes || 30 });
     setSelectedFile(null);
     setFileError(null);
+    // Expande campos avançados se houver dados neles
+    setShowAdvancedLinkFields(Boolean(link.description?.trim()) || Boolean(link.url?.trim()) || Boolean(link.template === 'digital_product' && link.hasDeliverableFile));
     setShowForm(true);
   };
 
@@ -411,96 +426,88 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
       {!showForm && <button onClick={() => setShowForm(true)} className="w-full bg-indigo-600 text-white px-5 py-3 rounded-xl font-semibold hover:bg-indigo-700 transition shadow-sm flex items-center justify-center gap-2"><span className="text-xl">+</span> Novo Link</button>}
       {showForm && (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-          <h3 className="text-lg font-bold text-slate-900 mb-4">{editingLink ? 'Editar Link' : 'Novo Link'}</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-slate-900">{editingLink ? 'Editar Link' : 'Novo Link'}</h3>
+            {!editingLink && <span className="text-xs text-slate-500">Leva menos de 30 segundos</span>}
+          </div>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="bg-slate-50 rounded-xl p-4 space-y-3">
               <label className="block text-sm font-medium text-slate-700">Tipo de Link</label>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {[
-                  { id: 'direct', label: 'Direto', desc: 'Redireciona para qualquer site', icon: IconLink, color: 'emerald' },
-                  { id: 'digital_product', label: 'Produto Digital', desc: 'Venda arquivos para download', icon: IconDownload, color: 'amber' },
-                  { id: 'paid_access', label: 'Acesso Pago', desc: 'Cobre para liberar um link', icon: IconLock, color: 'indigo' },
-                  { id: 'scheduling', label: 'Agendamento', desc: 'WhatsApp, Telegram, Calendário', icon: IconCalendar, color: 'violet' },
-                ].map((t) => {
-                  const isSelected = formData.template === (t.id as any);
-                  const colors: Record<string, { border: string; bg: string; text: string; iconBg: string; iconText: string }> = {
-                    emerald: { border: 'border-emerald-500', bg: 'bg-emerald-50', text: 'text-emerald-700', iconBg: 'bg-emerald-100', iconText: 'text-emerald-600' },
-                    violet: { border: 'border-violet-500', bg: 'bg-violet-50', text: 'text-violet-700', iconBg: 'bg-violet-100', iconText: 'text-violet-600' },
-                    indigo: { border: 'border-indigo-500', bg: 'bg-indigo-50', text: 'text-indigo-700', iconBg: 'bg-indigo-100', iconText: 'text-indigo-600' },
-                    amber: { border: 'border-amber-500', bg: 'bg-amber-50', text: 'text-amber-700', iconBg: 'bg-amber-100', iconText: 'text-amber-600' },
-                  };
-                  const c = colors[t.color];
-                  return (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => {
-                        setFormData(p => ({ ...p, template: t.id as any }));
-                        if (t.id !== 'digital_product') { setSelectedFile(null); setFileError(null); }
-                      }}
-                      className={`flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all text-center ${isSelected ? `${c.border} ${c.bg} shadow-sm` : 'border-slate-200 bg-white hover:border-slate-300'}`}
-                    >
-                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${isSelected ? c.iconBg : 'bg-slate-100'}`}>
-                        <t.icon className={`w-5 h-5 ${isSelected ? c.iconText : 'text-slate-400'}`} />
-                      </div>
-                      <div>
-                        <p className={`text-xs font-semibold ${isSelected ? c.text : 'text-slate-700'}`}>{t.label}</p>
-                        <p className="text-[10px] text-slate-400 leading-tight mt-0.5">{t.desc}</p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+              <LinkTemplateSelector
+                value={formData.template}
+                onChange={(template) => {
+                  setFormData((p) => ({ ...p, template }));
+                  if (template !== 'digital_product') {
+                    setSelectedFile(null);
+                    setFileError(null);
+                  }
+                }}
+                columns={4}
+                size="sm"
+              />
             </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div><label className="block text-sm font-medium text-slate-700 mb-1">Título *</label><input type="text" value={formData.title} onChange={e => setFormData(p => ({ ...p, title: e.target.value }))} required className="w-full h-10 px-3 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm" placeholder="Ex: Meu Curso" /></div>
-              {(formData.template === 'direct' || formData.template === 'scheduling') && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">URL *</label>
-                  <input 
-                    type="url" 
-                    value={formData.url || ''} 
-                    onChange={e => setFormData(p => ({ ...p, url: e.target.value }))} 
-                    required 
-                    className="w-full h-10 px-3 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm" 
-                    placeholder={formData.template === 'scheduling' ? 'https://wa.me/5511999999999' : 'https://seusite.com'} 
-                  />
-                </div>
-              )}
-              {formData.template === 'paid_access' && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">URL (redireciona após pagamento)</label>
-                  <input 
-                    type="url" 
-                    value={formData.url || ''} 
-                    onChange={e => setFormData(p => ({ ...p, url: e.target.value }))} 
-                    className="w-full h-10 px-3 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm" 
-                    placeholder="https://seusite.com (opcional)" 
-                  />
-                </div>
-              )}
-            </div>
-            <div><label className="block text-sm font-medium text-slate-700 mb-1">Descrição (opcional)</label><input type="text" value={formData.description} onChange={e => setFormData(p => ({ ...p, description: e.target.value }))} className="w-full h-10 px-3 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm" placeholder="Breve descrição" /></div>
-            
-            {(formData.template === 'paid_access' || formData.template === 'digital_product') && (
-              <div className="space-y-4">
-                {/* Preço */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Título *</label>
+                <input
+                  type="text"
+                  value={formData.title}
+                  onChange={(e) => setFormData((p) => ({ ...p, title: e.target.value }))}
+                  required
+                  className="w-full h-10 px-3 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm"
+                  placeholder={getTitlePlaceholder(formData.template)}
+                />
+              </div>
+              {isMonetizedTemplate(formData.template) && (
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Preço (R$) *</label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">R$</span>
-                    <input 
-                      type="text" 
-                      inputMode="decimal" 
-                      value={priceToInputValue(formData.price)} 
-                      onChange={e => setFormData(p => ({ ...p, price: parsePrice(maskPriceInput(e.target.value)) }))} 
-                      required 
-                      className="w-full h-10 pl-10 pr-3 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm" 
-                      placeholder="0,00" 
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={priceToInputValue(formData.price)}
+                      onChange={(e) => setFormData((p) => ({ ...p, price: parsePrice(maskPriceInput(e.target.value)) }))}
+                      required
+                      className="w-full h-10 pl-10 pr-3 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm"
+                      placeholder="0,00"
                     />
                   </div>
                 </div>
-                
+              )}
+            </div>
+
+            {/* URL - obrigatória para direct/scheduling, opcional para monetizados */}
+            {(isUrlRequired(formData.template) || showAdvancedLinkFields) && (
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">{getUrlLabel(formData.template)}</label>
+                <input
+                  type="url"
+                  value={formData.url || ''}
+                  onChange={(e) => setFormData((p) => ({ ...p, url: e.target.value }))}
+                  required={isUrlRequired(formData.template)}
+                  className="w-full h-10 px-3 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm"
+                  placeholder={getUrlPlaceholder(formData.template)}
+                />
+                <p className="text-xs text-slate-400 mt-1">{getUrlHelpText(formData.template)}</p>
+              </div>
+            )}
+
+            {/* Campos avançados: descrição e upload */}
+            {showAdvancedLinkFields && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Descrição (opcional)</label>
+                  <input
+                    type="text"
+                    value={formData.description}
+                    onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))}
+                    className="w-full h-10 px-3 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm"
+                    placeholder="Breve descrição"
+                  />
+                </div>
+
                 {/* Upload de Arquivo - APENAS para Produto Digital */}
                 {formData.template === 'digital_product' && (
                   <div className="bg-amber-50 rounded-xl p-4 space-y-3 border border-amber-100">
@@ -577,13 +584,30 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
                 )}
               </div>
             )}
+
+            {/* Toggle campos avançados */}
+            {formData.template !== 'direct' && formData.template !== 'scheduling' && (
+              <button
+                type="button"
+                onClick={() => setShowAdvancedLinkFields((v) => !v)}
+                className="text-sm text-indigo-600 hover:text-indigo-700 font-medium transition"
+              >
+                {showAdvancedLinkFields
+                  ? 'Ocultar opções avançadas'
+                  : formData.template === 'digital_product'
+                    ? 'Adicionar arquivo, URL ou descrição (opcional)'
+                    : 'Mais opções (URL, descrição)'}
+              </button>
+            )}
             
             <div className="flex items-center gap-2"><input type="checkbox" id="openInNewTab" checked={formData.openInNewTab} onChange={e => setFormData(p => ({ ...p, openInNewTab: e.target.checked }))} className="w-4 h-4 rounded border-slate-300 text-indigo-600" /><label htmlFor="openInNewTab" className="text-sm text-slate-700">Abrir em nova aba</label></div>
             <div className="flex gap-3 pt-2">
               <button type="submit" disabled={isCreating || isUpdating || isUploadingFile} className="flex-1 h-10 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition disabled:opacity-50">
                 {isUploadingFile ? 'Enviando arquivo...' : (isCreating || isUpdating ? 'Salvando...' : (editingLink ? 'Salvar' : 'Criar'))}
               </button>
-              <button type="button" onClick={() => { setShowForm(false); setEditingLink(null); resetForm(); }} className="flex-1 h-10 rounded-lg border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 transition">Cancelar</button>
+              <button type="button" onClick={() => { setShowForm(false); setEditingLink(null); resetForm(); }} className="flex-1 h-10 rounded-lg border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 transition">
+                {editingLink ? 'Cancelar' : 'Criar depois'}
+              </button>
             </div>
           </form>
         </div>

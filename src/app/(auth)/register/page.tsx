@@ -55,9 +55,6 @@ export default function Signup() {
     if (nameParts.length < 2) {
       return 'Digite seu nome e sobrenome';
     }
-    if (nameParts.some(part => part.length < 2)) {
-      return 'Cada palavra do nome deve ter pelo menos 2 caracteres';
-    }
     return '';
   };
 
