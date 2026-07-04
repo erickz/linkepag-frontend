@@ -39,6 +39,9 @@ const Icons = {
   external: "M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14",
   location: "M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z",
   eye: "M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z",
+  eyeOff: "M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21",
+  pencil: "M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z",
+  trash: "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16",
 };
 
 type TabId = 'links' | 'profile' | 'appearance' | 'social';
@@ -405,7 +408,7 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
     setShowForm(true);
   };
 
-  const handleDelete = async (id: string) => { if (!confirm('Tem certeza?')) return; try { await onDelete(id); setMessage({ type: 'success', text: 'Link deletado!' }); } catch (err: any) { setMessage({ type: 'error', text: err.message || 'Erro ao deletar' }); } };
+  const handleDelete = async (id: string) => { if (!confirm('Tem certeza que deseja excluir este link?')) return; try { await onDelete(id); setMessage({ type: 'success', text: 'Link deletado!' }); } catch (err: any) { setMessage({ type: 'error', text: err.message || 'Erro ao deletar' }); } };
 
   const handleMove = async (index: number, direction: 'up' | 'down') => {
     if (isReorderingLocal) return;
@@ -657,6 +660,11 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
                         {(link as LinkItem & { hasDeliverableFile?: boolean }).hasDeliverableFile && (
                           <span title="Possui arquivo para download" className="text-amber-500 text-xs sm:text-sm flex-shrink-0">📎</span>
                         )}
+                        {!link.isActive && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-500 flex-shrink-0">
+                            Inativo
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-1.5 sm:gap-2 text-xs mt-0.5">
                         {link.template === 'paid_access' || link.template === 'digital_product' ? (
@@ -674,17 +682,43 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
                         )}
                       </div>
                     </div>
-                    
-                    {/* Ações - ícones menores no mobile */}
-                    <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
-                      <button onClick={() => onToggle(link.id)} className={`p-1.5 sm:p-2 rounded-lg transition ${link.isActive ? 'text-emerald-600 hover:bg-emerald-50' : 'text-slate-400 hover:bg-slate-100'}`}>
-                        <span className="text-sm sm:text-base">{link.isActive ? '👁️' : '🚫'}</span>
+
+                    {/* Ações */}
+                    <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => onToggle(link.id)}
+                        aria-label={link.isActive ? 'Desativar link' : 'Ativar link'}
+                        className={`inline-flex items-center justify-center min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 sm:h-9 sm:px-3 rounded-lg text-sm font-medium transition ${
+                          link.isActive
+                            ? 'text-emerald-700 hover:bg-emerald-50'
+                            : 'text-slate-500 hover:bg-slate-100'
+                        }`}
+                      >
+                        <Icon
+                          path={link.isActive ? Icons.eye : Icons.eyeOff}
+                          className="w-5 h-5 sm:w-4 sm:h-4"
+                        />
+                        <span className="hidden sm:inline ml-1.5">
+                          {link.isActive ? 'Desativar' : 'Ativar'}
+                        </span>
                       </button>
-                      <button onClick={() => handleEdit(link)} className="p-1.5 sm:p-2 rounded-lg text-indigo-600 hover:bg-indigo-50 transition">
-                        <span className="text-sm sm:text-base">✏️</span>
+
+                      <button
+                        onClick={() => handleEdit(link)}
+                        aria-label="Editar link"
+                        className="inline-flex items-center justify-center min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 sm:h-9 sm:px-3 rounded-lg text-sm font-medium text-indigo-700 hover:bg-indigo-50 transition"
+                      >
+                        <Icon path={Icons.pencil} className="w-5 h-5 sm:w-4 sm:h-4" />
+                        <span className="hidden sm:inline ml-1.5">Editar</span>
                       </button>
-                      <button onClick={() => handleDelete(link.id)} className="p-1.5 sm:p-2 rounded-lg text-rose-500 hover:bg-rose-50 transition">
-                        <span className="text-sm sm:text-base">🗑️</span>
+
+                      <button
+                        onClick={() => handleDelete(link.id)}
+                        aria-label="Excluir link"
+                        className="inline-flex items-center justify-center min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 sm:h-9 sm:px-3 rounded-lg text-sm font-medium text-rose-600 hover:bg-rose-50 transition"
+                      >
+                        <Icon path={Icons.trash} className="w-5 h-5 sm:w-4 sm:h-4" />
+                        <span className="hidden sm:inline ml-1.5">Excluir</span>
                       </button>
                     </div>
                   </div>
