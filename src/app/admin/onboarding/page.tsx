@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth, useProtectedRoute } from '@/hooks/useAuth';
 import { useMpOAuth } from '@/hooks/useMpOAuth';
+import useMask from '@/hooks/useMask';
 import { 
   getProfile, 
   getLinks,
@@ -117,6 +118,21 @@ export default function OnboardingPage() {
     disconnect,
     refreshStatus,
   } = useMpOAuth();
+
+  const { cpfMask, cnpjMask, phoneMask } = useMask();
+
+  const maskPixKey = (value: string, type: string): string => {
+    switch (type) {
+      case 'CPF':
+        return cpfMask(value);
+      case 'CNPJ':
+        return cnpjMask(value);
+      case 'PHONE':
+        return phoneMask(value);
+      default:
+        return value;
+    }
+  };
 
   useProtectedRoute('/login');
 
@@ -1016,7 +1032,7 @@ export default function OnboardingPage() {
                         <input
                           type="text"
                           value={pixConfig.pixKey}
-                          onChange={(e) => setPixConfig({ ...pixConfig, pixKey: e.target.value })}
+                          onChange={(e) => setPixConfig({ ...pixConfig, pixKey: maskPixKey(e.target.value, pixConfig.pixKeyType) })}
                           placeholder="Sua chave PIX"
                           className="w-full h-12 px-4 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 focus:outline-none transition"
                         />

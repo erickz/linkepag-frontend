@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useAuth, useProtectedRoute } from '@/hooks/useAuth';
 import { usePaymentSettings, PaymentMethod } from '@/hooks/usePaymentSettings';
 import { useMpOAuth } from '@/hooks/useMpOAuth';
+import useMask from '@/hooks/useMask';
 import { PageHeader } from '@/components/PageHeader';
 import { 
   IconCreditCard, 
@@ -369,6 +370,8 @@ function PixDirectForm({
   notifyPendingPayments: boolean;
   onChange: (field: 'keyType' | 'key' | 'notifyPendingPayments', value: string | boolean) => void;
 }) {
+  const { cpfMask, cnpjMask, phoneMask } = useMask();
+
   const keyTypeOptions = [
     { value: 'CPF', label: 'CPF', placeholder: 'XXX.XXX.XXX-XX' },
     { value: 'CNPJ', label: 'CNPJ', placeholder: 'XX.XXX.XXX/XXXX-XX' },
@@ -378,6 +381,22 @@ function PixDirectForm({
   ];
 
   const selectedOption = keyTypeOptions.find(opt => opt.value === keyType) || keyTypeOptions[0];
+
+  const handleKeyChange = (value: string) => {
+    let masked = value;
+    switch (keyType) {
+      case 'CPF':
+        masked = cpfMask(value);
+        break;
+      case 'CNPJ':
+        masked = cnpjMask(value);
+        break;
+      case 'PHONE':
+        masked = phoneMask(value);
+        break;
+    }
+    onChange('key', masked);
+  };
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-6">
@@ -414,7 +433,7 @@ function PixDirectForm({
           <input
             type="text"
             value={pixKey}
-            onChange={(e) => onChange('key', e.target.value)}
+            onChange={(e) => handleKeyChange(e.target.value)}
             placeholder={selectedOption.placeholder}
             className="w-full h-11 px-4 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition text-sm"
           />

@@ -50,6 +50,39 @@ interface UsePaymentSettingsReturn {
   selectAndSaveMethod: (method: PaymentMethod) => Promise<void>;
 }
 
+/**
+ * Normaliza a chave PIX antes de enviar ao backend.
+ * Deve ficar sincronizado com backend/src/users/dto/update-profile.dto.ts
+ */
+const normalizePixKey = (keyType: string, key: string): string => {
+  const trimmed = key.trim();
+  if (!trimmed) return trimmed;
+
+  switch (keyType) {
+    case 'CPF':
+    case 'CNPJ':
+      return trimmed.replace(/\D/g, '');
+
+    case 'PHONE': {
+      const digits = trimmed.replace(/\D/g, '');
+      if (digits.length === 13 && digits.startsWith('55')) {
+        return `+${digits}`;
+      }
+      if (digits.length === 11 || digits.length === 10) {
+        return `+55${digits}`;
+      }
+      return digits;
+    }
+
+    case 'EMAIL':
+      return trimmed.toLowerCase();
+
+    case 'RANDOM':
+    default:
+      return trimmed;
+  }
+};
+
 // Validações
 const validatePixKey = (keyType: string, key: string): { valid: boolean; message?: string } => {
   if (!key.trim()) {
@@ -339,7 +372,7 @@ export function usePaymentSettings(): UsePaymentSettingsReturn {
 
         // Salvar dados PIX (NÃO limpa o MP)
         await updateProfile({
-          pixKey: pixDirect.key,
+          pixKey: normalizePixKey(pixDirect.keyType, pixDirect.key),
           pixKeyType: pixDirect.keyType,
           pixQRCodeImage: pixDirect.qrCodeImage,
           notifyPendingPayments: pixDirect.notifyPendingPayments,
