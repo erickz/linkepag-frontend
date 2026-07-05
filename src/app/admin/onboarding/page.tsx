@@ -58,6 +58,75 @@ const steps: OnboardingStep[] = [
   },
 ];
 
+/**
+ * Normaliza a chave PIX antes de enviar ao backend.
+ * Deve ficar sincronizado com backend/src/users/dto/update-profile.dto.ts
+ */
+const normalizePixKey = (keyType: string, key: string): string => {
+  const trimmed = key.trim();
+  if (!trimmed) return trimmed;
+
+  switch (keyType) {
+    case 'CPF':
+    case 'CNPJ':
+      return trimmed.replace(/\D/g, '');
+
+    case 'PHONE': {
+      const digits = trimmed.replace(/\D/g, '');
+      if (digits.length === 13 && digits.startsWith('55')) {
+        return `+${digits}`;
+      }
+      if (digits.length === 11 || digits.length === 10) {
+        return `+55${digits}`;
+      }
+      return digits;
+    }
+
+    case 'EMAIL':
+      return trimmed.toLowerCase();
+
+    case 'RANDOM':
+    default:
+      return trimmed;
+  }
+};
+
+const validatePixKey = (keyType: string, key: string): { valid: boolean; message?: string } => {
+  if (!key.trim()) {
+    return { valid: false, message: 'Chave PIX é obrigatória' };
+  }
+
+  switch (keyType) {
+    case 'CPF':
+      if (!/^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(key) && !/^\d{11}$/.test(key)) {
+        return { valid: false, message: 'CPF deve estar no formato XXX.XXX.XXX-XX ou XXXXXXXXXXX' };
+      }
+      break;
+    case 'CNPJ':
+      if (!/^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/.test(key) && !/^\d{14}$/.test(key)) {
+        return { valid: false, message: 'CNPJ deve estar no formato XX.XXX.XXX/XXXX-XX ou XXXXXXXXXXXXXX' };
+      }
+      break;
+    case 'EMAIL':
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(key)) {
+        return { valid: false, message: 'Email inválido' };
+      }
+      break;
+    case 'PHONE':
+      if (!/^\(\d{2}\)\s?\d{4,5}-\d{4}$/.test(key) && !/^\d{10,11}$/.test(key)) {
+        return { valid: false, message: 'Telefone deve estar no formato (XX) XXXXX-XXXX' };
+      }
+      break;
+    case 'RANDOM':
+      if (!/^[a-zA-Z0-9-]{32,}$/.test(key)) {
+        return { valid: false, message: 'Chave aleatória inválida' };
+      }
+      break;
+  }
+
+  return { valid: true };
+};
+
 export default function OnboardingPage() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
@@ -152,12 +221,15 @@ export default function OnboardingPage() {
     }
   }, [searchParams, refreshStatus]);
 
-  // Atualiza completedSteps quando OAuth estiver conectado
+  // Atualiza completedSteps e paymentMethod quando OAuth estiver conectado
   useEffect(() => {
     if (oauthStatus === 'connected') {
       setCompletedSteps(prev => [...new Set([...prev, 'payment'])]);
+      if (!paymentMethod) {
+        setPaymentMethod('mercadopago');
+      }
     }
-  }, [oauthStatus]);
+  }, [oauthStatus, paymentMethod]);
 
   const loadProfile = async () => {
     try {
@@ -172,7 +244,7 @@ export default function OnboardingPage() {
       if (data.displayName) {
         setCompletedSteps(prev => [...new Set([...prev, 'profile'])]);
       }
-      // Detecta configuração de pagamento PIX já existente
+      // Detecta configuração de pagamento já existente
       if (data.pixKey) {
         setPixConfig({
           pixKey: data.pixKey,
@@ -182,6 +254,10 @@ export default function OnboardingPage() {
         if (data.pixQRCodeImage) {
           setShowQrCodeField(true);
         }
+        setPaymentMethod('pix');
+        setCompletedSteps(prev => [...new Set([...prev, 'payment'])]);
+      } else if (data.activePaymentMethod === 'mercadopago' || data.mercadoPagoConfigured) {
+        setPaymentMethod('mercadopago');
         setCompletedSteps(prev => [...new Set([...prev, 'payment'])]);
       }
     } catch (err) {
@@ -331,13 +407,20 @@ export default function OnboardingPage() {
 
   const handleSavePix = async () => {
     if (!pixConfig.pixKey) return;
+
+    const validation = validatePixKey(pixConfig.pixKeyType, pixConfig.pixKey);
+    if (!validation.valid) {
+      alert(validation.message || 'Chave PIX inválida');
+      return;
+    }
     
     setIsSavingPix(true);
     try {
       await updateProfile({
-        pixKey: pixConfig.pixKey,
+        pixKey: normalizePixKey(pixConfig.pixKeyType, pixConfig.pixKey),
         pixKeyType: pixConfig.pixKeyType,
         pixQRCodeImage: pixConfig.pixQRCodeImage || undefined,
+        activePaymentMethod: 'pix_direct',
       });
       setCompletedSteps(prev => [...new Set([...prev, 'payment'])]);
       // Onboarding completo!
@@ -942,7 +1025,7 @@ export default function OnboardingPage() {
               </div>
 
               {/* Payment Method Selection */}
-              {!paymentMethod && oauthStatus !== 'connected' && (
+              {!paymentMethod && oauthStatus !== 'connected' && !pixConfig.pixKey && (
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                     {/* PIX Option */}
@@ -1319,7 +1402,7 @@ export default function OnboardingPage() {
 
                       {/* Botão de conectar */}
                       <button
-                        onClick={initiateConnection}
+                        onClick={() => initiateConnection('/admin/onboarding')}
                         disabled={isConnecting}
                         className="w-full h-12 px-4 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-cyan-600 transition disabled:opacity-50 flex items-center justify-center gap-2 mb-4"
                       >

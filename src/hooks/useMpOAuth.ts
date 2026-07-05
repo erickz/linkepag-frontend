@@ -20,7 +20,7 @@ export interface UseMpOAuthReturn {
   hasLegacyCredentials: boolean;
   isConnecting: boolean;
   isDisconnecting: boolean;
-  initiateConnection: () => Promise<void>;
+  initiateConnection: (returnUrl?: string) => Promise<void>;
   disconnect: () => Promise<void>;
   refreshStatus: () => Promise<void>;
   error?: string;
@@ -65,17 +65,20 @@ export function useMpOAuth(): UseMpOAuthReturn {
   }, [checkStatus]);
 
   // Inicia o fluxo OAuth - redireciona para o MercadoPago
-  const initiateConnection = useCallback(async () => {
+  const initiateConnection = useCallback(async (returnUrl?: string) => {
     setIsConnecting(true);
     setError(undefined);
 
     try {
-      const response = await apiInitiateMpOAuth();
+      const response = await apiInitiateMpOAuth(returnUrl);
       
       if (response.authUrl) {
         // Salva estado temporário no sessionStorage para recuperar após callback
         sessionStorage.setItem('mp_oauth_pending', 'true');
         sessionStorage.setItem('mp_oauth_timestamp', Date.now().toString());
+        if (returnUrl) {
+          sessionStorage.setItem('mp_oauth_return_url', returnUrl);
+        }
         
         // Redireciona para o MercadoPago
         window.location.href = response.authUrl;

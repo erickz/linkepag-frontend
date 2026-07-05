@@ -639,7 +639,16 @@ export default function PixCheckout({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           </div>
-          <p className="text-slate-900 font-medium mb-1">Pagamento temporariamente indisponível</p>
+          <p className="text-slate-900 font-medium mb-1">
+            {!canReceivePayments && (mercadoPagoConfigured || pixConfigured)
+              ? 'Pagamento temporariamente indisponível'
+              : 'Pagamento temporariamente indisponível'}
+          </p>
+          <p className="text-sm text-slate-500 px-4">
+            {!canReceivePayments && (mercadoPagoConfigured || pixConfigured)
+              ? 'O criador precisa regularizar pendências para voltar a receber pagamentos.'
+              : 'O criador ainda não configurou um método de recebimento.'}
+          </p>
         </div>
       )}
 

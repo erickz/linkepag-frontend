@@ -53,16 +53,13 @@ export interface CycleSummary {
 }
 
 export interface BillingStatus {
-  status: 'active' | 'grace_period' | 'suspended';
-  cycleEndDate: string;
-  gracePeriodEndDate?: string;
-  daysRemaining: number;
-  totalFees: number;
-  totalFeesAccrued: number;
-  totalFeesDebt: number;
-  totalFeesPending: number;
-  alertLevel: 'none' | 'warning' | 'critical';
-  actionRequired: boolean;
+  status: 'active' | 'grace_period' | 'expired' | 'suspended' | 'none';
+  daysRemaining: number | null;
+  currentBalance: number;
+  feesDebt: number;
+  canReceivePayments: boolean;
+  isCheckoutBlocked: boolean;
+  blockReason?: string;
 }
 
 export interface BillingAlert {
@@ -267,6 +264,7 @@ export async function createBillingPayment(
 export async function canReceivePayments(): Promise<{
   success: boolean;
   canReceive: boolean;
+  isCheckoutBlocked: boolean;
   reason?: string;
 }> {
   const response = await fetch(`${API_BASE_URL}/billing/status`, {
@@ -279,11 +277,13 @@ export async function canReceivePayments(): Promise<{
     throw new Error(error.message || 'Erro ao verificar permissões');
   }
 
-  const data = await response.json();
+  const json = await response.json();
+  const data = json.data || json;
   return {
     success: true,
-    canReceive: data.canReceive,
-    reason: data.reason,
+    canReceive: data.canReceivePayments ?? !data.isCheckoutBlocked,
+    isCheckoutBlocked: data.isCheckoutBlocked ?? false,
+    reason: data.blockReason,
   };
 }
 

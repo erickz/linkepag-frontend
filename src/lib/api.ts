@@ -982,10 +982,14 @@ export async function submitContactForm(data: {
 
 // ============ MERCADO PAGO OAUTH ============
 
-export async function initiateMpOAuth() {
+export async function initiateMpOAuth(returnUrl?: string) {
   const response = await fetch(`${API_BASE_URL}/mp-oauth/initiate`, {
     method: 'POST',
-    headers: getAuthHeaders(),
+    headers: {
+      ...getAuthHeaders(),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(returnUrl ? { returnUrl } : {}),
   });
 
   if (!response.ok) {

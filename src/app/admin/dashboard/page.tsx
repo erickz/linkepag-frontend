@@ -52,8 +52,6 @@ export default function AdminDashboard() {
   const [isLoadingMP, setIsLoadingMP] = useState(true);
   const [planExpiringSoon, setPlanExpiringSoon] = useState(false);
   const [daysUntilExpiry, setDaysUntilExpiry] = useState<number | null>(null);
-  const [hasPendingFees, setHasPendingFees] = useState(false);
-  const [pendingFeesAmount, setPendingFeesAmount] = useState(0);
   const [salesReport, setSalesReport] = useState<SalesReport | null>(null);
   const [isLoadingSales, setIsLoadingSales] = useState(true);
   const [pendingCount, setPendingCount] = useState(0);
@@ -86,7 +84,6 @@ export default function AdminDashboard() {
       loadMercadoPagoStatus();
       loadSalesReport();
       loadPendingPaymentsCount();
-      loadPendingFees();
     }
   }, [isAuthenticated]);
 
@@ -150,27 +147,6 @@ export default function AdminDashboard() {
     }
   }, [profile]);
 
-  const loadPendingFees = async () => {
-    try {
-      // Busca taxas pendentes via billing
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/billing/status`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        const pendingAmount = data.data?.totalFeesPending || data.data?.totalFees || 0;
-        setPendingFeesAmount(pendingAmount);
-        setHasPendingFees(pendingAmount > 0);
-      }
-    } catch (err) {
-      console.error('Erro ao carregar taxas pendentes:', err);
-    }
-  };
-
   const loadPendingPaymentsCount = async () => {
     try {
       setIsLoadingPending(true);
@@ -225,9 +201,6 @@ export default function AdminDashboard() {
         breadcrumbs={[{ label: 'Dashboard' }]}
       />
 
-      {/* Billing Alert - abaixo do título */}
-      <BillingAlert />
-
       {/* Public URL Card - Non clickable info card */}
       {profile?.username && (
         <div className="mb-8 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-6 text-white shadow-lg shadow-indigo-200">
@@ -262,32 +235,7 @@ export default function AdminDashboard() {
 
       {/* Alertas de Plano e Taxas Pendentes */}
       <div className="space-y-3 mb-6">
-        {/* Alerta de valores pendentes - Warning (sutil) */}
-        {hasPendingFees && pendingFeesAmount > 0 && (
-          <Link 
-            href="/admin/plans"
-            className="block bg-amber-50/70 border border-amber-200/70 rounded-xl p-4 hover:bg-amber-100/70 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-                <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-amber-900">
-                  Você tem {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(pendingFeesAmount)} em taxas pendentes
-                </p>
-                <p className="text-sm text-amber-700 mt-0.5">
-                  Clique para regularizar e evitar bloqueio dos seus links
-                </p>
-              </div>
-              <div className="text-amber-400">
-                <IconArrowRight className="w-5 h-5" />
-              </div>
-            </div>
-          </Link>
-        )}
+        <BillingAlert />
 
         {/* Alerta sutil de plano expirando */}
         {planExpiringSoon && daysUntilExpiry !== null && (

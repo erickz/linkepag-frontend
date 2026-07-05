@@ -155,7 +155,7 @@ export function usePaymentSettings(): UsePaymentSettingsReturn {
       keyType: 'EMAIL',
       key: '',
       qrCodeImage: '',
-      notifyPendingPayments: false,
+      notifyPendingPayments: true,
     },
     isLoading: true,
     isSaving: false,
@@ -202,7 +202,7 @@ export function usePaymentSettings(): UsePaymentSettingsReturn {
           keyType: profileData.pixKeyType || 'EMAIL',
           key: profileData.pixKey || '',
           qrCodeImage: profileData.pixQRCodeImage || '',
-          notifyPendingPayments: profileData.notifyPendingPayments || false,
+          notifyPendingPayments: profileData.notifyPendingPayments ?? true,
         },
         isLoading: false,
       }));
