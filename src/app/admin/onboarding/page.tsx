@@ -663,7 +663,7 @@ export default function OnboardingPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Username
+                    Username <span className="text-slate-400 font-normal">(opcional)</span>
                   </label>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">@</span>
@@ -682,7 +682,7 @@ export default function OnboardingPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Bio
+                    Bio <span className="text-slate-400 font-normal">(opcional)</span>
                   </label>
                   <textarea
                     value={profile.bio}
