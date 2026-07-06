@@ -599,13 +599,13 @@ export default function PixCheckout({
   return (
     <div className="mt-4 bg-slate-50 rounded-2xl border border-slate-200 p-5 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="text-base font-semibold text-slate-900">{title}</h3>
-          <div className="text-2xl font-bold text-indigo-600">R$ {formatPrice(price)}</div>
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-4">
+        <div className="flex-1 min-w-0">
+          <h3 className="text-base font-semibold text-slate-900 break-words">{title}</h3>
+          <div className="text-2xl font-bold text-indigo-600 whitespace-nowrap">R$ {formatPrice(price)}</div>
         </div>
         {(status === 'pending' || status === 'awaiting_confirmation') && (
-          <div className="flex items-center gap-1 text-amber-600 text-sm font-medium">
+          <div className="flex items-center gap-1 text-amber-600 text-sm font-medium flex-shrink-0">
             <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></span>
             Aguardando
           </div>

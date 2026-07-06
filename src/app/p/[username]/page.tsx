@@ -528,27 +528,27 @@ export default function PublicPage() {
               </div>
 
               {/* Name & Info */}
-              <div className="text-center mb-6">
-                <h1 className="text-2xl sm:text-3xl font-bold mb-1 text-slate-900">
+              <div className="text-center mb-6 min-w-0">
+                <h1 className="text-2xl sm:text-3xl font-bold mb-1 text-slate-900 break-words">
                   @{username}
                 </h1>
-                
+
                 {profileData.displayName && (
-                  <p className="text-lg text-indigo-600 font-medium mb-2">
+                  <p className="text-lg text-indigo-600 font-medium mb-2 break-words">
                     {profileData.displayName}
                   </p>
                 )}
-                
+
                 {profileData.bio && (
-                  <p className="text-slate-600 text-sm sm:text-base leading-relaxed max-w-md mx-auto">
+                  <p className="text-slate-600 text-sm sm:text-base leading-relaxed max-w-md mx-auto break-words">
                     {profileData.bio}
                   </p>
                 )}
-                
+
                 {profileData.location && (
                   <div className="flex items-center justify-center gap-1.5 text-slate-400 text-sm mt-2">
-                    <IconLocation className="w-4 h-4" />
-                    <span>{profileData.location}</span>
+                    <IconLocation className="w-4 h-4 flex-shrink-0" />
+                    <span className="break-words">{profileData.location}</span>
                   </div>
                 )}
               </div>

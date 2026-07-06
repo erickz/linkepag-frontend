@@ -138,7 +138,6 @@ export default function OnboardingPage() {
   const [profile, setProfile] = useState({
     displayName: '',
     username: '',
-    location: '',
     bio: '',
     profilePhoto: '',
   });
@@ -237,7 +236,6 @@ export default function OnboardingPage() {
       setProfile({
         displayName: data.displayName || user?.fullName?.split(' ')[0] || '',
         username: data.username || '',
-        location: data.location || '',
         bio: data.bio || '',
         profilePhoto: data.profilePhoto || '',
       });
@@ -286,7 +284,6 @@ export default function OnboardingPage() {
       // Atualiza dados do perfil (exceto username que tem endpoint separado)
       await updateProfile({
         displayName: profile.displayName,
-        location: profile.location || undefined,
         bio: profile.bio,
         profilePhoto: profile.profilePhoto,
       });
@@ -564,29 +561,29 @@ export default function OnboardingPage() {
                   <label className="block text-sm font-medium text-slate-700 mb-3">
                     Foto de perfil
                   </label>
-                  <div className="flex items-start gap-4">
-                    <div className="relative">
-                      <div className="w-20 h-20 rounded-2xl overflow-hidden bg-gradient-to-br from-indigo-100 to-purple-100 border-2 border-slate-200 flex items-center justify-center">
+                  <div className="flex flex-col sm:flex-row items-start gap-4">
+                    <div className="relative flex-shrink-0">
+                      <div className="w-24 h-24 rounded-2xl overflow-hidden bg-gradient-to-br from-indigo-100 to-purple-100 border-2 border-slate-200 flex items-center justify-center">
                         {profile.profilePhoto ? (
-                          <img 
-                            src={profile.profilePhoto} 
-                            alt="Preview" 
+                          <img
+                            src={profile.profilePhoto}
+                            alt="Preview"
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <svg className="w-8 h-8 text-indigo-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-10 h-10 text-indigo-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                           </svg>
                         )}
                       </div>
                     </div>
-                    <div className="flex-1 space-y-2">
-                      <div className="flex gap-2">
-                        <label className="inline-flex items-center gap-2 px-4 h-10 bg-indigo-600 text-white rounded-lg font-medium text-sm hover:bg-indigo-700 transition cursor-pointer">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <label className="inline-flex items-center justify-center gap-2 px-4 h-10 bg-indigo-600 text-white rounded-lg font-medium text-sm hover:bg-indigo-700 transition cursor-pointer">
+                          <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                           </svg>
-                          Escolher foto
+                          <span className="truncate">Escolher foto</span>
                           <input
                             type="file"
                             accept="image/jpeg,image/png,image/webp"
@@ -635,12 +632,12 @@ export default function OnboardingPage() {
                           <button
                             type="button"
                             onClick={() => setProfile({ ...profile, profilePhoto: '' })}
-                            className="inline-flex items-center gap-2 px-4 h-10 border border-rose-200 text-rose-600 rounded-lg font-medium text-sm hover:bg-rose-50 transition"
+                            className="inline-flex items-center justify-center gap-2 px-4 h-10 border border-rose-200 text-rose-600 rounded-lg font-medium text-sm hover:bg-rose-50 transition"
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                             </svg>
-                            Remover
+                            <span className="truncate">Remover</span>
                           </button>
                         )}
                       </div>
@@ -664,49 +661,23 @@ export default function OnboardingPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Username
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">@</span>
-                      <input
-                        type="text"
-                        value={profile.username}
-                        onChange={(e) => setProfile({ ...profile, username: e.target.value.replace(/[^a-zA-Z0-9_]/g, '').toLowerCase() })}
-                        placeholder="seuusername"
-                        className="w-full h-12 pl-9 pr-4 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition"
-                      />
-                    </div>
-                    <p className="text-xs text-slate-400 mt-1">
-                      Sua URL personalizada
-                    </p>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Username
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">@</span>
+                    <input
+                      type="text"
+                      value={profile.username}
+                      onChange={(e) => setProfile({ ...profile, username: e.target.value.replace(/[^a-zA-Z0-9_]/g, '').toLowerCase() })}
+                      placeholder="seuusername"
+                      className="w-full h-12 pl-9 pr-4 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition"
+                    />
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Localização
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                      </span>
-                      <input
-                        type="text"
-                        value={profile.location}
-                        onChange={(e) => setProfile({ ...profile, location: e.target.value })}
-                        placeholder="São Paulo, Brasil"
-                        className="w-full h-12 pl-10 pr-4 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition"
-                      />
-                    </div>
-                    <p className="text-xs text-slate-400 mt-1">
-                      Onde você está baseado
-                    </p>
-                  </div>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Sua URL personalizada
+                  </p>
                 </div>
 
                 <div>

@@ -205,13 +205,13 @@ function LinkButtonComponent({
     if (isMonetized) {
       // Sempre mostra o preço e botão Comprar/Fechar
       return (
-        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-          <span className={`text-sm sm:text-xl font-bold ${accentColor?.textClass || 'text-amber-400'}`}>
+        <div className="flex flex-col sm:flex-row sm:items-center items-end gap-1 sm:gap-2 flex-shrink-0 min-w-0">
+          <span className={`text-sm sm:text-xl font-bold ${accentColor?.textClass || 'text-amber-400'} whitespace-nowrap`}>
             R$ {formatPrice(link.price || 0)}
           </span>
-          <div className={`px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl font-bold text-xs shadow-sm transition whitespace-nowrap ${
-            isExpanded 
-              ? 'bg-slate-600 text-white hover:bg-slate-500' 
+          <div className={`px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl font-bold text-xs shadow-sm transition whitespace-nowrap ${
+            isExpanded
+              ? 'bg-slate-600 text-white hover:bg-slate-500'
               : 'bg-white text-slate-600 hover:bg-slate-50'
           }`}>
             {isExpanded ? 'Fechar' : 'Comprar'}
@@ -219,7 +219,7 @@ function LinkButtonComponent({
         </div>
       );
     }
-    
+
     return (
       <div className={`
         w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0
@@ -234,8 +234,9 @@ function LinkButtonComponent({
     <div className="relative">
       <button
         onClick={handleLinkClick}
+        title={link.title}
         className={`
-          flex items-center gap-2 sm:gap-4 w-full px-3 sm:px-5 py-3 sm:py-4 rounded-2xl 
+          flex items-stretch gap-2 sm:gap-4 w-full px-3 sm:px-5 py-3 sm:py-4 rounded-2xl
           transition-all duration-200 active:scale-[0.98] cursor-pointer text-left
           ${buttonClasses}
         `}
@@ -248,21 +249,21 @@ function LinkButtonComponent({
         `}>
           <IconComponent className="w-4 h-4 sm:w-5 sm:h-5" />
         </div>
-        
-        {/* Content - texto completo com quebra automática */}
-        <div className="flex-1 min-w-0 py-0.5">
-          <div className="font-semibold text-sm sm:text-base leading-snug break-words">
+
+        {/* Content - texto limitado a 2 linhas para não explodir o layout */}
+        <div className="flex-1 min-w-0 self-center py-0.5">
+          <div className="font-semibold text-sm sm:text-base leading-snug break-words line-clamp-2">
             {link.title}
           </div>
           {link.description && (
-            <div className={`text-xs mt-1 leading-relaxed break-words ${isMonetized ? 'text-white/70' : 'text-slate-500'}`}>
+            <div className={`text-xs mt-1 leading-relaxed break-words line-clamp-2 ${isMonetized ? 'text-white/70' : 'text-slate-500'}`}>
               {link.description}
             </div>
           )}
         </div>
-        
+
         {/* Right Side - centralizado verticalmente */}
-        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 self-center">
+        <div className="flex items-center flex-shrink-0 self-center">
           {rightSideContent}
         </div>
       </button>
