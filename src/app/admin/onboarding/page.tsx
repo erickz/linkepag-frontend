@@ -31,7 +31,7 @@ import {
   type LinkTemplateId,
 } from '@/lib/link-templates';
 import { LinkTemplateSelector } from '@/components/LinkTemplateSelector';
-import { IconCheck, IconArrowRight, IconArrowLeft, IconUser, IconCreditCard, IconLink, IconAlert, IconHelp, IconRefresh, IconUnlink, IconUpload } from '@/components/icons';
+import { IconCheck, IconArrowRight, IconArrowLeft, IconUser, IconCreditCard, IconLink, IconAlert, IconHelp, IconRefresh, IconUnlink, IconUpload, IconChevronDown } from '@/components/icons';
 
 interface OnboardingStep {
   id: string;
@@ -180,6 +180,7 @@ export default function OnboardingPage() {
   });
   const [isSavingPix, setIsSavingPix] = useState(false);
   const [showQrCodeField, setShowQrCodeField] = useState(false);
+  const [showPixFlow, setShowPixFlow] = useState(false);
 
   // MercadoPago OAuth (novo fluxo)
   const {
@@ -524,7 +525,7 @@ export default function OnboardingPage() {
                           : 'bg-white text-slate-600 border border-slate-200 hover:border-indigo-300'
                     }`}
                   >
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
                       isCurrent ? 'bg-white/20' : isCompleted ? 'bg-emerald-200' : 'bg-slate-100'
                     }`}>
                       {isCompleted ? (
@@ -552,11 +553,16 @@ export default function OnboardingPage() {
           {currentStep === 0 && (
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-8 animate-in fade-in slide-in-from-right-4 duration-300">
               <div className="flex items-center gap-4 mb-6">
-                <div className="w-14 h-14 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                <div className="w-14 h-14 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center flex-shrink-0">
                   <IconUser className="w-7 h-7" />
                 </div>
-                <div>
-                  <h2 className="text-xl font-bold text-slate-900">{steps[0].title}</h2>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-1">
+                    <h2 className="text-xl font-bold text-slate-900">{steps[0].title}</h2>
+                    <span className="inline-flex items-center self-start px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 flex-shrink-0">
+                      Etapa 1 de 3
+                    </span>
+                  </div>
                   <p className="text-slate-500">{steps[0].description}</p>
                 </div>
               </div>
@@ -738,13 +744,13 @@ export default function OnboardingPage() {
           {currentStep === 1 && (
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-8 animate-in fade-in slide-in-from-right-4 duration-300">
               <div className="flex items-center gap-4 mb-6">
-                <div className="w-14 h-14 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center">
+                <div className="w-14 h-14 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center flex-shrink-0">
                   <IconLink className="w-7 h-7" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-1">
                     <h2 className="text-xl font-bold text-slate-900">Crie seu primeiro link</h2>
-                    <span className="inline-flex items-center self-start px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+                    <span className="inline-flex items-center self-start px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 flex-shrink-0">
                       Etapa 2 de 3
                     </span>
                   </div>
@@ -755,7 +761,7 @@ export default function OnboardingPage() {
               {/* Estado: usuário já tem links */}
               {existingLinks.length > 0 && !showNewLinkForm && (
                 <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-6 text-center animate-in fade-in slide-in-from-top-2 duration-200">
-                  <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-3">
+                  <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0 mx-auto mb-3">
                     <IconCheck className="w-6 h-6" />
                   </div>
                   <h3 className="font-bold text-slate-900 mb-1">
@@ -801,7 +807,7 @@ export default function OnboardingPage() {
                     ) : selectedTemplate && selectedTemplateConfig && selectedColor ? (
                       <div className={`rounded-xl p-4 border ${selectedColor.border} ${selectedColor.bg} animate-in fade-in slide-in-from-top-2 duration-200`}>
                         <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${selectedColor.iconBg}`}>
+                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${selectedColor.iconBg}`}>
                             <selectedTemplateConfig.icon className={`w-5 h-5 ${selectedColor.iconText}`} />
                           </div>
                           <div className="flex-1 min-w-0">
@@ -886,7 +892,7 @@ export default function OnboardingPage() {
                       {link.template === 'digital_product' && (
                         <div className="rounded-xl p-5 space-y-4 border-2 border-dashed bg-amber-50 border-amber-200 animate-in fade-in slide-in-from-top-2 duration-200">
                           <div className="flex items-start gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center">
+                            <div className="w-10 h-10 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center flex-shrink-0">
                               <IconUpload className="w-5 h-5" />
                             </div>
                             <div>
@@ -1028,11 +1034,16 @@ export default function OnboardingPage() {
           {currentStep === 2 && (
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-8 animate-in fade-in slide-in-from-right-4 duration-300">
               <div className="flex items-center gap-4 mb-6">
-                <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0">
                   <IconCreditCard className="w-7 h-7" />
                 </div>
-                <div>
-                  <h2 className="text-xl font-bold text-slate-900">Como você quer receber?</h2>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-1">
+                    <h2 className="text-xl font-bold text-slate-900">Como você quer receber?</h2>
+                    <span className="inline-flex items-center self-start px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 flex-shrink-0">
+                      Etapa 3 de 3
+                    </span>
+                  </div>
                   <p className="text-slate-500">
                     {paymentMethod === 'pix'
                       ? 'Com o PIX Direto, você confirma manualmente cada pagamento para liberar o conteúdo.'
@@ -1052,7 +1063,7 @@ export default function OnboardingPage() {
                       onClick={() => setPaymentMethod('pix')}
                       className="p-5 rounded-2xl border-2 border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/60 transition text-left group"
                     >
-                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center mb-3 sm:mb-4 group-hover:bg-emerald-200 transition">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0 mb-3 sm:mb-4 group-hover:bg-emerald-200 transition">
                         <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
@@ -1072,7 +1083,7 @@ export default function OnboardingPage() {
                       onClick={() => setPaymentMethod('mercadopago')}
                       className="p-5 rounded-2xl border-2 border-slate-200 hover:border-indigo-500 hover:bg-indigo-50/60 transition text-left group"
                     >
-                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center mb-3 sm:mb-4 group-hover:bg-indigo-200 transition">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center flex-shrink-0 mb-3 sm:mb-4 group-hover:bg-indigo-200 transition">
                         <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                         </svg>
@@ -1111,28 +1122,6 @@ export default function OnboardingPage() {
               {/* PIX Configuration Form */}
               {paymentMethod === 'pix' && (
                 <>
-                  {/* PIX Direct Flow Timeline */}
-                  <div className="mb-6">
-                    <h4 className="text-sm font-semibold text-slate-700 mb-3">Como funciona o PIX Direto</h4>
-                    <ol className="space-y-3">
-                      <li className="flex items-start gap-3">
-                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">1</span>
-                        <p className="text-sm text-slate-600">Seu cliente clica no link e vê sua chave PIX ou QR Code.</p>
-                      </li>
-                      <li className="flex items-start gap-3">
-                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">2</span>
-                        <p className="text-sm text-slate-600">Ele faz o PIX direto para você.</p>
-                      </li>
-                      <li className="flex items-start gap-3">
-                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">3</span>
-                        <p className="text-sm text-slate-600">Você recebe o aviso e confirma o pagamento no painel.</p>
-                      </li>
-                      <li className="flex items-start gap-3">
-                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">4</span>
-                        <p className="text-sm text-slate-600">Pronto: o acesso ou arquivo é liberado para o comprador.</p>
-                      </li>
-                    </ol>
-                  </div>
 
                   <div className="space-y-5">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1165,6 +1154,50 @@ export default function OnboardingPage() {
                           <option value="RANDOM">Chave Aleatória</option>
                         </select>
                       </div>
+                    </div>
+
+                    {/* Como funciona o PIX Direto - Accordion */}
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => setShowPixFlow((v) => !v)}
+                        className="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-slate-100 transition"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center flex-shrink-0">
+                            <IconHelp className="w-4 h-4" />
+                          </div>
+                          <span className="text-sm font-semibold text-slate-700">
+                            Como funciona o PIX direto?
+                          </span>
+                        </div>
+                        <IconChevronDown
+                          className={`w-5 h-5 text-slate-400 transition-transform duration-200 ${showPixFlow ? 'rotate-180' : ''}`}
+                        />
+                      </button>
+
+                      {showPixFlow && (
+                        <div className="px-4 pb-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                          <ol className="space-y-3">
+                            <li className="flex items-start gap-3">
+                              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">1</span>
+                              <p className="text-sm text-slate-600">Seu cliente clica no link e vê sua chave PIX ou QR Code.</p>
+                            </li>
+                            <li className="flex items-start gap-3">
+                              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">2</span>
+                              <p className="text-sm text-slate-600">Ele faz o PIX direto para você.</p>
+                            </li>
+                            <li className="flex items-start gap-3">
+                              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">3</span>
+                              <p className="text-sm text-slate-600">Você recebe o aviso e confirma o pagamento no painel.</p>
+                            </li>
+                            <li className="flex items-start gap-3">
+                              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">4</span>
+                              <p className="text-sm text-slate-600">Pronto: o acesso ou arquivo é liberado para o comprador.</p>
+                            </li>
+                          </ol>
+                        </div>
+                      )}
                     </div>
 
                     {/* QR Code Upload - opção avançada oculta */}
@@ -1326,7 +1359,7 @@ export default function OnboardingPage() {
                   {searchParams.get('oauth') === 'success' && (
                     <div className="mb-6 p-4 rounded-xl border bg-emerald-50 border-emerald-200">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full flex items-center justify-center bg-emerald-100">
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-emerald-100">
                           <IconCheck className="w-5 h-5 text-emerald-600" />
                         </div>
                         <div>
@@ -1340,7 +1373,7 @@ export default function OnboardingPage() {
                   {searchParams.get('oauth') === 'error' && (
                     <div className="mb-6 p-4 rounded-xl border bg-rose-50 border-rose-200">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full flex items-center justify-center bg-rose-100">
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-rose-100">
                           <IconAlert className="w-5 h-5 text-rose-600" />
                         </div>
                         <div>
@@ -1354,7 +1387,7 @@ export default function OnboardingPage() {
                   {/* Estado: Conectado via OAuth */}
                   {oauthStatus === 'connected' && oauthData && (
                     <div className="text-center py-8">
-                      <div className="w-20 h-20 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-4">
+                      <div className="w-20 h-20 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0 mx-auto mb-4">
                         <IconCheck className="w-10 h-10" />
                       </div>
                       <h3 className="text-xl font-bold text-slate-900 mb-2">MercadoPago Conectado!</h3>
