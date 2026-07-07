@@ -197,9 +197,9 @@ export default function PaymentsPage() {
       case 'confirmed':
         return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Confirmado</span>;
       case 'pending':
-        return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700"><span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>Pendente</span>;
+        return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700"><span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>Aguardando pagamento</span>;
       case 'awaiting_confirmation':
-        return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700"><span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>Aguardando</span>;
+        return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700"><span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>Aguardando confirmação</span>;
       default:
         return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600"><span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>Expirado</span>;
     }
@@ -217,7 +217,7 @@ export default function PaymentsPage() {
 
   const tabs = [
     { id: 'history' as Tab, label: 'Histórico', count: report?.totalOrders || 0 },
-    { id: 'pending' as Tab, label: 'Pendentes', count: pendingPayments.length },
+    { id: 'pending' as Tab, label: 'À confirmar', count: pendingPayments.length },
   ];
 
   return (
@@ -243,7 +243,7 @@ export default function PaymentsPage() {
             <p className="text-emerald-100 text-xs mt-1">{report.confirmedOrders} confirmadas</p>
           </div>
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
-            <p className="text-slate-500 text-sm font-medium mb-1">Pendente</p>
+            <p className="text-slate-500 text-sm font-medium mb-1">À confirmar</p>
             <h3 className="text-2xl font-bold text-slate-900">{formatCurrency(report.pendingAmount)}</h3>
             <p className="text-slate-400 text-xs mt-1">{report.pendingOrders} pagamentos</p>
           </div>
@@ -356,7 +356,7 @@ export default function PaymentsPage() {
           {activeTab === 'pending' && (
             <div>
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-slate-900">Pagamentos Pendentes de Confirmação</h3>
+                <h3 className="font-bold text-slate-900">Pagamentos à confirmar</h3>
                 <div className="flex items-center gap-2">
                   {selectedPayments.size > 0 && (
                     <button
@@ -386,7 +386,7 @@ export default function PaymentsPage() {
                   <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <IconCheck className="w-8 h-8 text-emerald-600" />
                   </div>
-                  <h3 className="text-lg font-medium text-slate-900 mb-1">Nenhum pagamento pendente</h3>
+                  <h3 className="text-lg font-medium text-slate-900 mb-1">Nenhum pagamento à confirmar</h3>
                   <p className="text-slate-500">Quando alguém pagar via PIX Direto, aparecerá aqui</p>
                 </div>
               ) : (
@@ -435,7 +435,7 @@ export default function PaymentsPage() {
                               className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                             />
                             <span className="px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-medium">
-                              Aguardando
+                              Aguardando confirmação
                             </span>
                           </div>
                           <span className="text-lg font-bold text-slate-900">{formatCurrency(payment.amount)}</span>

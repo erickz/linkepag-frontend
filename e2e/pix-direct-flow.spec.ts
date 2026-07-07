@@ -132,7 +132,7 @@ test.describe('PIX Direto Flow - Manual Confirmation', () => {
     await page.waitForTimeout(3000);
 
     // Verify pending payments page loaded
-    await expect(page.getByText(/Pendente|pendente|Pending/i).first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/Pendente|pendente|Pending|À confirmar|Aguardando confirmação/i).first()).toBeVisible({ timeout: 10000 });
   });
 
   test('seller can confirm PIX payment manually', async ({ page }) => {

@@ -466,7 +466,7 @@ function PixDirectForm({
                 Receber notificações por email
               </span>
               <p className="text-xs text-slate-500 mt-0.5">
-                Envie-me um email quando alguém fizer um pagamento pendente via PIX Direto
+                Avise-me quando um pagamento via PIX Direto for criado
               </p>
             </div>
           </label>
