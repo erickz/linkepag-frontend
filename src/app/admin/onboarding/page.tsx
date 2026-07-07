@@ -748,7 +748,7 @@ export default function OnboardingPage() {
                       Etapa 2 de 3
                     </span>
                   </div>
-                  <p className="text-slate-500">Escolha o que você quer vender ou compartilhar. É rápido.</p>
+                  <p className="text-slate-500">Escolha o que você quer vender ou compartilhar. É rápididinho.</p>
                 </div>
               </div>
 
