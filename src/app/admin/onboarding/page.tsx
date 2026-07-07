@@ -352,7 +352,7 @@ export default function OnboardingPage() {
   const handleCreateLink = async () => {
     const isMonetized = link.template === 'paid_access' || link.template === 'digital_product';
     // Validação por template
-    if (!link.title.trim() || (isMonetized && !link.price) || (!isMonetized && !link.url.trim())) return;
+    if (!link.title.trim() || (isMonetized && !link.price) || (!isMonetized && !link.url.trim()) || (link.template === 'paid_access' && !link.url.trim()) || (link.template === 'digital_product' && !selectedFile)) return;
     
     // Validação do arquivo
     if (selectedFile && selectedFile.size > 300 * 1024 * 1024) {
@@ -826,27 +826,82 @@ export default function OnboardingPage() {
                   </div>
                 )}
 
-                {/* URL do Link - obrigatória para direct/scheduling, opcional para monetizados */}
-                {(isUrlRequired(link.template) || showAdvancedLinkFields) && (
+                {/* URL do Link - obrigatória para direct/scheduling/paid_access, opcional para digital_product em mais opções */}
+                {(isUrlRequired(link.template) || link.template === 'paid_access' || (link.template === 'digital_product' && showAdvancedLinkFields)) && (
                   <div className={isMonetizedTemplate(link.template) ? 'animate-in fade-in slide-in-from-top-2 duration-200' : ''}>
                     <label className="block text-sm font-medium text-slate-700 mb-2">
-                      {getUrlLabel(link.template)}
+                      {link.template === 'paid_access' ? 'URL de redirecionamento *' : getUrlLabel(link.template)}
                     </label>
                     <input
                       type="url"
                       value={link.url || ''}
                       onChange={(e) => setLink({ ...link, url: e.target.value })}
-                      placeholder={getUrlPlaceholder(link.template)}
-                      required={isUrlRequired(link.template)}
+                      placeholder={link.template === 'paid_access' ? 'https://seusite.com' : getUrlPlaceholder(link.template)}
+                      required={isUrlRequired(link.template) || link.template === 'paid_access'}
                       className="w-full h-12 px-4 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition"
                     />
                     <p className="text-xs text-slate-400 mt-1">
-                      {getUrlHelpText(link.template)}
+                      {link.template === 'paid_access' ? 'O cliente será redirecionado para este link após o pagamento' : getUrlHelpText(link.template)}
                     </p>
                   </div>
                 )}
 
-                {/* Campos avançados: descrição e upload de arquivo */}
+                {/* Upload de Arquivo - obrigatório para Produto Digital */}
+                {link.template === 'digital_product' && (
+                  <div className="rounded-xl p-4 space-y-3 border bg-amber-50 border-amber-100 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-sm font-medium text-amber-900">Arquivo para Download *</label>
+                      <span className="text-xs text-amber-600">Máx 300MB</span>
+                    </div>
+                    
+                    {selectedFile && (
+                      <div className="bg-white rounded-lg p-3 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-2xl">📎</span>
+                          <div>
+                            <p className="text-sm font-medium text-slate-900">{selectedFile.name}</p>
+                            <p className="text-xs text-slate-500">{formatFileSize(selectedFile.size)}</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedFile(null)}
+                          className="text-rose-500 hover:text-rose-700 text-sm font-medium"
+                        >
+                          Remover
+                        </button>
+                      </div>
+                    )}
+                    
+                    {!selectedFile && (
+                      <label className="block">
+                        <span className="sr-only">Escolher arquivo</span>
+                        <input
+                          type="file"
+                          onChange={handleFileChange}
+                          className="block w-full text-sm text-slate-500
+                            file:mr-4 file:py-2 file:px-4
+                            file:rounded-lg file:border-0
+                            file:text-sm file:font-medium
+                            file:bg-amber-100 file:text-amber-700
+                            hover:file:bg-amber-200
+                            cursor-pointer
+                          "
+                        />
+                      </label>
+                    )}
+                    
+                    {fileError && (
+                      <p className="text-xs text-rose-600">{fileError}</p>
+                    )}
+                    
+                    <p className="text-xs text-amber-700">
+                      PDF, imagens, vídeos (MP4, MOV), áudios (MP3), planilhas e documentos. O arquivo será enviado ao comprador após o pagamento.
+                    </p>
+                  </div>
+                )}
+
+                {/* Campos avançados: descrição e URL do digital_product */}
                 {showAdvancedLinkFields && (
                   <div className="space-y-5 animate-in fade-in slide-in-from-top-2 duration-200">
                     <div>
@@ -861,61 +916,6 @@ export default function OnboardingPage() {
                         className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition resize-none"
                       />
                     </div>
-
-                    {/* Upload de Arquivo - apenas Produto Digital */}
-                    {link.template === 'digital_product' && (
-                      <div className="rounded-xl p-4 space-y-3 border bg-amber-50 border-amber-100">
-                        <div className="flex items-center justify-between">
-                          <label className="block text-sm font-medium text-amber-900">Arquivo para Download (opcional)</label>
-                          <span className="text-xs text-amber-600">Máx 300MB</span>
-                        </div>
-                        
-                        {selectedFile && (
-                          <div className="bg-white rounded-lg p-3 flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <span className="text-2xl">📎</span>
-                              <div>
-                                <p className="text-sm font-medium text-slate-900">{selectedFile.name}</p>
-                                <p className="text-xs text-slate-500">{formatFileSize(selectedFile.size)}</p>
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => setSelectedFile(null)}
-                              className="text-rose-500 hover:text-rose-700 text-sm font-medium"
-                            >
-                              Remover
-                            </button>
-                          </div>
-                        )}
-                        
-                        {!selectedFile && (
-                          <label className="block">
-                            <span className="sr-only">Escolher arquivo</span>
-                            <input
-                              type="file"
-                              onChange={handleFileChange}
-                              className="block w-full text-sm text-slate-500
-                                file:mr-4 file:py-2 file:px-4
-                                file:rounded-lg file:border-0
-                                file:text-sm file:font-medium
-                                file:bg-amber-100 file:text-amber-700
-                                hover:file:bg-amber-200
-                                cursor-pointer
-                              "
-                            />
-                          </label>
-                        )}
-                        
-                        {fileError && (
-                          <p className="text-xs text-rose-600">{fileError}</p>
-                        )}
-                        
-                        <p className="text-xs text-amber-700">
-                          PDF, imagens, vídeos (MP4, MOV), áudios (MP3), planilhas e documentos. O arquivo será enviado ao comprador após o pagamento.
-                        </p>
-                      </div>
-                    )}
                   </div>
                 )}
 
@@ -926,7 +926,7 @@ export default function OnboardingPage() {
                     onClick={() => setShowAdvancedLinkFields((v) => !v)}
                     className="text-sm text-indigo-600 hover:text-indigo-700 font-medium transition"
                   >
-                    {showAdvancedLinkFields ? 'Ocultar opções avançadas' : 'Mais opções (URL, descrição, arquivo)'}
+                    {showAdvancedLinkFields ? 'Ocultar opções avançadas' : link.template === 'digital_product' ? 'Mais opções (URL, descrição)' : 'Mais opções (descrição)'}
                   </button>
                 )}
               </div>
@@ -952,7 +952,7 @@ export default function OnboardingPage() {
                   )}
                   <button
                     onClick={completedSteps.includes('link') ? () => setCurrentStep(2) : handleCreateLink}
-                    disabled={completedSteps.includes('link') ? false : (!link.title.trim() || ((link.template === 'direct' || link.template === 'scheduling') && !link.url.trim()) || ((link.template === 'paid_access' || link.template === 'digital_product') && !link.price) || isCreatingLink || isUploadingFile)}
+                    disabled={completedSteps.includes('link') ? false : (!link.title.trim() || ((link.template === 'direct' || link.template === 'scheduling') && !link.url.trim()) || ((link.template === 'paid_access' || link.template === 'digital_product') && !link.price) || (link.template === 'paid_access' && !link.url.trim()) || (link.template === 'digital_product' && !selectedFile) || isCreatingLink || isUploadingFile)}
                     className="inline-flex items-center justify-center gap-2 px-6 h-12 w-full sm:w-auto bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
                   >
                     {completedSteps.includes('link') ? (
