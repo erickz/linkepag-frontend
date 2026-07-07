@@ -75,8 +75,14 @@ export default function Signup() {
     if (!password.trim()) {
       return 'Senha é obrigatória';
     }
-    if (password.length < 8) {
-      return 'Senha deve ter pelo menos 8 caracteres';
+    if (password.length < 6) {
+      return 'Senha deve ter pelo menos 6 caracteres';
+    }
+    if (!/[A-Z]/.test(password)) {
+      return 'Senha deve conter pelo menos uma letra maiúscula';
+    }
+    if (!/\d/.test(password)) {
+      return 'Senha deve conter pelo menos um número';
     }
     return '';
   };
@@ -306,7 +312,7 @@ export default function Signup() {
               </div>
               <input
                 type={showPassword ? 'text' : 'password'}
-                placeholder="Mínimo 8 caracteres"
+                placeholder="Mínimo 6 caracteres, 1 maiúscula e 1 número"
                 value={form.password}
                 onChange={(e) => handleChange('password', e.target.value)}
                 onFocus={() => setFocused('password')}
@@ -344,7 +350,10 @@ export default function Signup() {
                 <div className="flex items-center gap-2">
                   <div className="flex-1 flex gap-1">
                     {[1, 2, 3].map((level) => {
-                      const strength = form.password.length < 8 ? 0 : form.password.length < 10 ? 1 : form.password.match(/[A-Z]/) && form.password.match(/[0-9]/) ? 3 : 2;
+                      const hasUppercase = /[A-Z]/.test(form.password);
+                      const hasNumber = /\d/.test(form.password);
+                      const meetsRules = form.password.length >= 6 && hasUppercase && hasNumber;
+                      const strength = meetsRules ? 3 : 0;
                       const colors = ['bg-rose-400', 'bg-amber-400', 'bg-emerald-400', 'bg-emerald-500'];
                       return (
                         <div
@@ -357,19 +366,23 @@ export default function Signup() {
                     })}
                   </div>
                   <span className={`text-xs ${
-                    form.password.length < 8 ? 'text-rose-500' : 
-                    form.password.length < 10 ? 'text-amber-500' : 
-                    form.password.match(/[A-Z]/) && form.password.match(/[0-9]/) ? 'text-emerald-600' : 'text-amber-500'
+                    form.password.length < 6 || !/[A-Z]/.test(form.password) || !/\d/.test(form.password)
+                      ? 'text-rose-500'
+                      : 'text-emerald-600'
                   }`}>
-                    {form.password.length < 8 ? 'Fraca' : 
-                     form.password.length < 10 ? 'Média' : 
-                     form.password.match(/[A-Z]/) && form.password.match(/[0-9]/) ? 'Forte' : 'Média'}
+                    {form.password.length < 6 || !/[A-Z]/.test(form.password) || !/\d/.test(form.password)
+                      ? 'Fraca'
+                      : 'Forte'}
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
-                  {form.password.length < 8 ? 'Mínimo 8 caracteres' : 
-                   form.password.match(/[A-Z]/) && form.password.match(/[0-9]/) ? 'Excelente! Sua senha está segura.' : 
-                   'Adicione letra maiúscula e número para mais segurança'}
+                  {form.password.length < 6
+                    ? 'Mínimo 6 caracteres'
+                    : !/[A-Z]/.test(form.password)
+                      ? 'Adicione uma letra maiúscula'
+                      : !/\d/.test(form.password)
+                        ? 'Adicione um número'
+                        : 'Excelente! Sua senha está segura.'}
                 </p>
               </div>
             )}

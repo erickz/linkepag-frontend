@@ -10,9 +10,13 @@ import { maskPriceInput, parsePrice, formatPrice, formatUrl, priceToInputValue }
 import {
   getDefaultLinkTemplate,
   getTitlePlaceholder,
+  getTitleLabel,
   getUrlLabel,
   getUrlPlaceholder,
   getUrlHelpText,
+  getTemplateContextDescription,
+  getLinkTemplateById,
+  linkTemplateColors,
   isMonetizedTemplate,
   isUrlRequired,
   type LinkTemplateId,
@@ -246,6 +250,7 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
   const [localLinks, setLocalLinks] = useState<LinkItem[]>(links);
   const [isReorderingLocal, setIsReorderingLocal] = useState(false);
   const [formData, setFormData] = useState({ title: '', description: '', url: '', openInNewTab: true, template: getDefaultLinkTemplate(), price: 0, paymentTimeoutMinutes: 30 });
+  const [selectedTemplate, setSelectedTemplate] = useState<LinkTemplateId | null>(null);
   const [showAdvancedLinkFields, setShowAdvancedLinkFields] = useState(false);
   
   // Upload de arquivo
@@ -274,6 +279,7 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
 
   const resetForm = () => {
     setFormData({ title: '', description: '', url: '', openInNewTab: true, template: getDefaultLinkTemplate(), price: 0, paymentTimeoutMinutes: 30 });
+    setSelectedTemplate(null);
     setSelectedFile(null);
     setFileError(null);
     setShowAdvancedLinkFields(false);
@@ -426,33 +432,71 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
     <div className="space-y-6">
       {currentPlan && <PlanLimitWarning currentCount={paidLinksCount} maxCount={currentPlan.maxPaidLinks} />}
       {message && <div className={`p-4 rounded-xl ${message.type === 'success' ? 'bg-emerald-50 border border-emerald-200' : 'bg-rose-50 border border-rose-200'}`}><p className={`font-medium text-sm ${message.type === 'success' ? 'text-emerald-700' : 'text-rose-700'}`}>{message.text}</p></div>}
-      {!showForm && <button onClick={() => setShowForm(true)} className="w-full bg-indigo-600 text-white px-5 py-3 rounded-xl font-semibold hover:bg-indigo-700 transition shadow-sm flex items-center justify-center gap-2"><span className="text-xl">+</span> Novo Link</button>}
-      {showForm && (
+      {!showForm && <button onClick={() => { setShowForm(true); setSelectedTemplate(null); }} className="w-full bg-indigo-600 text-white px-5 py-3 rounded-xl font-semibold hover:bg-indigo-700 transition shadow-sm flex items-center justify-center gap-2"><span className="text-xl">+</span> Novo Link</button>}
+      {showForm && !editingLink && !selectedTemplate && (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-slate-900">Novo Link</h3>
+            <span className="text-xs text-slate-500">Leva menos de 30 segundos</span>
+          </div>
+          <label className="block text-sm font-medium text-slate-700 mb-3">O que você quer criar? *</label>
+          <LinkTemplateSelector
+            value={selectedTemplate}
+            onChange={(template) => {
+              setFormData((p) => ({ ...p, template }));
+              setSelectedTemplate(template);
+              if (template !== 'digital_product') {
+                setSelectedFile(null);
+                setFileError(null);
+              }
+            }}
+          />
+          <div className="flex gap-3 pt-4">
+            <button type="button" onClick={() => { setShowForm(false); resetForm(); }} className="flex-1 h-10 rounded-lg border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 transition">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showForm && (editingLink || selectedTemplate) && (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-bold text-slate-900">{editingLink ? 'Editar Link' : 'Novo Link'}</h3>
-            {!editingLink && <span className="text-xs text-slate-500">Leva menos de 30 segundos</span>}
           </div>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="bg-slate-50 rounded-xl p-4 space-y-3">
-              <label className="block text-sm font-medium text-slate-700">Tipo de Link</label>
-              <LinkTemplateSelector
-                value={formData.template}
-                onChange={(template) => {
-                  setFormData((p) => ({ ...p, template }));
-                  if (template !== 'digital_product') {
-                    setSelectedFile(null);
-                    setFileError(null);
-                  }
-                }}
-                columns={4}
-                size="sm"
-              />
-            </div>
+            {/* Card de contexto do template */}
+            {(() => {
+              const template = editingLink ? (editingLink.template as LinkTemplateId) : selectedTemplate!;
+              const config = getLinkTemplateById(template);
+              const color = linkTemplateColors[config.color];
+              return (
+                <div className={`rounded-xl p-4 border ${color.border} ${color.bg}`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${color.iconBg}`}>
+                      <config.icon className={`w-5 h-5 ${color.iconText}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-semibold ${color.text}`}>{config.label}</p>
+                      <p className="text-xs text-slate-600 mt-0.5">{getTemplateContextDescription(template)}</p>
+                    </div>
+                    {!editingLink && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedTemplate(null)}
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 transition shrink-0"
+                      >
+                        Trocar tipo
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Título *</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">{getTitleLabel(formData.template)}</label>
                 <input
                   type="text"
                   value={formData.title}
@@ -464,7 +508,7 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
               </div>
               {isMonetizedTemplate(formData.template) && (
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Preço (R$) *</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Quanto você quer cobrar? *</label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">R$</span>
                     <input
@@ -481,15 +525,15 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
               )}
             </div>
 
-            {/* URL - obrigatória para direct/scheduling, opcional para monetizados */}
-            {(isUrlRequired(formData.template) || showAdvancedLinkFields) && (
+            {/* URL - obrigatória para direct/scheduling/paid_access, opcional para digital_product em mais opções */}
+            {(isUrlRequired(formData.template) || formData.template === 'paid_access' || (formData.template === 'digital_product' && showAdvancedLinkFields)) && (
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">{getUrlLabel(formData.template)}</label>
                 <input
                   type="url"
                   value={formData.url || ''}
                   onChange={(e) => setFormData((p) => ({ ...p, url: e.target.value }))}
-                  required={isUrlRequired(formData.template)}
+                  required={isUrlRequired(formData.template) || formData.template === 'paid_access'}
                   className="w-full h-10 px-3 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm"
                   placeholder={getUrlPlaceholder(formData.template)}
                 />
@@ -497,7 +541,82 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
               </div>
             )}
 
-            {/* Campos avançados: descrição e upload */}
+            {/* Upload de Arquivo - obrigatório para Produto Digital */}
+            {formData.template === 'digital_product' && (
+              <div className="rounded-xl p-4 space-y-3 border-2 border-dashed bg-amber-50 border-amber-200">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center">
+                    <IconDownload className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-amber-900">Arquivo que o cliente vai receber *</label>
+                    <p className="text-xs text-amber-700 mt-0.5">PDF, imagem, vídeo, áudio, planilha ou documento • até 300 MB</p>
+                  </div>
+                </div>
+                
+                {editingLink?.hasDeliverableFile && editingLink.deliverableFile && !selectedFile && (
+                  <div className="bg-white rounded-lg p-3 flex items-center justify-between border border-amber-100">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">📎</span>
+                      <div>
+                        <p className="text-sm font-medium text-slate-900">{editingLink.deliverableFile.originalName}</p>
+                        <p className="text-xs text-slate-500">{formatFileSize(editingLink.deliverableFile.size)} • {editingLink.deliverableFile.extension.toUpperCase()}</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => handleRemoveFile(editingLink.id, e)}
+                      className="text-rose-500 hover:text-rose-700 text-sm font-medium"
+                    >
+                      Remover
+                    </button>
+                  </div>
+                )}
+                
+                {selectedFile && (
+                  <div className="bg-white rounded-lg p-3 flex items-center justify-between border border-amber-100">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">📎</span>
+                      <div>
+                        <p className="text-sm font-medium text-slate-900">{selectedFile.name}</p>
+                        <p className="text-xs text-slate-500">{formatFileSize(selectedFile.size)} • Novo arquivo</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedFile(null)}
+                      className="text-rose-500 hover:text-rose-700 text-sm font-medium"
+                    >
+                      Remover
+                    </button>
+                  </div>
+                )}
+                
+                {!selectedFile && (!editingLink?.hasDeliverableFile) && (
+                  <label className="block">
+                    <span className="sr-only">Escolher arquivo</span>
+                    <input
+                      type="file"
+                      onChange={handleFileChange}
+                      className="block w-full text-sm text-slate-500
+                        file:mr-4 file:py-2.5 file:px-4
+                        file:rounded-lg file:border-0
+                        file:text-sm file:font-medium
+                        file:bg-amber-100 file:text-amber-700
+                        hover:file:bg-amber-200
+                        cursor-pointer
+                      "
+                    />
+                  </label>
+                )}
+                
+                {fileError && (
+                  <p className="text-xs text-rose-600">{fileError}</p>
+                )}
+              </div>
+            )}
+
+            {/* Campos avançados: descrição e URL do digital_product */}
             {showAdvancedLinkFields && (
               <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
                 <div>
@@ -510,81 +629,6 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
                     placeholder="Breve descrição"
                   />
                 </div>
-
-                {/* Upload de Arquivo - APENAS para Produto Digital */}
-                {formData.template === 'digital_product' && (
-                  <div className="bg-amber-50 rounded-xl p-4 space-y-3 border border-amber-100">
-                    <div className="flex items-center justify-between">
-                      <label className="block text-sm font-medium text-amber-900">Arquivo para Download (opcional)</label>
-                      <span className="text-xs text-amber-600">Máx 300MB</span>
-                    </div>
-                    
-                    {editingLink?.hasDeliverableFile && editingLink.deliverableFile && !selectedFile && (
-                      <div className="bg-white rounded-lg p-3 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-2xl">📎</span>
-                          <div>
-                            <p className="text-sm font-medium text-slate-900">{editingLink.deliverableFile.originalName}</p>
-                            <p className="text-xs text-slate-500">{formatFileSize(editingLink.deliverableFile.size)} • {editingLink.deliverableFile.extension.toUpperCase()}</p>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={(e) => handleRemoveFile(editingLink.id, e)}
-                          className="text-rose-500 hover:text-rose-700 text-sm font-medium"
-                        >
-                          Remover
-                        </button>
-                      </div>
-                    )}
-                    
-                    {selectedFile && (
-                      <div className="bg-white rounded-lg p-3 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-2xl">📎</span>
-                          <div>
-                            <p className="text-sm font-medium text-slate-900">{selectedFile.name}</p>
-                            <p className="text-xs text-slate-500">{formatFileSize(selectedFile.size)} • Novo arquivo</p>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedFile(null)}
-                          className="text-rose-500 hover:text-rose-700 text-sm font-medium"
-                        >
-                          Remover
-                        </button>
-                      </div>
-                    )}
-                    
-                    {!selectedFile && (!editingLink?.hasDeliverableFile) && (
-                      <label className="block">
-                        <span className="sr-only">Escolher arquivo</span>
-                        <input
-                          type="file"
-                          onChange={handleFileChange}
-                          className="block w-full text-sm text-slate-500
-                            file:mr-4 file:py-2 file:px-4
-                            file:rounded-lg file:border-0
-                            file:text-sm file:font-medium
-                            file:bg-amber-100 file:text-amber-700
-                            hover:file:bg-amber-200
-                            cursor-pointer
-                          "
-                        />
-                      </label>
-                    )}
-                    
-                    {fileError && (
-                      <p className="text-xs text-rose-600">{fileError}</p>
-                    )}
-                    
-                    <p className="text-xs text-amber-700">
-                      PDF, imagens, vídeos (MP4, MOV), áudios (MP3), planilhas e documentos.
-                      O arquivo será enviado ao comprador após o pagamento.
-                    </p>
-                  </div>
-                )}
               </div>
             )}
 
@@ -595,11 +639,7 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
                 onClick={() => setShowAdvancedLinkFields((v) => !v)}
                 className="text-sm text-indigo-600 hover:text-indigo-700 font-medium transition"
               >
-                {showAdvancedLinkFields
-                  ? 'Ocultar opções avançadas'
-                  : formData.template === 'digital_product'
-                    ? 'Adicionar arquivo, URL ou descrição (opcional)'
-                    : 'Mais opções (URL, descrição)'}
+                {showAdvancedLinkFields ? 'Ocultar opções avançadas' : 'Mostrar opções avançadas'}
               </button>
             )}
             
@@ -609,7 +649,7 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
                 {isUploadingFile ? 'Enviando arquivo...' : (isCreating || isUpdating ? 'Salvando...' : (editingLink ? 'Salvar' : 'Criar'))}
               </button>
               <button type="button" onClick={() => { setShowForm(false); setEditingLink(null); resetForm(); }} className="flex-1 h-10 rounded-lg border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 transition">
-                {editingLink ? 'Cancelar' : 'Criar depois'}
+                Cancelar
               </button>
             </div>
           </form>

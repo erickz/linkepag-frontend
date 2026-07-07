@@ -19,15 +19,19 @@ import { formatUrl } from '@/lib/masks';
 import {
   getDefaultLinkTemplate,
   getTitlePlaceholder,
+  getTitleLabel,
   getUrlLabel,
   getUrlPlaceholder,
   getUrlHelpText,
+  getTemplateContextDescription,
+  getLinkTemplateById,
+  linkTemplateColors,
   isMonetizedTemplate,
   isUrlRequired,
+  type LinkTemplateId,
 } from '@/lib/link-templates';
 import { LinkTemplateSelector } from '@/components/LinkTemplateSelector';
-import { IconCheck, IconArrowRight, IconArrowLeft, IconUser, IconCreditCard, IconLink, IconAlert, IconHelp, IconRefresh, IconUnlink } from '@/components/icons';
-import { AdminHeader } from '@/components/AdminHeader';
+import { IconCheck, IconArrowRight, IconArrowLeft, IconUser, IconCreditCard, IconLink, IconAlert, IconHelp, IconRefresh, IconUnlink, IconUpload } from '@/components/icons';
 
 interface OnboardingStep {
   id: string;
@@ -156,6 +160,8 @@ export default function OnboardingPage() {
   const [isCreatingLink, setIsCreatingLink] = useState(false);
   const [existingLinks, setExistingLinks] = useState<any[]>([]);
   const [showNewLinkForm, setShowNewLinkForm] = useState(false);
+  const [linkFormVisible, setLinkFormVisible] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<LinkTemplateId | null>(null);
   
   // Upload de arquivo (apenas para links monetizados)
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -352,7 +358,7 @@ export default function OnboardingPage() {
   const handleCreateLink = async () => {
     const isMonetized = link.template === 'paid_access' || link.template === 'digital_product';
     // Validação por template
-    if (!link.title.trim() || (isMonetized && !link.price) || (!isMonetized && !link.url.trim()) || (link.template === 'paid_access' && !link.url.trim()) || (link.template === 'digital_product' && !selectedFile)) return;
+    if (!selectedTemplate || !link.title.trim() || (isMonetized && !link.price) || (!isMonetized && !link.url.trim()) || (link.template === 'paid_access' && !link.url.trim()) || (link.template === 'digital_product' && !selectedFile)) return;
     
     // Validação do arquivo
     if (selectedFile && selectedFile.size > 300 * 1024 * 1024) {
@@ -466,13 +472,13 @@ export default function OnboardingPage() {
     return null;
   }
 
+  const selectedTemplateConfig = selectedTemplate ? getLinkTemplateById(selectedTemplate) : null;
+  const selectedColor = selectedTemplateConfig ? linkTemplateColors[selectedTemplateConfig.color] : null;
+
   const progress = ((completedSteps.length) / steps.length) * 100;
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <AdminHeader showWelcome={false} />
-
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-4xl mx-auto">
         {/* Progress Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-slate-900 mb-2">
@@ -544,7 +550,7 @@ export default function OnboardingPage() {
         <div className="max-w-2xl mx-auto">
           {/* Step 1: Profile */}
           {currentStep === 0 && (
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-8 animate-in fade-in slide-in-from-right-4 duration-300">
               <div className="flex items-center gap-4 mb-6">
                 <div className="w-14 h-14 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center">
                   <IconUser className="w-7 h-7" />
@@ -730,19 +736,19 @@ export default function OnboardingPage() {
 
           {/* Step 2: Links (agora é o segundo passo) */}
           {currentStep === 1 && (
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-8 animate-in fade-in slide-in-from-right-4 duration-300">
               <div className="flex items-center gap-4 mb-6">
                 <div className="w-14 h-14 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center">
                   <IconLink className="w-7 h-7" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-1">
-                    <h2 className="text-xl font-bold text-slate-900">{steps[1].title}</h2>
+                    <h2 className="text-xl font-bold text-slate-900">Crie seu primeiro link</h2>
                     <span className="inline-flex items-center self-start px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
                       Etapa 2 de 3
                     </span>
                   </div>
-                  <p className="text-slate-500">{steps[1].description}</p>
+                  <p className="text-slate-500">Escolha o que você quer vender ou compartilhar. É rápido.</p>
                 </div>
               </div>
 
@@ -774,162 +780,198 @@ export default function OnboardingPage() {
                 <>
                   {/* Tipo de Link - Escolha primeiro */}
                   <div className="mb-6">
-                    <label className="block text-sm font-medium text-slate-700 mb-3">
-                      Que tipo de link você quer criar? *
-                    </label>
-                    <LinkTemplateSelector
-                      value={link.template}
-                      onChange={(template) => {
-                        setLink({ ...link, template });
-                        if (template !== 'digital_product') {
-                          setSelectedFile(null);
-                          setFileError(null);
-                        }
-                      }}
-                    />
+                    {!linkFormVisible ? (
+                      <>
+                        <label className="block text-sm font-medium text-slate-700 mb-3">
+                          O que você quer fazer?
+                        </label>
+                        <LinkTemplateSelector
+                          value={selectedTemplate}
+                          onChange={(template) => {
+                            setLink({ ...link, template });
+                            setSelectedTemplate(template);
+                            setLinkFormVisible(true);
+                            if (template !== 'digital_product') {
+                              setSelectedFile(null);
+                              setFileError(null);
+                            }
+                          }}
+                        />
+                      </>
+                    ) : selectedTemplate && selectedTemplateConfig && selectedColor ? (
+                      <div className={`rounded-xl p-4 border ${selectedColor.border} ${selectedColor.bg} animate-in fade-in slide-in-from-top-2 duration-200`}>
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${selectedColor.iconBg}`}>
+                            <selectedTemplateConfig.icon className={`w-5 h-5 ${selectedColor.iconText}`} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm font-semibold ${selectedColor.text}`}>{selectedTemplateConfig.label}</p>
+                            <p className="text-xs text-slate-600 mt-0.5">{getTemplateContextDescription(selectedTemplate)}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setLinkFormVisible(false);
+                              setSelectedTemplate(null);
+                            }}
+                            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 transition shrink-0"
+                          >
+                            <IconRefresh className="w-3.5 h-3.5" />
+                            Trocar tipo de produto
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
 
-              {/* Form do Link */}
-              <div className="space-y-5">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Nome do link *
-                  </label>
-                  <input
-                    type="text"
-                    value={link.title}
-                    onChange={(e) => setLink({ ...link, title: e.target.value })}
-                    placeholder={getTitlePlaceholder(link.template)}
-                    className="w-full h-12 px-4 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition"
-                  />
-                </div>
+                  {/* Form do Link */}
+                  {linkFormVisible && (
+                    <div className="space-y-5 animate-in fade-in slide-in-from-top-4 duration-500">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                          {getTitleLabel(link.template)}
+                        </label>
+                        <input
+                          type="text"
+                          value={link.title}
+                          onChange={(e) => setLink({ ...link, title: e.target.value })}
+                          placeholder={getTitlePlaceholder(link.template)}
+                          className="w-full h-12 px-4 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition"
+                        />
+                      </div>
 
-                {/* Preço - aparece se for pago */}
-                {isMonetizedTemplate(link.template) && (
-                  <div className="animate-in fade-in slide-in-from-top-2 duration-200">
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Preço (R$) *
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-medium">R$</span>
-                      <input
-                        type="number"
-                        value={link.price}
-                        onChange={(e) => setLink({ ...link, price: e.target.value })}
-                        placeholder="47,00"
-                        className="w-full h-12 pl-10 pr-4 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition"
-                      />
-                    </div>
-                    <p className="text-xs text-slate-400 mt-1">
-                      O cliente pagará via PIX para ter acesso a este conteúdo
-                    </p>
-                  </div>
-                )}
+                      {/* Preço - aparece se for pago */}
+                      {isMonetizedTemplate(link.template) && (
+                        <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+                          <label className="block text-sm font-medium text-slate-700 mb-2">
+                            Quanto você quer cobrar? *
+                          </label>
+                          <div className="relative">
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-medium">R$</span>
+                            <input
+                              type="number"
+                              value={link.price}
+                              onChange={(e) => setLink({ ...link, price: e.target.value })}
+                              placeholder="0,00"
+                              className="w-full h-12 pl-10 pr-4 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition"
+                            />
+                          </div>
+                          <p className="text-xs text-slate-400 mt-1">
+                            O valor será pago via PIX
+                          </p>
+                        </div>
+                      )}
 
-                {/* URL do Link - obrigatória para direct/scheduling/paid_access, opcional para digital_product em mais opções */}
-                {(isUrlRequired(link.template) || link.template === 'paid_access' || (link.template === 'digital_product' && showAdvancedLinkFields)) && (
-                  <div className={isMonetizedTemplate(link.template) ? 'animate-in fade-in slide-in-from-top-2 duration-200' : ''}>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      {link.template === 'paid_access' ? 'URL de redirecionamento *' : getUrlLabel(link.template)}
-                    </label>
-                    <input
-                      type="url"
-                      value={link.url || ''}
-                      onChange={(e) => setLink({ ...link, url: e.target.value })}
-                      placeholder={link.template === 'paid_access' ? 'https://seusite.com' : getUrlPlaceholder(link.template)}
-                      required={isUrlRequired(link.template) || link.template === 'paid_access'}
-                      className="w-full h-12 px-4 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition"
-                    />
-                    <p className="text-xs text-slate-400 mt-1">
-                      {link.template === 'paid_access' ? 'O cliente será redirecionado para este link após o pagamento' : getUrlHelpText(link.template)}
-                    </p>
-                  </div>
-                )}
+                      {/* URL do Link */}
+                      {(isUrlRequired(link.template) || link.template === 'paid_access' || (link.template === 'digital_product' && showAdvancedLinkFields)) && (
+                        <div className={isMonetizedTemplate(link.template) ? 'animate-in fade-in slide-in-from-top-2 duration-200' : ''}>
+                          <label className="block text-sm font-medium text-slate-700 mb-2">
+                            {getUrlLabel(link.template)}
+                          </label>
+                          <input
+                            type="url"
+                            value={link.url || ''}
+                            onChange={(e) => setLink({ ...link, url: e.target.value })}
+                            placeholder={getUrlPlaceholder(link.template)}
+                            required={isUrlRequired(link.template) || link.template === 'paid_access'}
+                            className="w-full h-12 px-4 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition"
+                          />
+                          <p className="text-xs text-slate-400 mt-1">
+                            {getUrlHelpText(link.template)}
+                          </p>
+                        </div>
+                      )}
 
-                {/* Upload de Arquivo - obrigatório para Produto Digital */}
-                {link.template === 'digital_product' && (
-                  <div className="rounded-xl p-4 space-y-3 border bg-amber-50 border-amber-100 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div className="flex items-center justify-between">
-                      <label className="block text-sm font-medium text-amber-900">Arquivo para Download *</label>
-                      <span className="text-xs text-amber-600">Máx 300MB</span>
-                    </div>
-                    
-                    {selectedFile && (
-                      <div className="bg-white rounded-lg p-3 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-2xl">📎</span>
+                      {/* Upload de Arquivo - obrigatório para Produto Digital */}
+                      {link.template === 'digital_product' && (
+                        <div className="rounded-xl p-5 space-y-4 border-2 border-dashed bg-amber-50 border-amber-200 animate-in fade-in slide-in-from-top-2 duration-200">
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center">
+                              <IconUpload className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-semibold text-amber-900">
+                                Arquivo que o cliente vai receber *
+                              </label>
+                              <p className="text-xs text-amber-700 mt-0.5">
+                                PDF, imagem, vídeo, áudio, planilha ou documento • até 300 MB
+                              </p>
+                            </div>
+                          </div>
+
+                          {selectedFile && (
+                            <div className="bg-white rounded-lg p-3 flex items-center justify-between border border-amber-100">
+                              <div className="flex items-center gap-2">
+                                <span className="text-2xl">📎</span>
+                                <div>
+                                  <p className="text-sm font-medium text-slate-900">{selectedFile.name}</p>
+                                  <p className="text-xs text-slate-500">{formatFileSize(selectedFile.size)}</p>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedFile(null)}
+                                className="text-rose-500 hover:text-rose-700 text-sm font-medium"
+                              >
+                                Remover
+                              </button>
+                            </div>
+                          )}
+
+                          {!selectedFile && (
+                            <label className="block">
+                              <span className="sr-only">Escolher arquivo</span>
+                              <input
+                                type="file"
+                                onChange={handleFileChange}
+                                className="block w-full text-sm text-slate-500
+                                  file:mr-4 file:py-2.5 file:px-4
+                                  file:rounded-lg file:border-0
+                                  file:text-sm file:font-medium
+                                  file:bg-amber-100 file:text-amber-700
+                                  hover:file:bg-amber-200
+                                  cursor-pointer
+                                "
+                              />
+                            </label>
+                          )}
+
+                          {fileError && (
+                            <p className="text-xs text-rose-600">{fileError}</p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Campos avançados: descrição */}
+                      {showAdvancedLinkFields && (
+                        <div className="space-y-5 animate-in fade-in slide-in-from-top-2 duration-200">
                           <div>
-                            <p className="text-sm font-medium text-slate-900">{selectedFile.name}</p>
-                            <p className="text-xs text-slate-500">{formatFileSize(selectedFile.size)}</p>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">
+                              Descrição (opcional)
+                            </label>
+                            <textarea
+                              value={link.description}
+                              onChange={(e) => setLink({ ...link, description: e.target.value })}
+                              placeholder="Breve descrição do link"
+                              rows={2}
+                              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition resize-none"
+                            />
                           </div>
                         </div>
+                      )}
+
+                      {/* Toggle campos avançados */}
+                      {link.template !== 'direct' && link.template !== 'scheduling' && (
                         <button
                           type="button"
-                          onClick={() => setSelectedFile(null)}
-                          className="text-rose-500 hover:text-rose-700 text-sm font-medium"
+                          onClick={() => setShowAdvancedLinkFields((v) => !v)}
+                          className="text-sm text-indigo-600 hover:text-indigo-700 font-medium transition"
                         >
-                          Remover
+                          {showAdvancedLinkFields ? 'Ocultar opções avançadas' : 'Mostrar opções avançadas'}
                         </button>
-                      </div>
-                    )}
-                    
-                    {!selectedFile && (
-                      <label className="block">
-                        <span className="sr-only">Escolher arquivo</span>
-                        <input
-                          type="file"
-                          onChange={handleFileChange}
-                          className="block w-full text-sm text-slate-500
-                            file:mr-4 file:py-2 file:px-4
-                            file:rounded-lg file:border-0
-                            file:text-sm file:font-medium
-                            file:bg-amber-100 file:text-amber-700
-                            hover:file:bg-amber-200
-                            cursor-pointer
-                          "
-                        />
-                      </label>
-                    )}
-                    
-                    {fileError && (
-                      <p className="text-xs text-rose-600">{fileError}</p>
-                    )}
-                    
-                    <p className="text-xs text-amber-700">
-                      PDF, imagens, vídeos (MP4, MOV), áudios (MP3), planilhas e documentos. O arquivo será enviado ao comprador após o pagamento.
-                    </p>
-                  </div>
-                )}
-
-                {/* Campos avançados: descrição e URL do digital_product */}
-                {showAdvancedLinkFields && (
-                  <div className="space-y-5 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Descrição (opcional)
-                      </label>
-                      <textarea
-                        value={link.description}
-                        onChange={(e) => setLink({ ...link, description: e.target.value })}
-                        placeholder="Breve descrição do link"
-                        rows={2}
-                        className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition resize-none"
-                      />
+                      )}
                     </div>
-                  </div>
-                )}
-
-                {/* Toggle campos avançados (só aparece quando há algo para expandir) */}
-                {link.template !== 'direct' && link.template !== 'scheduling' && (
-                  <button
-                    type="button"
-                    onClick={() => setShowAdvancedLinkFields((v) => !v)}
-                    className="text-sm text-indigo-600 hover:text-indigo-700 font-medium transition"
-                  >
-                    {showAdvancedLinkFields ? 'Ocultar opções avançadas' : link.template === 'digital_product' ? 'Mais opções (URL, descrição)' : 'Mais opções (descrição)'}
-                  </button>
-                )}
-              </div>
+                  )}
                 </>
               )}
 
@@ -952,7 +994,7 @@ export default function OnboardingPage() {
                   )}
                   <button
                     onClick={completedSteps.includes('link') ? () => setCurrentStep(2) : handleCreateLink}
-                    disabled={completedSteps.includes('link') ? false : (!link.title.trim() || ((link.template === 'direct' || link.template === 'scheduling') && !link.url.trim()) || ((link.template === 'paid_access' || link.template === 'digital_product') && !link.price) || (link.template === 'paid_access' && !link.url.trim()) || (link.template === 'digital_product' && !selectedFile) || isCreatingLink || isUploadingFile)}
+                    disabled={completedSteps.includes('link') ? false : (!linkFormVisible || !link.title.trim() || ((link.template === 'direct' || link.template === 'scheduling') && !link.url.trim()) || ((link.template === 'paid_access' || link.template === 'digital_product') && !link.price) || (link.template === 'paid_access' && !link.url.trim()) || (link.template === 'digital_product' && !selectedFile) || isCreatingLink || isUploadingFile)}
                     className="inline-flex items-center justify-center gap-2 px-6 h-12 w-full sm:w-auto bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
                   >
                     {completedSteps.includes('link') ? (
@@ -972,7 +1014,7 @@ export default function OnboardingPage() {
                       </>
                     ) : (
                       <>
-                        Continuar
+                        Criar e continuar
                         <IconArrowRight className="w-4 h-4" />
                       </>
                     )}
@@ -984,37 +1026,43 @@ export default function OnboardingPage() {
 
           {/* Step 3: Payment Configuration */}
           {currentStep === 2 && (
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-8 animate-in fade-in slide-in-from-right-4 duration-300">
               <div className="flex items-center gap-4 mb-6">
                 <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
                   <IconCreditCard className="w-7 h-7" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-slate-900">Configure seu recebimento</h2>
-                  <p className="text-slate-500">Escolha como quer receber seus pagamentos</p>
+                  <h2 className="text-xl font-bold text-slate-900">Como você quer receber?</h2>
+                  <p className="text-slate-500">
+                    {paymentMethod === 'pix'
+                      ? 'Com o PIX Direto, você confirma manualmente cada pagamento para liberar o conteúdo.'
+                      : paymentMethod === 'mercadopago'
+                        ? 'Com o MercadoPago, os pagamentos são confirmados automaticamente e o dinheiro cai na sua conta.'
+                        : 'Escolha entre receber na hora pelo MercadoPago ou gerenciar seus PIX manualmente.'}
+                  </p>
                 </div>
               </div>
 
               {/* Payment Method Selection */}
               {!paymentMethod && oauthStatus !== 'connected' && !pixConfig.pixKey && (
                 <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                    {/* PIX Option */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                    {/* PIX Direct Option */}
                     <button
                       onClick={() => setPaymentMethod('pix')}
-                      className="p-6 rounded-2xl border-2 border-slate-200 hover:border-emerald-500 hover:bg-emerald-50 transition text-left group"
+                      className="p-5 rounded-2xl border-2 border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/60 transition text-left group"
                     >
-                      <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center mb-4 group-hover:bg-emerald-200 transition">
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center mb-3 sm:mb-4 group-hover:bg-emerald-200 transition">
+                        <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                       </div>
-                      <h3 className="font-bold text-slate-900 mb-2">Chave PIX Direta</h3>
+                      <h3 className="font-bold text-slate-900 mb-1">PIX Direto</h3>
                       <p className="text-sm text-slate-500">
-                        Cadastre sua chave PIX e receba os pagamentos direto na sua conta. Simples e direto.
+                        Você confirma manualmente cada pagamento para liberar o acesso ou arquivo.
                       </p>
-                      <span className="inline-flex items-center gap-1 text-sm font-medium text-emerald-600 mt-3">
-                        Usar PIX
+                      <span className="inline-flex items-center gap-1 text-sm font-medium text-emerald-600 mt-4">
+                        Receber com PIX
                         <IconArrowRight className="w-4 h-4" />
                       </span>
                     </button>
@@ -1022,19 +1070,19 @@ export default function OnboardingPage() {
                     {/* MercadoPago Option */}
                     <button
                       onClick={() => setPaymentMethod('mercadopago')}
-                      className="p-6 rounded-2xl border-2 border-slate-200 hover:border-indigo-500 hover:bg-indigo-50 transition text-left group"
+                      className="p-5 rounded-2xl border-2 border-slate-200 hover:border-indigo-500 hover:bg-indigo-50/60 transition text-left group"
                     >
-                      <div className="w-12 h-12 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center mb-4 group-hover:bg-indigo-200 transition">
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center mb-3 sm:mb-4 group-hover:bg-indigo-200 transition">
+                        <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                         </svg>
                       </div>
-                      <h3 className="font-bold text-slate-900 mb-2">MercadoPago</h3>
+                      <h3 className="font-bold text-slate-900 mb-1">MercadoPago</h3>
                       <p className="text-sm text-slate-500">
-                        Receba seus pagamentos automaticamente através do MercadoPago.
+                        Pagamento confirmado automaticamente. O dinheiro cai na sua conta MercadoPago.
                       </p>
-                      <span className="inline-flex items-center gap-1 text-sm font-medium text-indigo-600 mt-3">
-                        Usar MercadoPago
+                      <span className="inline-flex items-center gap-1 text-sm font-medium text-indigo-600 mt-4">
+                        Conectar MercadoPago
                         <IconArrowRight className="w-4 h-4" />
                       </span>
                     </button>
@@ -1063,18 +1111,27 @@ export default function OnboardingPage() {
               {/* PIX Configuration Form */}
               {paymentMethod === 'pix' && (
                 <>
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mb-6">
-                    <div className="flex items-start gap-3">
-                      <svg className="w-5 h-5 text-emerald-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <div>
-                        <p className="font-medium text-emerald-900">Receba diretamente na sua conta</p>
-                        <p className="text-sm text-emerald-700 mt-1">
-                          Seus clientes verão sua chave PIX e poderão escanear seu QR Code para pagar.
-                        </p>
-                      </div>
-                    </div>
+                  {/* PIX Direct Flow Timeline */}
+                  <div className="mb-6">
+                    <h4 className="text-sm font-semibold text-slate-700 mb-3">Como funciona o PIX Direto</h4>
+                    <ol className="space-y-3">
+                      <li className="flex items-start gap-3">
+                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">1</span>
+                        <p className="text-sm text-slate-600">Seu cliente clica no link e vê sua chave PIX ou QR Code.</p>
+                      </li>
+                      <li className="flex items-start gap-3">
+                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">2</span>
+                        <p className="text-sm text-slate-600">Ele faz o PIX direto para você.</p>
+                      </li>
+                      <li className="flex items-start gap-3">
+                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">3</span>
+                        <p className="text-sm text-slate-600">Você recebe o aviso e confirma o pagamento no painel.</p>
+                      </li>
+                      <li className="flex items-start gap-3">
+                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">4</span>
+                        <p className="text-sm text-slate-600">Pronto: o acesso ou arquivo é liberado para o comprador.</p>
+                      </li>
+                    </ol>
                   </div>
 
                   <div className="space-y-5">
@@ -1252,7 +1309,7 @@ export default function OnboardingPage() {
                           </>
                         ) : (
                           <>
-                            Concluir
+                            Salvar e ativar PIX Direto
                             <IconCheck className="w-4 h-4" />
                           </>
                         )}
@@ -1320,18 +1377,6 @@ export default function OnboardingPage() {
                   {/* Estado: Desconectado ou com credenciais legadas */}
                   {oauthStatus !== 'connected' && (
                     <>
-                      <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 mb-6">
-                        <div className="flex items-start gap-3">
-                          <IconAlert className="w-5 h-5 text-indigo-600 mt-0.5" />
-                          <div>
-                            <p className="font-medium text-indigo-900">Integração automática com OAuth</p>
-                            <p className="text-sm text-indigo-700 mt-1">
-                              Conecte sua conta do MercadoPago de forma segura. O dinheiro cai direto na sua conta e os pagamentos são confirmados automaticamente.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
                       {/* Alerta de credenciais legadas */}
                       {hasLegacyCredentials && (
                         <div className="mb-6 p-4 rounded-xl border bg-amber-50 border-amber-200">
@@ -1421,7 +1466,6 @@ export default function OnboardingPage() {
             </div>
           )}
         </div>
-      </main>
     </div>
   );
 }

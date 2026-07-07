@@ -88,7 +88,7 @@ export const getUrlPlaceholder = (template: LinkTemplateId) => {
     case 'scheduling':
       return 'https://wa.me/5511999999999';
     case 'paid_access':
-      return 'https://seusite.com (opcional)';
+      return 'https://seusite.com';
     case 'digital_product':
       return 'https://seusite.com (opcional)';
     default:
@@ -98,21 +98,23 @@ export const getUrlPlaceholder = (template: LinkTemplateId) => {
 
 export const getUrlLabel = (template: LinkTemplateId) => {
   switch (template) {
-    case 'scheduling':
-      return 'URL do link *';
     case 'paid_access':
+      return 'Link que o cliente vai acessar *';
+    case 'scheduling':
+      return 'Link *';
     case 'digital_product':
-      return 'URL (redireciona após pagamento)';
+      return 'Link de redirecionamento (opcional)';
     default:
-      return 'URL do link *';
+      return 'Link *';
   }
 };
 
 export const getUrlHelpText = (template: LinkTemplateId) => {
   switch (template) {
     case 'paid_access':
+      return 'Após o pagamento, o comprador é redirecionado para cá.';
     case 'digital_product':
-      return 'Link que o cliente acessará após o pagamento (opcional)';
+      return 'O comprador será redirecionado para cá após o pagamento (opcional)';
     case 'scheduling':
       return 'Cole o link do WhatsApp, Telegram ou Calendário';
     default:
@@ -123,13 +125,42 @@ export const getUrlHelpText = (template: LinkTemplateId) => {
 export const getTitlePlaceholder = (template: LinkTemplateId) => {
   switch (template) {
     case 'paid_access':
-      return 'Ex: Acesso ao grupo VIP';
+      return 'Ex: Acesso ao grupo VIP de receitas';
     case 'digital_product':
-      return 'Ex: Ebook Completo';
+      return 'Ex: Ebook 50 Receitas Saudáveis';
     case 'scheduling':
-      return 'Ex: Agende seu horário';
+      return 'Ex: Fale comigo no WhatsApp';
+    case 'direct':
+      return 'Ex: Meu portfólio no Behance';
     default:
       return 'Ex: Meu site';
+  }
+};
+
+export const getTitleLabel = (template: LinkTemplateId) => {
+  switch (template) {
+    case 'paid_access':
+      return 'Nome da oferta *';
+    case 'digital_product':
+      return 'Nome do produto *';
+    case 'direct':
+    case 'scheduling':
+      return 'Título do botão *';
+    default:
+      return 'Nome do link *';
+  }
+};
+
+export const getTemplateContextDescription = (template: LinkTemplateId) => {
+  switch (template) {
+    case 'paid_access':
+      return 'O cliente paga para acessar este link.';
+    case 'digital_product':
+      return 'O cliente paga e recebe o arquivo por email.';
+    case 'direct':
+      return 'Qualquer pessoa pode acessar este link.';
+    case 'scheduling':
+      return 'Leva o visitante para o seu canal de atendimento.';
   }
 };
 
