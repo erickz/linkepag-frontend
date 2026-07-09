@@ -788,9 +788,6 @@ export default function OnboardingPage() {
                   <div className="mb-6">
                     {!linkFormVisible ? (
                       <>
-                        <label className="block text-sm font-medium text-slate-700 mb-3">
-                          O que você quer fazer?
-                        </label>
                         <LinkTemplateSelector
                           value={selectedTemplate}
                           onChange={(template) => {
