@@ -437,9 +437,7 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-bold text-slate-900">Novo Link</h3>
-            <span className="text-xs text-slate-500">Leva menos de 30 segundos</span>
           </div>
-          <label className="block text-sm font-medium text-slate-700 mb-3">O que você quer criar? *</label>
           <LinkTemplateSelector
             value={selectedTemplate}
             onChange={(template) => {

@@ -824,7 +824,7 @@ export default function OnboardingPage() {
                             className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 transition shrink-0"
                           >
                             <IconRefresh className="w-3.5 h-3.5" />
-                            Trocar tipo de produto
+                            Trocar tipo de link
                           </button>
                         </div>
                       </div>
@@ -990,15 +990,7 @@ export default function OnboardingPage() {
                   <IconArrowLeft className="w-4 h-4" />
                   Voltar
                 </button>
-                <div className={`flex flex-col sm:flex-row gap-3 ${completedSteps.includes('link') ? 'w-full sm:w-auto' : 'w-full sm:w-auto'}`}>
-                  {!completedSteps.includes('link') && (
-                    <button
-                      onClick={skipStep}
-                      className="inline-flex items-center justify-center gap-2 px-4 h-12 w-full sm:w-auto border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-xl font-medium transition"
-                    >
-                      Criar depois
-                    </button>
-                  )}
+                <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
                   <button
                     onClick={completedSteps.includes('link') ? finishOnboarding : handleCreateLink}
                     disabled={completedSteps.includes('link') ? false : (!linkFormVisible || !link.title.trim() || ((link.template === 'direct' || link.template === 'scheduling') && !link.url.trim()) || ((link.template === 'paid_access' || link.template === 'digital_product') && !link.price) || (link.template === 'paid_access' && !link.url.trim()) || (link.template === 'digital_product' && !selectedFile) || isCreatingLink || isUploadingFile)}
