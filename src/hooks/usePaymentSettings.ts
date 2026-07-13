@@ -8,6 +8,8 @@ import {
   updateMercadoPagoCredentials,
   invalidateProfileCache,
 } from '@/lib/api';
+import { useAuth } from '@/hooks/useAuth';
+import { trackPaymentConfigured } from '@/lib/pixel-milestones';
 
 export type PaymentMethod = 'mercadopago' | 'pix_direct' | null;
 
@@ -144,6 +146,7 @@ const validateMercadoPagoCredentials = (publicKey: string, accessToken: string):
 };
 
 export function usePaymentSettings(): UsePaymentSettingsReturn {
+  const { user } = useAuth();
   const [state, setState] = useState<PaymentSettingsState>({
     selectedMethod: null,
     activeMethod: null,
@@ -357,6 +360,11 @@ export function usePaymentSettings(): UsePaymentSettingsReturn {
           isSaving: false,
           message: { type: 'success', text: 'MercadoPago configurado! Agora é seu método de recebimento ativo. 🎉' },
         }));
+
+        // Meta Pixel: pagamento configurado via MercadoPago
+        if (user?.id) {
+          trackPaymentConfigured(user.id, 'mercadopago');
+        }
       } else if (selectedMethod === 'pix_direct') {
         // Validar chave PIX
         const validation = validatePixKey(pixDirect.keyType, pixDirect.key);
@@ -385,6 +393,11 @@ export function usePaymentSettings(): UsePaymentSettingsReturn {
           isSaving: false,
           message: { type: 'success', text: 'PIX Direto configurado! Agora é seu método de recebimento ativo. 🎉' },
         }));
+
+        // Meta Pixel: pagamento configurado via PIX
+        if (user?.id) {
+          trackPaymentConfigured(user.id, 'pix');
+        }
       }
 
       // Invalidar cache do perfil

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useAuth, useProtectedRoute } from '@/hooks/useAuth';
+import { trackLinkPaidCreated } from '@/lib/pixel-milestones';
 import { usePageEditor, LinkItem, headerGradients, backgroundOptions, paidLinkAccentColors } from '@/hooks/usePageEditor';
 import { uploadLinkFile, deleteLinkFile } from '@/lib/api';
 import { maskPriceInput, parsePrice, formatPrice, formatUrl, priceToInputValue } from '@/lib/masks';
@@ -242,6 +243,7 @@ function EditorContent() {
 
 // Tab Components
 function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, isCreating, isUpdating, isDeleting }: any) {
+  const { user } = useAuth();
   const { canCreatePaidLink, currentPlan, getPaidLinksUsage } = useSubscription();
   const [showForm, setShowForm] = useState(false);
   const [editingLink, setEditingLink] = useState<LinkItem | null>(null);
@@ -334,6 +336,11 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
         const result = await onCreate(linkData);
         linkId = result.link?.id || result.id;
         setMessage({ type: 'success', text: 'Link criado!' });
+
+        // Meta Pixel: primeiro Link Pago
+        if (isMonetized && paidLinksCount === 0 && user?.id) {
+          trackLinkPaidCreated(user.id, formData.price || 0);
+        }
       }
       
       // Upload do arquivo se selecionado (apenas para Produto Digital)

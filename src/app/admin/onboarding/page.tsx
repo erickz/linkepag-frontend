@@ -16,6 +16,7 @@ import {
   CACHE_KEYS 
 } from '@/lib/api';
 import { formatUrl } from '@/lib/masks';
+import { trackLinkPaidCreated, trackPaymentConfigured } from '@/lib/pixel-milestones';
 import {
   getDefaultLinkTemplate,
   getTitlePlaceholder,
@@ -388,6 +389,11 @@ export default function OnboardingPage() {
       
       const result = await createLink(linkData);
       const linkId = result.link?.id || result.id;
+
+      // Meta Pixel: primeiro Link Pago
+      if (isMonetized && existingLinks.length === 0 && user?.id) {
+        trackLinkPaidCreated(user.id, parseFloat(link.price) || 0);
+      }
       
       // Upload do arquivo se selecionado (apenas para Produto Digital)
       if (selectedFile && linkId && link.template === 'digital_product') {
@@ -427,6 +433,12 @@ export default function OnboardingPage() {
         pixQRCodeImage: pixConfig.pixQRCodeImage || undefined,
         activePaymentMethod: 'pix_direct',
       });
+
+      // Meta Pixel: pagamento configurado via PIX
+      if (user?.id) {
+        trackPaymentConfigured(user.id, 'pix');
+      }
+
       setCompletedSteps(prev => [...new Set([...prev, 'payment'])]);
       setCurrentStep(2); // Vai para o passo 3: Links
     } catch (err) {
@@ -437,6 +449,11 @@ export default function OnboardingPage() {
   };
 
   const handleOAuthSuccess = () => {
+    // Meta Pixel: pagamento configurado via MercadoPago
+    if (user?.id) {
+      trackPaymentConfigured(user.id, 'mercadopago');
+    }
+
     setCompletedSteps(prev => [...new Set([...prev, 'payment'])]);
     setCurrentStep(2); // Vai para o passo 3: Links
   };

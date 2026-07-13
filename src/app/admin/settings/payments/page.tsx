@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth, useProtectedRoute } from '@/hooks/useAuth';
+import { trackPaymentConfigured } from '@/lib/pixel-milestones';
 import { usePaymentSettings, PaymentMethod } from '@/hooks/usePaymentSettings';
 import { useMpOAuth } from '@/hooks/useMpOAuth';
 import useMask from '@/hooks/useMask';
@@ -479,7 +480,7 @@ function PixDirectForm({
 
 // Main Page Component
 export default function PaymentsSettingsPage() {
-  const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
+  const { user, isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const searchParams = useSearchParams();
   
   const {
@@ -509,8 +510,13 @@ export default function PaymentsSettingsPage() {
     const oauthResult = searchParams.get('oauth');
     if (oauthResult === 'success') {
       refreshStatus();
+
+      // Meta Pixel: pagamento configurado via MercadoPago OAuth
+      if (user?.id) {
+        trackPaymentConfigured(user.id, 'mercadopago');
+      }
     }
-  }, [searchParams, refreshStatus]);
+  }, [searchParams, refreshStatus, user?.id]);
 
   if (isAuthLoading || state.isLoading) {
     return (
