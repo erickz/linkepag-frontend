@@ -15,6 +15,7 @@ export interface User {
   username: string;
   planId?: number;
   profilePhoto?: string;
+  emailSubscription?: boolean;
 }
 
 interface AuthContextType {

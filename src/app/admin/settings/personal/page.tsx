@@ -20,6 +20,7 @@ export default function PersonalSettingsPage() {
     email: '',
     phone: '',
     cpf: '',
+    emailSubscription: true,
   });
 
   // Load profile data directly
@@ -56,6 +57,7 @@ export default function PersonalSettingsPage() {
           email: data.email || '',
           phone: data.phone || '',
           cpf: formatCPF(data.cpf || ''),
+          emailSubscription: data.emailSubscription !== false,
         });
       } catch (err) {
         console.error('Error loading profile:', err);
@@ -85,6 +87,7 @@ export default function PersonalSettingsPage() {
           fullName: formData.fullName,
           phone: formData.phone,
           cpf: formData.cpf || undefined,
+          emailSubscription: formData.emailSubscription,
         })
       });
 
@@ -209,6 +212,25 @@ export default function PersonalSettingsPage() {
                 ) : (
                   <p className="text-xs text-slate-400 mt-1">CPF necessário para receber pagamentos via PIX com gateways</p>
                 )}
+              </div>
+            </div>
+
+            {/* Email subscription */}
+            <div className="flex items-start gap-3 p-4 rounded-xl border border-slate-200 bg-slate-50">
+              <input
+                id="emailSubscription"
+                type="checkbox"
+                checked={formData.emailSubscription}
+                onChange={(e) => setFormData(prev => ({ ...prev, emailSubscription: e.target.checked }))}
+                className="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <div>
+                <label htmlFor="emailSubscription" className="block text-sm font-medium text-slate-800 cursor-pointer">
+                  Receber emails de onboarding e novidades da LinkePag
+                </label>
+                <p className="text-xs text-slate-500 mt-1">
+                  Desmarque para cancelar o recebimento de emails de dicas, lembretes e comunicações de marketing.
+                </p>
               </div>
             </div>
 
