@@ -32,11 +32,24 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         <PlanNotification />
         
         {/* Page Content */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 pt-14 sm:pt-16 lg:pt-8 pl-14 sm:pl-16 lg:pl-8">
           <div className="max-w-6xl mx-auto">
             {children}
           </div>
         </main>
+
+        {/* Footer */}
+        <footer className="border-t border-slate-200 bg-white py-4 px-4 sm:px-6 lg:px-8">
+          <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-sm text-slate-500">
+            <span>© {new Date().getFullYear()} LinkePag</span>
+            <a
+              href="mailto:suporte@linkepag.com.br"
+              className="text-slate-600 hover:text-indigo-600 transition"
+            >
+              suporte@linkepag.com.br
+            </a>
+          </div>
+        </footer>
       </div>
     </div>
   );
