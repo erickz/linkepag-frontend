@@ -755,7 +755,7 @@ export default function OnboardingPage() {
                       Etapa 3 de 3
                     </span>
                   </div>
-                  <p className="text-slate-500">Crie um link para vender infoproduto ou acessos a grupo VIP</p>
+                  <p className="text-slate-500">Crie um link para vender infoproduto ou acesso a grupo VIP</p>
                 </div>
               </div>
 
