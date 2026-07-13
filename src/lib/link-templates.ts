@@ -15,14 +15,14 @@ export const linkTemplates: LinkTemplateConfig[] = [
   {
     id: 'paid_access',
     label: 'Cobrar por acesso',
-    shortDesc: 'Libere um link após o pagamento',
+    shortDesc: 'Após o pagamento libera acesso a grupo VIP, links, etc. ',
     icon: IconLock,
     color: 'indigo',
   },
   {
     id: 'digital_product',
     label: 'Vender infoproduto',
-    shortDesc: 'Cursos, ebooks, planilhas etc.',
+    shortDesc: 'Cursos, ebooks, planilhas, etc.',
     icon: IconDownload,
     color: 'amber',
   },
