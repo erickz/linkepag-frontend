@@ -60,6 +60,26 @@ function getFbp(): string | undefined {
   return getCookie('_fbp');
 }
 
+/**
+ * Dados de atribuição do Meta capturados no browser (fbc/fbp/userAgent).
+ * Enviados ao backend na criação do pagamento para que o evento Purchase
+ * server-side (Conversions API) tenha a mesma atribuição do pixel.
+ */
+export function getMetaTrackingParams(): {
+  fbc?: string;
+  fbp?: string;
+  clientUserAgent?: string;
+} {
+  if (typeof window === 'undefined') return {};
+  const fbc = getFbc();
+  const fbp = getFbp();
+  return {
+    ...(fbc && { fbc }),
+    ...(fbp && { fbp }),
+    ...(navigator?.userAgent && { clientUserAgent: navigator.userAgent }),
+  };
+}
+
 /** Infere país */
 function inferCountry(): string | undefined {
   if (typeof navigator === 'undefined') return undefined;
@@ -108,10 +128,14 @@ const STANDARD_EVENTS = new Set([
 /**
  * Dispara um evento no Meta Pixel.
  * Retorna true se disparou, false se pixel não estava pronto.
+ *
+ * eventID: identificador único para deduplicação com o evento equivalente
+ * enviado pelo servidor via Conversions API (mesmo event_name + event_id).
  */
 export function fbqTrack(
   eventName: string,
-  params?: Record<string, unknown>
+  params?: Record<string, unknown>,
+  eventID?: string
 ): boolean {
   if (!isFbqAvailable()) {
     pixelLog(`⏸️ NÃO disparado "${eventName}" — pixel ainda carregando`);
@@ -120,14 +144,18 @@ export function fbqTrack(
 
   try {
     const fbq = (window as unknown as Record<string, unknown>).fbq as (
-      cmd: string, event: string, params?: Record<string, unknown>
+      cmd: string,
+      event: string,
+      params?: Record<string, unknown>,
+      options?: { eventID?: string }
     ) => void;
 
+    const options = eventID ? { eventID } : undefined;
     const isStandard = STANDARD_EVENTS.has(eventName);
     if (isStandard) {
-      fbq('track', eventName, params);
+      fbq('track', eventName, params, options);
     } else {
-      fbq('trackCustom', eventName, params);
+      fbq('trackCustom', eventName, params, options);
     }
     pixelLog(`✅ Disparado "${eventName}" (${isStandard ? 'standard' : 'custom'})`);
     return true;

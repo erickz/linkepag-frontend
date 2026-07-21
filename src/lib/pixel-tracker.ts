@@ -20,6 +20,12 @@ export interface EcommerceEventParams {
   contentType?: string;
   currency?: string;
   quantity?: number;
+  /**
+   * eventID para deduplicação browser/servidor (Meta Conversions API).
+   * O backend envia o mesmo event_id ao confirmar o pagamento — o Meta
+   * deduplica o par browser/servidor por (event_name, event_id).
+   */
+  eventId?: string;
 }
 
 /** Dados do usuário para identify/advanced matching */
@@ -46,7 +52,7 @@ export function trackEcommerceEvent(
   const contentType = params.contentType || 'product';
   const unitPrice = quantity > 0 ? params.value / quantity : params.value;
 
-  // Meta Pixel
+  // Meta Pixel (com eventID para dedup com o evento server-side da CAPI)
   trackOrQueue('meta', eventName, {
     content_ids: [params.contentId],
     content_name: params.contentName,
@@ -54,7 +60,7 @@ export function trackEcommerceEvent(
     value: params.value,
     currency,
     num_items: quantity,
-  });
+  }, params.eventId);
 
   // TikTok Pixel — formato oficial contents[]
   trackOrQueue('tiktok', eventName, {

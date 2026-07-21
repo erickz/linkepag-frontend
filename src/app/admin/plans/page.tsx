@@ -273,11 +273,14 @@ export default function PlansPage() {
   } = useBilling();
 
   // Helper para tracking de Purchase de plano/assinatura
-  const trackPlanPurchase = useCallback((value: number, contentName: string) => {
+  // eventId casa com o event_id enviado pelo backend via CAPI — o Meta
+  // deduplica o par browser/servidor por (event_name, event_id)
+  const trackPlanPurchase = useCallback((value: number, contentName: string, eventId?: string) => {
     trackEcommerceEvent('Purchase', {
       contentId: `plan-${selectedPlan || user?.planId || 'unknown'}`,
       contentName,
       value,
+      eventId,
     });
     if (user?.email) {
       identifyUser({
@@ -364,7 +367,7 @@ export default function PlansPage() {
           refreshBilling();
           clearInterval(interval);
           // Tracking: pagamento de pendências confirmado
-          trackPlanPurchase(currentBalance || 0, 'Pagamento de Pendências');
+          trackPlanPurchase(currentBalance || 0, 'Pagamento de Pendências', `purchase-bill-${pendingPaymentId}`);
         } else if (response.data.isFailed) {
           setMessage({ type: 'error', text: 'Pagamento falhou. Por favor, tente novamente.' });
           clearInterval(interval);
@@ -552,7 +555,8 @@ export default function PlansPage() {
         // Tracking: upgrade de plano confirmado
         trackPlanPurchase(
           selectedPlanPrice || plans.find(p => p.id === Number(subscription?.planId))?.monthlyPrice || 0,
-          plans.find(p => p.id === Number(subscription?.planId))?.name || 'Upgrade de Plano'
+          plans.find(p => p.id === Number(subscription?.planId))?.name || 'Upgrade de Plano',
+          `purchase-sub-${subscriptionIdToCheck}`
         );
       } else if (response.data.isFailed) {
         setMessage({ type: 'error', text: 'Pagamento falhou. Por favor, tente novamente.' });
@@ -679,6 +683,10 @@ export default function PlansPage() {
         setShowPendingPaymentSection(false);
         setPendingPixData(null);
         refreshBilling();
+        // Tracking: pagamento de pendências aprovado na hora (cartão)
+        if (result.paymentId) {
+          trackPlanPurchase(currentBalance || 0, 'Pagamento de Pendências', `purchase-bill-${result.paymentId}`);
+        }
       }
     } catch (error: any) {
       console.error('[PagarPendencias] Erro:', error);
@@ -748,7 +756,7 @@ export default function PlansPage() {
         setPendingPaymentId(null);
         refreshBilling();
         // Tracking: pagamento de pendências confirmado
-        trackPlanPurchase(currentBalance || 0, 'Pagamento de Pendências');
+        trackPlanPurchase(currentBalance || 0, 'Pagamento de Pendências', `purchase-bill-${pendingPaymentId}`);
       } else if (response.data.isFailed) {
         setMessage({ type: 'error', text: 'Pagamento falhou. Por favor, tente novamente.' });
       } else {

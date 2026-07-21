@@ -5,6 +5,7 @@ import { createPayment, createPixDirectPayment, uploadReceipt, checkPaymentStatu
 import { useMercadoPago } from '@/hooks/useMercadoPago';
 import { formatPrice } from '@/lib/masks';
 import { trackEcommerceEvent, identifyUser } from '@/lib/pixel-tracker';
+import { getMetaTrackingParams } from '@/lib/meta-pixel';
 
 interface PixCheckoutProps {
   linkId: string;
@@ -95,9 +96,12 @@ export default function PixCheckout({
     setLastCheckMessage(null);
 
     try {
+      // Atribuição do Meta (fbc/fbp/userAgent) — o backend persiste no
+      // pagamento e usa no Purchase server-side (CAPI) na confirmação
+      const tracking = getMetaTrackingParams();
       const response = isPixDirect 
-        ? await createPixDirectPayment(linkId, { email, name: name.trim() })
-        : await createPayment(linkId, { email, name: name.trim() });
+        ? await createPixDirectPayment(linkId, { email, name: name.trim(), tracking })
+        : await createPayment(linkId, { email, name: name.trim(), tracking });
       
       if (!response.success) {
         throw new Error(response.error || 'Erro ao criar pagamento');
@@ -185,12 +189,15 @@ export default function PixCheckout({
         setStatus('confirmed');
         
         // Tracking: Purchase + Identify do comprador
+        // eventId casa com o event_id enviado pelo backend via CAPI
+        // (`purchase-{paymentId}`) — o Meta deduplica browser/servidor
         const buyerEmail = email.trim().toLowerCase();
         const buyerName = name.trim();
         trackEcommerceEvent('Purchase', {
           contentId: linkId,
           contentName: title,
           value: price,
+          eventId: `purchase-${paymentId}`,
         });
         // Identify do comprador para advanced matching
         if (buyerEmail) {

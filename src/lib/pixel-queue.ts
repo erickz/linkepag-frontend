@@ -9,10 +9,20 @@
 const QUEUE_KEY = 'lp_pixel_queue_v1';
 const IDENTIFY_QUEUE_KEY = 'lp_pixel_identify_queue_v1';
 
+/**
+ * TTL dos eventos na fila: 48h.
+ * Eventos mais antigos são descartados — evita re-disparo infinito de
+ * payloads antigos (ex: formatos de versões anteriores do site) e garante
+ * que eventos com valor/moeda obsoletos não poluam o pixel.
+ */
+const QUEUE_TTL_MS = 48 * 60 * 60 * 1000;
+
 interface QueuedEvent {
   platform: 'meta' | 'tiktok';
   eventName: string;
   params?: Record<string, unknown>;
+  /** eventID para deduplicação browser/servidor (Meta CAPI) */
+  eventId?: string;
   timestamp: number;
 }
 
@@ -26,7 +36,13 @@ function getQueue(): QueuedEvent[] {
   if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(QUEUE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    const events: QueuedEvent[] = JSON.parse(raw);
+    const now = Date.now();
+    // Descarta eventos expirados (mais antigos que o TTL)
+    return events.filter(
+      (e) => typeof e.timestamp === 'number' && now - e.timestamp < QUEUE_TTL_MS
+    );
   } catch {
     return [];
   }
@@ -82,10 +98,11 @@ function clearIdentifyQueue(): void {
 export function queuePixelEvent(
   platform: 'meta' | 'tiktok',
   eventName: string,
-  params?: Record<string, unknown>
+  params?: Record<string, unknown>,
+  eventId?: string
 ): void {
   const queue = getQueue();
-  queue.push({ platform, eventName, params, timestamp: Date.now() });
+  queue.push({ platform, eventName, params, eventId, timestamp: Date.now() });
   saveQueue(queue);
 }
 
@@ -93,7 +110,8 @@ export function queuePixelEvent(
 export function trackOrQueue(
   platform: 'meta' | 'tiktok',
   eventName: string,
-  params?: Record<string, unknown>
+  params?: Record<string, unknown>,
+  eventId?: string
 ): void {
   const { fbqTrack } = require('./meta-pixel') as typeof import('./meta-pixel');
   const { ttqTrack } = require('./tiktok-pixel') as typeof import('./tiktok-pixel');
@@ -101,7 +119,7 @@ export function trackOrQueue(
   let success = false;
   try {
     if (platform === 'meta') {
-      success = fbqTrack(eventName, params);
+      success = fbqTrack(eventName, params, eventId);
     } else {
       success = ttqTrack(eventName, params);
     }
@@ -110,7 +128,7 @@ export function trackOrQueue(
   }
 
   if (!success) {
-    queuePixelEvent(platform, eventName, params);
+    queuePixelEvent(platform, eventName, params, eventId);
     if (process.env.NODE_ENV === 'development') {
       // eslint-disable-next-line no-console
       console.log(`[PixelQueue] Evento "${eventName}" (${platform}) enfileirado — pixel não estava pronto`);
@@ -166,7 +184,7 @@ export function flushPixelQueue(): void {
     let success = false;
     try {
       if (event.platform === 'meta') {
-        success = fbqTrack(event.eventName, event.params);
+        success = fbqTrack(event.eventName, event.params, event.eventId);
       } else {
         success = ttqTrack(event.eventName, event.params);
       }
