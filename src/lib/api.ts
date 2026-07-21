@@ -261,6 +261,20 @@ export async function checkUsernameAvailability(username: string): Promise<{ ava
   return response.json();
 }
 
+export async function trackActivity() {
+  const response = await fetch(`${API_BASE_URL}/users/activity`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Erro ao registrar atividade');
+  }
+
+  return response.json();
+}
+
 // ============ PUBLIC PROFILE (com cache) ============
 
 export async function getPublicProfile(username: string) {
@@ -1129,4 +1143,63 @@ export async function exportSubscriptionHistory(config: ExportFormat): Promise<B
   }
 
   return response.blob();
+}
+
+
+// ============ ANALYTICS ============
+
+export interface AnalyticsSummary {
+  totalViews: number;
+  totalClicks: number;
+  views7d: number;
+  clicks7d: number;
+}
+
+export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
+  const response = await fetch(`${API_BASE_URL}/analytics/summary`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Erro ao obter estatísticas');
+  }
+
+  return response.json();
+}
+
+// Registra visita em página pública (sem auth). Fire-and-forget: o chamador
+// deve tratar erros com .catch(() => {})
+export async function trackPageView(username: string) {
+  const response = await fetch(`${API_BASE_URL}/analytics/view/${encodeURIComponent(username)}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error('Erro ao registrar visita');
+  }
+
+  return response.json();
+}
+
+// Registra clique em link da página pública (sem auth).
+// Não bloqueia a navegação: prefere sendBeacon (sem payload, para evitar
+// preflight CORS), com fallback para fetch keepalive.
+export function trackLinkClick(linkId: string) {
+  const url = `${API_BASE_URL}/analytics/click/${encodeURIComponent(linkId)}`;
+
+  if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+    if (navigator.sendBeacon(url)) {
+      return;
+    }
+  }
+
+  fetch(url, {
+    method: 'POST',
+    keepalive: true,
+  }).catch(() => {});
 }

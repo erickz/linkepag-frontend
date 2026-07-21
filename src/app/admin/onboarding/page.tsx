@@ -15,7 +15,7 @@ import {
   uploadLinkFile,
   CACHE_KEYS 
 } from '@/lib/api';
-import { formatUrl } from '@/lib/masks';
+import { formatUrl, maskPriceInput, parsePrice } from '@/lib/masks';
 import { trackLinkPaidCreated, trackPaymentConfigured } from '@/lib/pixel-milestones';
 import {
   getDefaultLinkTemplate,
@@ -377,7 +377,7 @@ export default function OnboardingPage() {
         description: link.description, 
         openInNewTab: link.openInNewTab, 
         template: link.template,
-        price: isMonetized ? parseFloat(link.price) : 0,
+        price: isMonetized ? parsePrice(link.price) : 0,
       };
       
       // URL obrigatória para direct e scheduling
@@ -392,7 +392,7 @@ export default function OnboardingPage() {
 
       // Meta Pixel: primeiro Link Pago
       if (isMonetized && existingLinks.length === 0 && user?.id) {
-        trackLinkPaidCreated(user.id, parseFloat(link.price) || 0);
+        trackLinkPaidCreated(user.id, parsePrice(link.price) || 0);
       }
       
       // Upload do arquivo se selecionado (apenas para Produto Digital)
@@ -493,6 +493,10 @@ export default function OnboardingPage() {
 
   const selectedTemplateConfig = selectedTemplate ? getLinkTemplateById(selectedTemplate) : null;
   const selectedColor = selectedTemplateConfig ? linkTemplateColors[selectedTemplateConfig.color] : null;
+
+  // Modo "criar novo link": sem links ainda OU formulário de novo link aberto.
+  // Não usar completedSteps aqui — quem já tem links também pode criar outro.
+  const isCreatingNewLink = existingLinks.length === 0 || showNewLinkForm;
 
   const progress = ((completedSteps.length) / steps.length) * 100;
 
@@ -824,13 +828,15 @@ export default function OnboardingPage() {
                       </>
                     ) : selectedTemplate && selectedTemplateConfig && selectedColor ? (
                       <div className={`rounded-xl p-4 border ${selectedColor.border} ${selectedColor.bg} animate-in fade-in slide-in-from-top-2 duration-200`}>
-                        <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${selectedColor.iconBg}`}>
-                            <selectedTemplateConfig.icon className={`w-5 h-5 ${selectedColor.iconText}`} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className={`text-sm font-semibold ${selectedColor.text}`}>{selectedTemplateConfig.label}</p>
-                            <p className="text-xs text-slate-600 mt-0.5">{getTemplateContextDescription(selectedTemplate)}</p>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${selectedColor.iconBg}`}>
+                              <selectedTemplateConfig.icon className={`w-5 h-5 ${selectedColor.iconText}`} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-sm font-semibold ${selectedColor.text}`}>{selectedTemplateConfig.label}</p>
+                              <p className="text-xs text-slate-600 mt-0.5">{getTemplateContextDescription(selectedTemplate)}</p>
+                            </div>
                           </div>
                           <button
                             type="button"
@@ -838,7 +844,7 @@ export default function OnboardingPage() {
                               setLinkFormVisible(false);
                               setSelectedTemplate(null);
                             }}
-                            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 transition shrink-0"
+                            className="inline-flex items-center gap-1.5 self-start sm:self-center text-xs font-medium text-slate-600 hover:text-slate-900 transition shrink-0"
                           >
                             <IconRefresh className="w-3.5 h-3.5" />
                             Trocar tipo de link
@@ -873,9 +879,10 @@ export default function OnboardingPage() {
                           <div className="relative">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-medium">R$</span>
                             <input
-                              type="number"
+                              type="text"
+                              inputMode="numeric"
                               value={link.price}
-                              onChange={(e) => setLink({ ...link, price: e.target.value })}
+                              onChange={(e) => setLink({ ...link, price: maskPriceInput(e.target.value) })}
                               placeholder="0,00"
                               className="w-full h-12 pl-10 pr-4 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition"
                             />
@@ -999,43 +1006,49 @@ export default function OnboardingPage() {
                 </>
               )}
 
-              <div className="flex flex-col-reverse sm:flex-row gap-3 sm:gap-0 justify-between mt-8">
-                <button
-                  onClick={() => setCurrentStep(1)}
-                  className="inline-flex items-center justify-center gap-2 px-4 h-12 w-full sm:w-auto text-slate-600 hover:text-slate-900 hover:bg-slate-50 font-medium transition"
-                >
-                  <IconArrowLeft className="w-4 h-4" />
-                  Voltar
-                </button>
-                <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+              <div className={`mt-8 ${linkFormVisible ? 'flex justify-end' : 'flex flex-col-reverse sm:flex-row gap-3 sm:gap-0 justify-between'}`}>
+                {!linkFormVisible && (
                   <button
-                    onClick={completedSteps.includes('link') ? finishOnboarding : handleCreateLink}
-                    disabled={completedSteps.includes('link') ? false : (!linkFormVisible || !link.title.trim() || ((link.template === 'direct' || link.template === 'scheduling') && !link.url.trim()) || ((link.template === 'paid_access' || link.template === 'digital_product') && !link.price) || (link.template === 'paid_access' && !link.url.trim()) || (link.template === 'digital_product' && !selectedFile) || isCreatingLink || isUploadingFile)}
-                    className="inline-flex items-center justify-center gap-2 px-6 h-12 w-full sm:w-auto bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    onClick={() => setCurrentStep(1)}
+                    className="inline-flex items-center justify-center gap-2 px-4 h-12 w-full sm:w-auto text-slate-600 hover:text-slate-900 hover:bg-slate-50 font-medium transition"
                   >
-                    {completedSteps.includes('link') ? (
-                      <>
-                        Continuar
-                        <IconArrowRight className="w-4 h-4" />
-                      </>
-                    ) : isUploadingFile ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        Enviando arquivo...
-                      </>
-                    ) : isCreatingLink ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        Criando...
-                      </>
-                    ) : (
-                      <>
-                        Criar e continuar
-                        <IconArrowRight className="w-4 h-4" />
-                      </>
-                    )}
+                    <IconArrowLeft className="w-4 h-4" />
+                    Voltar
                   </button>
-                </div>
+                )}
+                {(!isCreatingNewLink || linkFormVisible) && (
+                  <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                    <button
+                      onClick={isCreatingNewLink ? handleCreateLink : finishOnboarding}
+                      disabled={isCreatingNewLink ? (!link.title.trim() || ((link.template === 'direct' || link.template === 'scheduling') && !link.url.trim()) || ((link.template === 'paid_access' || link.template === 'digital_product') && !link.price) || (link.template === 'paid_access' && !link.url.trim()) || (link.template === 'digital_product' && !selectedFile) || isCreatingLink || isUploadingFile) : false}
+                      className="inline-flex items-center justify-center gap-2 px-6 h-12 w-full sm:w-auto bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    >
+                      {isCreatingNewLink ? (
+                        isUploadingFile ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            Enviando arquivo...
+                          </>
+                        ) : isCreatingLink ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            Salvando...
+                          </>
+                        ) : (
+                          <>
+                            Salvar e Finalizar
+                            <IconCheck className="w-4 h-4" />
+                          </>
+                        )
+                      ) : (
+                        <>
+                          Finalizar
+                          <IconCheck className="w-4 h-4" />
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1354,7 +1367,7 @@ export default function OnboardingPage() {
                           </>
                         ) : (
                           <>
-                            Salvar e ativar PIX Direto
+                            Salvar e continuar
                             <IconCheck className="w-4 h-4" />
                           </>
                         )}

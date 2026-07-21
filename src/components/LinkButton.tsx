@@ -24,6 +24,7 @@ import {
 } from './icons';
 import { detectPlatformFromUrl } from '@/lib/platform-detector';
 import { trackEcommerceEvent } from '@/lib/pixel-tracker';
+import { trackLinkClick } from '@/lib/api';
 
 interface AccentColor {
   textClass: string;
@@ -109,6 +110,12 @@ function LinkButtonComponent({
   const isDirect = link.template === 'direct' || link.template === 'scheduling';
 
   const handleLinkClick = useCallback(() => {
+    // Analytics: conta o clique ao navegar (links diretos) ou ao abrir o
+    // checkout (links pagos). Não conta ao fechar o checkout (isExpanded).
+    if (isDirect || !isExpanded) {
+      trackLinkClick(link.id);
+    }
+
     // Links diretos e agendamento com URL abrem direto
     if (isDirect && link.url) {
       window.open(link.url, link.openInNewTab ? '_blank' : '_self');

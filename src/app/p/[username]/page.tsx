@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useApi } from '@/hooks/useApi';
-import { getPublicProfile, CACHE_KEYS } from '@/lib/api';
+import { getPublicProfile, trackPageView, CACHE_KEYS } from '@/lib/api';
 import LinkButton from '@/components/LinkButton';
 import { 
   IconUser, 
@@ -370,6 +370,17 @@ export default function PublicPage() {
         content_type: 'product',
         content_id: profile.username,
       });
+    }
+  }, [profile, isLoading]);
+
+  // Analytics: registra visita uma vez por sessão por username
+  useEffect(() => {
+    if (profile && !isLoading && typeof window !== 'undefined') {
+      const key = `lp_view_${profile.username}`;
+      if (!sessionStorage.getItem(key)) {
+        sessionStorage.setItem(key, '1');
+        trackPageView(profile.username).catch(() => {});
+      }
     }
   }, [profile, isLoading]);
 

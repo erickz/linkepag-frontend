@@ -4,21 +4,22 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { useAuth, useProtectedRoute } from '@/hooks/useAuth';
 import { useApiParallel } from '@/hooks/useApi';
-import { getLinks, getProfile, getSalesReport, getPendingPayments, CACHE_KEYS } from '@/lib/api';
+import { getLinks, getProfile, getSalesReport, getPendingPayments, getAnalyticsSummary, trackActivity, CACHE_KEYS } from '@/lib/api';
 import { getMpOAuthStatus } from '@/lib/api';
+import type { AnalyticsSummary } from '@/lib/api';
 import { PageHeader } from '@/components/PageHeader';
 import { BillingAlert } from '@/components/billing/BillingAlert';
 import { 
   IconLink, 
-  IconUser, 
   IconCoins, 
-  IconUsers, 
   IconCrown,
-  IconCheck,
   IconArrowRight,
   IconExternalLink,
   IconCopy,
-  IconClock
+  IconClock,
+  IconEye,
+  IconTarget,
+  IconTrendingUp
 } from '@/components/icons';
 
 interface LinkItem {
@@ -57,6 +58,8 @@ export default function AdminDashboard() {
   const [pendingCount, setPendingCount] = useState(0);
   const [pendingAmount, setPendingAmount] = useState(0);
   const [isLoadingPending, setIsLoadingPending] = useState(true);
+  const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null);
+  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(true);
   
   useProtectedRoute('/login');
 
@@ -84,6 +87,19 @@ export default function AdminDashboard() {
       loadMercadoPagoStatus();
       loadSalesReport();
       loadPendingPaymentsCount();
+      loadAnalyticsSummary();
+    }
+  }, [isAuthenticated]);
+
+  // Registra atividade do usuário uma vez por sessão (throttle de 5 min no backend)
+  useEffect(() => {
+    if (
+      isAuthenticated &&
+      typeof window !== 'undefined' &&
+      !sessionStorage.getItem('lp_activity_tracked')
+    ) {
+      sessionStorage.setItem('lp_activity_tracked', '1');
+      trackActivity().catch(() => {});
     }
   }, [isAuthenticated]);
 
@@ -163,6 +179,18 @@ export default function AdminDashboard() {
     }
   };
 
+  const loadAnalyticsSummary = async () => {
+    try {
+      setIsLoadingAnalytics(true);
+      const data = await getAnalyticsSummary();
+      setAnalytics(data);
+    } catch (err) {
+      console.error('Erro ao carregar estatísticas de visitas:', err);
+    } finally {
+      setIsLoadingAnalytics(false);
+    }
+  };
+
   const publicUrl = profile?.username ? `/p/${profile.username}` : '#';
   const fullPublicUrl = typeof window !== 'undefined' 
     ? `${window.location.origin}/p/${profile?.username || ''}` 
@@ -182,6 +210,21 @@ export default function AdminDashboard() {
     if (profile?.planId === 2) return 10;
     return Infinity;
   };
+
+  const hasPendingPayments = !isLoadingPending && pendingCount > 0;
+
+  // CTR (taxa de cliques) — derivado dos totais já carregados; "—" quando não há visitas
+  const totalViews = analytics?.totalViews || 0;
+  const totalClicks = analytics?.totalClicks || 0;
+  const ctr = totalViews > 0 ? (totalClicks / totalViews) * 100 : null;
+  const ctr7d = (analytics?.views7d || 0) > 0
+    ? ((analytics?.clicks7d || 0) / (analytics?.views7d || 0)) * 100
+    : null;
+
+  const formatCtr = (value: number | null) =>
+    value === null
+      ? '—'
+      : `${value.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
 
   if (isLoading || isLoadingData) {
     return (
@@ -205,11 +248,11 @@ export default function AdminDashboard() {
       {profile?.username && (
         <div className="mb-8 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-6 text-white shadow-lg shadow-indigo-200">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
+            <div className="min-w-0">
               <p className="text-indigo-100 text-sm font-medium mb-1">Sua página pública</p>
               <div className="flex items-center gap-2">
-                <span className="text-xl font-bold">linkpagg.com/p/{profile.username}</span>
-                <span className="px-2 py-0.5 bg-white/20 rounded text-xs font-medium">Pública</span>
+                <span className="text-base sm:text-xl font-bold truncate">linkpagg.com/p/{profile.username}</span>
+                <span className="px-2 py-0.5 bg-white/20 rounded text-xs font-medium flex-shrink-0">Pública</span>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -265,10 +308,10 @@ export default function AdminDashboard() {
         )}
       </div>
 
-      {/* Dashboard Grid - Elegante */}
+      {/* Hero: Vendas + Pagamentos à confirmar */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Card Principal - Total em Vendas */}
-        <div className="lg:col-span-2 lg:row-span-3 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 lg:p-8 flex flex-col justify-between transition-shadow duration-200 hover:shadow-md">
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 lg:p-8 flex flex-col justify-between transition-shadow duration-200 hover:shadow-md">
           <div className="flex items-start justify-between mb-6">
             <div className="p-2.5 bg-indigo-50 rounded-xl">
               <IconCoins className="w-6 h-6 text-indigo-600" />
@@ -317,9 +360,153 @@ export default function AdminDashboard() {
           </div>
         </div>
 
+        {/* Card - Pagamentos à confirmar */}
+        <Link 
+          href="/admin/payments?tab=pending"
+          className={`group rounded-2xl border shadow-sm p-6 flex flex-col justify-between transition-all duration-200 hover:shadow-md ${
+            hasPendingPayments
+              ? 'bg-amber-50/70 border-amber-200 hover:border-amber-300'
+              : 'bg-white border-slate-200 hover:border-slate-300'
+          }`}
+        >
+          <div className="flex items-start justify-between mb-6">
+            <div className={`p-2.5 rounded-xl transition-colors duration-200 ${
+              hasPendingPayments ? 'bg-amber-100' : 'bg-slate-50 group-hover:bg-amber-50'
+            }`}>
+              <IconClock className={`w-6 h-6 transition-colors duration-200 ${
+                hasPendingPayments ? 'text-amber-600' : 'text-slate-500 group-hover:text-amber-600'
+              }`} />
+            </div>
+            {hasPendingPayments && (
+              <span className="px-2.5 py-1 bg-amber-500 text-white text-xs font-bold rounded-full">
+                {pendingCount}
+              </span>
+            )}
+          </div>
+
+          <div>
+            <p className={`text-sm font-medium mb-1 ${hasPendingPayments ? 'text-amber-800' : 'text-slate-500'}`}>
+              Pagamentos à confirmar
+            </p>
+            {isLoadingPending ? (
+              <div className="space-y-3 mt-2">
+                <div className="h-9 w-32 bg-slate-100 rounded-lg animate-pulse" />
+                <div className="h-4 w-28 bg-slate-100 rounded animate-pulse" />
+              </div>
+            ) : (
+              <>
+                <p className={`text-3xl font-bold tracking-tight mb-1 ${hasPendingPayments ? 'text-amber-900' : 'text-slate-900'}`}>
+                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(pendingAmount || 0)}
+                </p>
+                <p className={`text-sm ${hasPendingPayments ? 'text-amber-700' : 'text-slate-400'}`}>
+                  {pendingCount > 0
+                    ? `${pendingCount === 1 ? '1 pagamento aguardando' : `${pendingCount} pagamentos aguardando`} confirmação`
+                    : 'Nenhum pagamento à confirmar'}
+                </p>
+              </>
+            )}
+          </div>
+
+          <div className={`mt-6 pt-4 border-t flex items-center justify-between text-sm font-medium transition-colors duration-200 ${
+            hasPendingPayments
+              ? 'border-amber-200/70 text-amber-700'
+              : 'border-slate-100 text-slate-400 group-hover:text-amber-600'
+          }`}>
+            <span>{hasPendingPayments ? 'Confirmar pagamentos' : 'Ver pagamentos'}</span>
+            <IconArrowRight className="w-4 h-4" />
+          </div>
+        </Link>
+      </div>
+
+      {/* Desempenho da página pública */}
+      <div className="mt-8">
+        <div className="mb-4">
+          <h2 className="text-base font-semibold text-slate-900">Desempenho da sua página</h2>
+          <p className="text-sm text-slate-500 mt-0.5">Visitas e cliques na sua página pública</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* Card - Visitas */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 transition-shadow duration-200 hover:shadow-md">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2.5 bg-indigo-50 rounded-xl">
+                <IconEye className="w-5 h-5 text-indigo-600" />
+              </div>
+              <p className="text-sm font-medium text-slate-500">Visitas</p>
+            </div>
+            {isLoadingAnalytics ? (
+              <div className="space-y-2.5">
+                <div className="h-9 w-24 bg-slate-100 rounded-lg animate-pulse" />
+                <div className="h-5 w-36 bg-slate-100 rounded-full animate-pulse" />
+              </div>
+            ) : (
+              <>
+                <p className="text-3xl lg:text-4xl font-bold text-slate-900 tracking-tight">
+                  {(analytics?.totalViews || 0).toLocaleString('pt-BR')}
+                </p>
+                <span className="inline-flex items-center mt-2 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-xs font-medium">
+                  +{(analytics?.views7d || 0).toLocaleString('pt-BR')} nos últimos 7 dias
+                </span>
+              </>
+            )}
+          </div>
+
+          {/* Card - Cliques */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 transition-shadow duration-200 hover:shadow-md">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2.5 bg-emerald-50 rounded-xl">
+                <IconTarget className="w-5 h-5 text-emerald-600" />
+              </div>
+              <p className="text-sm font-medium text-slate-500">Cliques</p>
+            </div>
+            {isLoadingAnalytics ? (
+              <div className="space-y-2.5">
+                <div className="h-9 w-24 bg-slate-100 rounded-lg animate-pulse" />
+                <div className="h-5 w-36 bg-slate-100 rounded-full animate-pulse" />
+              </div>
+            ) : (
+              <>
+                <p className="text-3xl lg:text-4xl font-bold text-slate-900 tracking-tight">
+                  {(analytics?.totalClicks || 0).toLocaleString('pt-BR')}
+                </p>
+                <span className="inline-flex items-center mt-2 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-medium">
+                  +{(analytics?.clicks7d || 0).toLocaleString('pt-BR')} nos últimos 7 dias
+                </span>
+              </>
+            )}
+          </div>
+
+          {/* Card - Taxa de cliques (CTR) */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 transition-shadow duration-200 hover:shadow-md">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2.5 bg-emerald-50 rounded-xl">
+                <IconTrendingUp className="w-5 h-5 text-emerald-600" />
+              </div>
+              <p className="text-sm font-medium text-slate-500">Taxa de cliques</p>
+            </div>
+            {isLoadingAnalytics ? (
+              <div className="space-y-2.5">
+                <div className="h-9 w-24 bg-slate-100 rounded-lg animate-pulse" />
+                <div className="h-5 w-36 bg-slate-100 rounded-full animate-pulse" />
+              </div>
+            ) : (
+              <>
+                <p className="text-3xl lg:text-4xl font-bold text-slate-900 tracking-tight">
+                  {formatCtr(ctr)}
+                </p>
+                <span className="inline-flex items-center mt-2 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-medium">
+                  {formatCtr(ctr7d)} nos últimos 7 dias
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Atalhos secundários */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-8">
         {/* Card - Seus Links */}
         <Link 
-          href="/admin/links"
+          href="/admin/editor?tab=links"
           className="group bg-white rounded-2xl border border-slate-200 shadow-sm p-5 transition-all duration-200 hover:shadow-md hover:border-slate-300"
         >
           <div className="flex items-center gap-4">
@@ -337,33 +524,6 @@ export default function AdminDashboard() {
                 <div className="h-7 w-8 bg-slate-100 rounded animate-pulse" />
               ) : (
                 <p className="text-2xl font-bold text-slate-900">{links.length}</p>
-              )}
-            </div>
-          </div>
-        </Link>
-
-        {/* Card - Pagamentos Pendentes */}
-        <Link 
-          href="/admin/payments?tab=pending"
-          className="group bg-white rounded-2xl border border-slate-200 shadow-sm p-5 transition-all duration-200 hover:shadow-md hover:border-slate-300"
-        >
-          <div className="flex items-center gap-4">
-            <div className="p-2.5 bg-slate-50 rounded-xl group-hover:bg-amber-50 transition-colors duration-200">
-              <IconClock className="w-5 h-5 text-slate-500 group-hover:text-amber-600 transition-colors duration-200" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-slate-900">Pendentes</p>
-              <p className="text-xs text-slate-400 mt-0.5">
-                {pendingCount} aguardando
-              </p>
-            </div>
-            <div className="text-right">
-              {isLoadingPending ? (
-                <div className="h-7 w-16 bg-slate-100 rounded animate-pulse" />
-              ) : (
-                <p className="text-2xl font-bold text-slate-900">
-                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(pendingAmount || 0)}
-                </p>
               )}
             </div>
           </div>

@@ -368,28 +368,38 @@ export default function PixCheckout({
             </div>
           )}
 
-          {/* Mensagem informativa */}
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mt-4 mb-4">
-            <p className="text-sm text-amber-800">
-              <span className="font-medium">⏳ Envie o pagamento no valor de <b>R$ {formatPrice(price)}</b>, {name || 'cliente'}:</span> você receberá o link de acesso no email <strong>{email}</strong> assim que o pagamento for confirmado.
+          {/* Passo 1: valor a enviar (a chave PIX não carrega o valor) */}
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mt-4 mb-4 text-center">
+            <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wide mb-1">
+              1 · Valor a enviar
+            </p>
+            <p className="text-3xl font-bold text-emerald-700">
+              R$ {formatPrice(price)}
+            </p>
+            <p className="text-xs text-emerald-600 mt-1">
+              Informe esse valor manualmente no app do seu banco — a chave PIX não carrega o valor.
             </p>
           </div>
 
-          {/* QR Code - só mostra se tiver imagem configurada */}
-          {pixQRCodeImage && (
-            <div className="flex justify-center mb-4">
-              <div className="bg-white p-3 rounded-xl shadow-sm border border-slate-200">
-                <img 
-                  src={pixQRCodeImage} 
-                  alt="QR Code PIX" 
-                  className="w-48 h-48 object-contain"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Chave PIX */}
+          {/* Passo 2: pagar com a chave PIX */}
           <div className="bg-white rounded-xl border border-slate-200 p-4 mb-4">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+              2 · Pague com a chave PIX
+            </p>
+
+            {/* QR Code - só mostra se tiver imagem configurada */}
+            {pixQRCodeImage && (
+              <div className="flex justify-center mb-4">
+                <div className="bg-white p-3 rounded-xl shadow-sm border border-slate-200">
+                  <img 
+                    src={pixQRCodeImage} 
+                    alt="QR Code PIX" 
+                    className="w-48 h-48 object-contain"
+                  />
+                </div>
+              </div>
+            )}
+
             <label className="block text-sm font-medium text-slate-700 mb-2">
               Chave PIX ({pixKeyType})
             </label>
@@ -404,7 +414,7 @@ export default function PixCheckout({
               className={`w-full h-12 rounded-lg font-semibold transition flex items-center justify-center gap-2 text-base ${
                 copied
                   ? 'bg-emerald-500 text-white'
-                  : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md hover:shadow-lg'
+                  : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-md hover:shadow-lg'
               }`}
             >
               {copied ? (
@@ -425,9 +435,9 @@ export default function PixCheckout({
             </button>
           </div>
 
-          {/* Upload de Comprovante - Sucesso substitui o container inteiro */}
+          {/* Passo 3: envio do comprovante - Sucesso substitui o container inteiro */}
           {uploadStatus === 'success' ? (
-            <div className="bg-emerald-100 border-2 border-emerald-300 rounded-xl p-5 text-center">
+            <div className="bg-emerald-100 border-2 border-emerald-300 rounded-xl p-5 mb-4 text-center">
               <div className="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center mx-auto mb-3">
                 <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -441,13 +451,13 @@ export default function PixCheckout({
               </p>
             </div>
           ) : (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-              <p className="text-sm font-medium text-emerald-900 mb-2">
-                📎 Envie o comprovante de pagamento
+            <div className="bg-white rounded-xl border border-slate-200 p-4 mb-4">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                3 · Envie o comprovante
               </p>
-              <p className="text-xs text-emerald-700 mb-3">
-                Isso ajuda o vendedor a confirmar seu pagamento mais rápido. 
-                Formatos aceitos: JPG, PNG (máx. 5MB)
+              <p className="text-xs text-slate-500 mb-3">
+                Ajuda o vendedor a confirmar seu pagamento mais rápido.
+                Formatos aceitos: JPG, PNG ou WebP (máx. 5MB).
               </p>
               
               <input
@@ -490,7 +500,7 @@ export default function PixCheckout({
               )}
               
               {receiptUrl && (
-                <div className="mt-3 p-2 bg-white rounded-lg">
+                <div className="mt-3 p-2 bg-slate-50 rounded-lg border border-slate-200">
                   <p className="text-xs text-slate-500 mb-1">Preview:</p>
                   <img 
                     src={receiptUrl} 
@@ -501,6 +511,16 @@ export default function PixCheckout({
               )}
             </div>
           )}
+
+          {/* Aviso de entrega: acesso chega por email após a confirmação */}
+          <div className="flex items-start gap-2 px-1">
+            <svg className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            <p className="text-xs text-slate-500">
+              Assim que o vendedor confirmar seu pagamento, você recebe o link de acesso no email <strong className="text-slate-600">{email}</strong>.
+            </p>
+          </div>
         </>
       );
     }
