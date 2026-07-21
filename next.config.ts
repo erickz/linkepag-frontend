@@ -120,7 +120,7 @@ const nextConfig: NextConfig = {
           "style-src 'self' 'unsafe-inline'",
           "img-src 'self' data: https: https://*.hotjar.com https://www.facebook.com",
           "font-src 'self'",
-          "connect-src 'self' https://*.vercel.app https://*.railway.app https://www.google-analytics.com https://*.googletagmanager.com https://api.linkepag.com.br https://api.mercadopago.com https://www.mercadolibre.com https://api.mercadolibre.com https://*.hotjar.com https://*.hotjar.io wss://*.hotjar.com https://connect.facebook.net https://*.facebook.com https://analytics.tiktok.com https://*.tiktok.com",
+          "connect-src 'self' https://*.vercel.app https://*.railway.app https://www.google-analytics.com https://*.googletagmanager.com https://api.linkepag.com.br https://api.mercadopago.com https://www.mercadolibre.com https://api.mercadolibre.com https://*.hotjar.com https://*.hotjar.io wss://*.hotjar.com https://*.on.aws https://connect.facebook.net https://*.facebook.com https://analytics.tiktok.com https://*.tiktok.com",
           "frame-src 'self' https://www.mercadolibre.com https://*.mercadopago.com https://www.facebook.com https://*.facebook.com",
           "frame-ancestors 'none'",
           "form-action 'self' https://www.facebook.com",
