@@ -4,6 +4,7 @@ import { useState, useEffect, createContext, useContext, ReactNode, useCallback,
 import { useRouter, usePathname } from 'next/navigation';
 import { fbqIdentify, buildMetaAdvancedMatchingData } from '@/lib/meta-pixel';
 import { ttqIdentify } from '@/lib/tiktok-pixel';
+import { checkAndTrackQualifiedCreator } from '@/lib/pixel-milestones';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.linkepag.com.br';
 
@@ -165,6 +166,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await ttqIdentify(user.email, undefined, user.id);
 
           identifiedUserRef.current = user.id;
+
+          // Verifica se o usuário já é um creator qualificado e dispara
+          // o evento QualifiedCreator caso ainda não tenha sido enviado.
+          // Importante: executa após o identify para ter advanced matching.
+          await checkAndTrackQualifiedCreator(user.id);
         } catch {
           // Silencia erros de pixel — não deve quebrar a autenticação
         }
