@@ -203,6 +203,7 @@ export async function updateProfile(data: {
   pixKeyType?: 'CPF' | 'CNPJ' | 'EMAIL' | 'PHONE' | 'RANDOM';
   pixQRCodeImage?: string;
   notifyPendingPayments?: boolean;
+  showPixOnPage?: boolean;
   activePaymentMethod?: 'mercadopago' | 'pix_direct' | null;
   appearanceSettings?: {
     headerGradient?: string;
@@ -1163,6 +1164,12 @@ export interface AnalyticsSummary {
   totalClicks: number;
   views7d: number;
   clicks7d: number;
+  totalLinkViews: number;
+  totalCheckoutStarts: number;
+  totalPaymentsConfirmed: number;
+  linkViews7d: number;
+  checkoutStarts7d: number;
+  paymentsConfirmed7d: number;
 }
 
 export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
@@ -1201,6 +1208,40 @@ export async function trackPageView(username: string) {
 // preflight CORS), com fallback para fetch keepalive.
 export function trackLinkClick(linkId: string) {
   const url = `${API_BASE_URL}/analytics/click/${encodeURIComponent(linkId)}`;
+
+  if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+    if (navigator.sendBeacon(url)) {
+      return;
+    }
+  }
+
+  fetch(url, {
+    method: 'POST',
+    keepalive: true,
+  }).catch(() => {});
+}
+
+// Registra impressão de link pago na página pública (sem auth).
+// Mesmo padrão do trackLinkClick (sendBeacon + fallback keepalive).
+export function trackLinkView(linkId: string) {
+  const url = `${API_BASE_URL}/analytics/link-view/${encodeURIComponent(linkId)}`;
+
+  if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+    if (navigator.sendBeacon(url)) {
+      return;
+    }
+  }
+
+  fetch(url, {
+    method: 'POST',
+    keepalive: true,
+  }).catch(() => {});
+}
+
+// Registra início de checkout de link pago (sem auth).
+// Mesmo padrão do trackLinkClick (sendBeacon + fallback keepalive).
+export function trackCheckoutStart(linkId: string) {
+  const url = `${API_BASE_URL}/analytics/checkout-start/${encodeURIComponent(linkId)}`;
 
   if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
     if (navigator.sendBeacon(url)) {

@@ -364,12 +364,14 @@ function PixDirectForm({
   keyType,
   pixKey,
   notifyPendingPayments,
+  showPixOnPage,
   onChange,
 }: {
   keyType: string;
   pixKey: string;
   notifyPendingPayments: boolean;
-  onChange: (field: 'keyType' | 'key' | 'notifyPendingPayments', value: string | boolean) => void;
+  showPixOnPage: boolean;
+  onChange: (field: 'keyType' | 'key' | 'notifyPendingPayments' | 'showPixOnPage', value: string | boolean) => void;
 }) {
   const { cpfMask, cnpjMask, phoneMask } = useMask();
 
@@ -441,6 +443,36 @@ function PixDirectForm({
           <p className="text-xs text-slate-400 mt-1">
             Digite exatamente como aparece no seu app do banco
           </p>
+        </div>
+
+        {/* Checkbox para exibir o botão de PIX na página pública */}
+        <div className="pt-4 border-t border-slate-200">
+          <label className="flex items-start gap-3 cursor-pointer group">
+            <div className="relative flex items-center">
+              <input
+                type="checkbox"
+                checked={showPixOnPage}
+                onChange={(e) => onChange('showPixOnPage', e.target.checked)}
+                className="peer sr-only"
+              />
+              <div className="w-5 h-5 border-2 border-slate-300 rounded peer-checked:bg-indigo-500 peer-checked:border-indigo-500 transition-colors"></div>
+              <svg 
+                className="absolute w-3 h-3 text-white opacity-0 peer-checked:opacity-100 transition-opacity left-1 top-1"
+                viewBox="0 0 14 14" 
+                fill="none"
+              >
+                <path d="M2 7L5.5 10.5L12 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            <div className="flex-1">
+              <span className="text-sm font-medium text-slate-700 group-hover:text-slate-900 transition-colors">
+                Exibir botão de PIX na minha página
+              </span>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Quem visitar sua página pode te mandar um PIX com um toque, sem comprar nada
+              </p>
+            </div>
+          </label>
         </div>
 
         {/* Checkbox para notificações de pagamentos pendentes */}
@@ -663,6 +695,7 @@ export default function PaymentsSettingsPage() {
           keyType={state.pixDirect.keyType}
           pixKey={state.pixDirect.key}
           notifyPendingPayments={state.pixDirect.notifyPendingPayments}
+          showPixOnPage={state.pixDirect.showPixOnPage}
           onChange={(field, value) => setPixDirectData({ [field]: value })}
         />
       )}

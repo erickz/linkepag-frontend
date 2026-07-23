@@ -48,6 +48,8 @@ export interface ProfileData {
   bio?: string;
   profilePhoto?: string;
   location?: string;
+  pixKey?: string;
+  showPixOnPage?: boolean;
   socialLinks?: {
     instagram?: string;
     tiktok?: string;

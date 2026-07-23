@@ -24,7 +24,7 @@ import {
 } from './icons';
 import { detectPlatformFromUrl } from '@/lib/platform-detector';
 import { trackEcommerceEvent } from '@/lib/pixel-tracker';
-import { trackLinkClick } from '@/lib/api';
+import { trackLinkClick, trackCheckoutStart } from '@/lib/api';
 
 interface AccentColor {
   textClass: string;
@@ -123,6 +123,8 @@ function LinkButtonComponent({
     
     // Tracking: InitiateCheckout quando usuário clica em link pago pela primeira vez
     if (isMonetized && !isExpanded && link.price) {
+      // Analytics (pagestats): checkout_start — comprador abriu o checkout
+      trackCheckoutStart(link.id);
       trackEcommerceEvent('InitiateCheckout', {
         contentId: link.id,
         contentName: link.title,

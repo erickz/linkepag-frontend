@@ -18,6 +18,7 @@ interface PixData {
   key: string;
   qrCodeImage: string;
   notifyPendingPayments: boolean;
+  showPixOnPage: boolean;
 }
 
 interface MercadoPagoData {
@@ -159,6 +160,7 @@ export function usePaymentSettings(): UsePaymentSettingsReturn {
       key: '',
       qrCodeImage: '',
       notifyPendingPayments: true,
+      showPixOnPage: false,
     },
     isLoading: true,
     isSaving: false,
@@ -206,6 +208,7 @@ export function usePaymentSettings(): UsePaymentSettingsReturn {
           key: profileData.pixKey || '',
           qrCodeImage: profileData.pixQRCodeImage || '',
           notifyPendingPayments: profileData.notifyPendingPayments ?? true,
+          showPixOnPage: profileData.showPixOnPage ?? false,
         },
         isLoading: false,
       }));
@@ -384,6 +387,7 @@ export function usePaymentSettings(): UsePaymentSettingsReturn {
           pixKeyType: pixDirect.keyType,
           pixQRCodeImage: pixDirect.qrCodeImage,
           notifyPendingPayments: pixDirect.notifyPendingPayments,
+          showPixOnPage: pixDirect.showPixOnPage,
           activePaymentMethod: 'pix_direct',
         });
 

@@ -5,8 +5,9 @@ import { useParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useApi } from '@/hooks/useApi';
-import { getPublicProfile, trackPageView, CACHE_KEYS } from '@/lib/api';
+import { getPublicProfile, trackPageView, trackLinkView, CACHE_KEYS } from '@/lib/api';
 import LinkButton from '@/components/LinkButton';
+import PixCopyButton from '@/components/PixCopyButton';
 import { 
   IconUser, 
   IconLocation, 
@@ -118,6 +119,7 @@ interface PublicProfile {
   pixKey?: string;
   pixKeyType?: string;
   pixQRCodeImage?: string;
+  showPixOnPage?: boolean;
   activePaymentMethod?: 'mercadopago' | 'pix_direct' | null;
   canReceivePayments?: boolean; // Indica se o vendedor pode receber pagamentos (billing em dia)
   appearanceSettings?: {
@@ -384,6 +386,23 @@ export default function PublicPage() {
     }
   }, [profile, isLoading]);
 
+  // Analytics: registra impressão (link_view) de cada link pago visível,
+  // uma vez por sessão por link
+  useEffect(() => {
+    if (profile && !isLoading && typeof window !== 'undefined') {
+      profile.links
+        ?.filter((l: ApiLink) => l.isActive && (l.template === 'paid_access' || l.template === 'digital_product'))
+        .forEach((l: ApiLink) => {
+          const id = l._id || l.id;
+          const key = `lp_lview_${id}`;
+          if (!sessionStorage.getItem(key)) {
+            sessionStorage.setItem(key, '1');
+            trackLinkView(id);
+          }
+        });
+    }
+  }, [profile, isLoading]);
+
   const handleToggle = useCallback((id: string) => {
     setExpandedId(prev => prev === id ? null : id);
   }, []);
@@ -579,6 +598,14 @@ export default function PublicPage() {
                         />
                       );
                     })}
+                </div>
+              )}
+
+              {/* Botão "Me mande um PIX" - aparece quando o usuário ativou nas configurações de PIX.
+                  Independente do método de pagamento ativo dos links (pode coexistir com MP). */}
+              {profile?.showPixOnPage && profile?.pixKey && (
+                <div className="mb-8">
+                  <PixCopyButton pixKey={profile.pixKey} />
                 </div>
               )}
 

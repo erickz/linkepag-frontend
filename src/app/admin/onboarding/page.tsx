@@ -145,8 +145,18 @@ export default function OnboardingPage() {
     username: '',
     bio: '',
     profilePhoto: '',
+    socialLinks: {
+      instagram: '',
+      tiktok: '',
+      youtube: '',
+      twitter: '',
+      linkedin: '',
+      github: '',
+      website: '',
+    },
   });
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+  const [showSocialLinks, setShowSocialLinks] = useState(false);
   
   // Step 3: Links
   const [link, setLink] = useState({
@@ -178,6 +188,7 @@ export default function OnboardingPage() {
     pixKey: '',
     pixKeyType: 'CPF' as 'CPF' | 'CNPJ' | 'EMAIL' | 'PHONE' | 'RANDOM',
     pixQRCodeImage: '',
+    showPixOnPage: false,
   });
   const [isSavingPix, setIsSavingPix] = useState(false);
   const [showQrCodeField, setShowQrCodeField] = useState(false);
@@ -247,7 +258,19 @@ export default function OnboardingPage() {
         username: data.username || '',
         bio: data.bio || '',
         profilePhoto: data.profilePhoto || '',
+        socialLinks: {
+          instagram: data.socialLinks?.instagram || '',
+          tiktok: data.socialLinks?.tiktok || '',
+          youtube: data.socialLinks?.youtube || '',
+          twitter: data.socialLinks?.twitter || '',
+          linkedin: data.socialLinks?.linkedin || '',
+          github: data.socialLinks?.github || '',
+          website: data.socialLinks?.website || '',
+        },
       });
+      if (data.socialLinks && Object.values(data.socialLinks).some(Boolean)) {
+        setShowSocialLinks(true);
+      }
       if (data.displayName) {
         setCompletedSteps(prev => [...new Set([...prev, 'profile'])]);
       }
@@ -257,6 +280,7 @@ export default function OnboardingPage() {
           pixKey: data.pixKey,
           pixKeyType: data.pixKeyType || 'CPF',
           pixQRCodeImage: data.pixQRCodeImage || '',
+          showPixOnPage: data.showPixOnPage ?? false,
         });
         if (data.pixQRCodeImage) {
           setShowQrCodeField(true);
@@ -295,6 +319,7 @@ export default function OnboardingPage() {
         displayName: profile.displayName,
         bio: profile.bio,
         profilePhoto: profile.profilePhoto,
+        socialLinks: profile.socialLinks,
       });
       
       // Se tiver username, atualiza separadamente
@@ -431,6 +456,7 @@ export default function OnboardingPage() {
         pixKey: normalizePixKey(pixConfig.pixKeyType, pixConfig.pixKey),
         pixKeyType: pixConfig.pixKeyType,
         pixQRCodeImage: pixConfig.pixQRCodeImage || undefined,
+        showPixOnPage: pixConfig.showPixOnPage,
         activePaymentMethod: 'pix_direct',
       });
 
@@ -476,7 +502,7 @@ export default function OnboardingPage() {
 
   const finishOnboarding = () => {
     localStorage.setItem('lp_onboarding_complete', 'true');
-    router.push('/admin/dashboard');
+    router.push('/admin/onboarding/conclusao');
   };
 
   if (isLoading) {
@@ -729,6 +755,69 @@ export default function OnboardingPage() {
                   <p className="text-xs text-slate-500 mt-1">
                     {profile.bio.length}/160 caracteres
                   </p>
+                </div>
+
+                {/* Redes Sociais - opcional, expansível */}
+                <div>
+                  {!showSocialLinks && !Object.values(profile.socialLinks).some(Boolean) && (
+                    <button
+                      type="button"
+                      onClick={() => setShowSocialLinks(true)}
+                      className="text-sm text-indigo-600 hover:text-indigo-700 font-medium transition"
+                    >
+                      Adicionar redes sociais (opcional)
+                    </button>
+                  )}
+
+                  {(showSocialLinks || Object.values(profile.socialLinks).some(Boolean)) && (
+                    <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-sm font-medium text-slate-700">
+                          Redes sociais <span className="text-slate-400 font-normal">(opcional)</span>
+                        </label>
+                        {!Object.values(profile.socialLinks).some(Boolean) && (
+                          <button
+                            type="button"
+                            onClick={() => setShowSocialLinks(false)}
+                            className="text-xs text-slate-400 hover:text-slate-600 transition"
+                          >
+                            Ocultar
+                          </button>
+                        )}
+                      </div>
+
+                      {[
+                        { key: 'instagram', label: 'Instagram', placeholder: 'https://instagram.com/seuusuario' },
+                        { key: 'youtube', label: 'YouTube', placeholder: 'https://youtube.com/@seucanal' },
+                        { key: 'twitter', label: 'Twitter/X', placeholder: 'https://twitter.com/seuusuario' },
+                        { key: 'linkedin', label: 'LinkedIn', placeholder: 'https://linkedin.com/in/seuusuario' },
+                        { key: 'github', label: 'GitHub', placeholder: 'https://github.com/seuusuario' },
+                        { key: 'tiktok', label: 'TikTok', placeholder: 'https://tiktok.com/@seuusuario' },
+                        { key: 'website', label: 'Site Pessoal', placeholder: 'https://seusite.com' },
+                      ].map(({ key, label, placeholder }) => (
+                        <div key={key}>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">
+                            {label}
+                          </label>
+                          <input
+                            type="url"
+                            value={profile.socialLinks[key as keyof typeof profile.socialLinks] || ''}
+                            onChange={(e) =>
+                              setProfile({
+                                ...profile,
+                                socialLinks: {
+                                  ...profile.socialLinks,
+                                  [key]: e.target.value,
+                                },
+                              })
+                            }
+                            placeholder={placeholder}
+                            className="w-full h-10 px-3 rounded-lg border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition text-sm"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1336,6 +1425,36 @@ export default function OnboardingPage() {
                         </div>
                       </div>
                     )}
+                  </div>
+
+                  {/* Checkbox para exibir o botão de PIX na página pública */}
+                  <div className="mt-6 pt-4 border-t border-slate-200">
+                    <label className="flex items-start gap-3 cursor-pointer group">
+                      <div className="relative flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pixConfig.showPixOnPage}
+                          onChange={(e) => setPixConfig({ ...pixConfig, showPixOnPage: e.target.checked })}
+                          className="peer sr-only"
+                        />
+                        <div className="w-5 h-5 border-2 border-slate-300 rounded peer-checked:bg-emerald-500 peer-checked:border-emerald-500 transition-colors"></div>
+                        <svg
+                          className="absolute w-3 h-3 text-white opacity-0 peer-checked:opacity-100 transition-opacity left-1 top-1"
+                          viewBox="0 0 14 14"
+                          fill="none"
+                        >
+                          <path d="M2 7L5.5 10.5L12 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <span className="text-sm font-medium text-slate-700 group-hover:text-slate-900 transition-colors">
+                          Exibir botão de PIX na minha página
+                        </span>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          Quem visitar sua página pode te mandar um PIX com um toque, sem comprar nada
+                        </p>
+                      </div>
+                    </label>
                   </div>
 
                   <div className="flex flex-col-reverse sm:flex-row gap-3 sm:gap-0 justify-between mt-8">

@@ -502,6 +502,38 @@ export default function AdminDashboard() {
         </div>
       </div>
 
+      {/* Funil de micro-conversões dos links pagos */}
+      <div className="mt-4 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 transition-shadow duration-200 hover:shadow-md">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2.5 bg-amber-50 rounded-xl">
+            <IconCoins className="w-5 h-5 text-amber-600" />
+          </div>
+          <p className="text-sm font-medium text-slate-500">Funil de vendas</p>
+        </div>
+        {isLoadingAnalytics ? (
+          <div className="h-16 w-full bg-slate-100 rounded-lg animate-pulse" />
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {[
+              { label: 'Visitas na página', value: analytics?.totalViews || 0, value7d: analytics?.views7d || 0 },
+              { label: 'Viram um link pago', value: analytics?.totalLinkViews || 0, value7d: analytics?.linkViews7d || 0 },
+              { label: 'Iniciaram checkout', value: analytics?.totalCheckoutStarts || 0, value7d: analytics?.checkoutStarts7d || 0 },
+              { label: 'Pagamentos confirmados', value: analytics?.totalPaymentsConfirmed || 0, value7d: analytics?.paymentsConfirmed7d || 0 },
+            ].map((step) => (
+              <div key={step.label} className="text-center">
+                <p className="text-2xl font-bold text-slate-900 tracking-tight">
+                  {step.value.toLocaleString('pt-BR')}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">{step.label}</p>
+                <span className="inline-flex items-center mt-1.5 px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 text-[11px] font-medium">
+                  +{step.value7d.toLocaleString('pt-BR')} em 7 dias
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Atalhos secundários */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-8">
         {/* Card - Seus Links */}
