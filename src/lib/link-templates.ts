@@ -15,14 +15,14 @@ export const linkTemplates: LinkTemplateConfig[] = [
   {
     id: 'paid_access',
     label: 'Cobrar por acesso',
-    shortDesc: 'Após o pagamento libera acesso a grupo VIP, links, etc. ',
+    shortDesc: 'Libere acesso a grupos VIP, links, etc. ',
     icon: IconLock,
     color: 'indigo',
   },
   {
     id: 'digital_product',
     label: 'Vender infoproduto',
-    shortDesc: 'Cursos, ebooks, planilhas, etc.',
+    shortDesc: 'Entregue de forma segura seus ebooks, planilhas, etc',
     icon: IconDownload,
     color: 'amber',
   },
@@ -36,7 +36,7 @@ export const linkTemplates: LinkTemplateConfig[] = [
   {
     id: 'scheduling',
     label: 'Link de agendamento',
-    shortDesc: 'Permite contato por WhatsApp, Telegram etc.',
+    shortDesc: 'Adicione seu contato do WhatsApp, Telegram etc.',
     icon: IconCalendar,
     color: 'violet',
   },
