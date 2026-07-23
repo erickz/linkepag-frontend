@@ -5,12 +5,17 @@
  * usando localStorage como guarda. Quando um marco é atingido,
  * verifica se o outro marco já existe para disparar QualifiedCreator.
  * Também verifica no carregamento da app se o usuário já é qualificado.
+ *
+ * As marcas de localStorage expiram em 24h — se o evento não foi realmente
+ * enviado (ex.: pixel bloqueado, falha de rede), a próxima sessão tenta
+ * novamente em vez de bloquear o disparo para sempre.
  */
 
 import { trackOrQueue } from './pixel-queue';
 import { getProfile, getLinks } from './api';
 
 const STORAGE_PREFIX = 'lp_pixel_milestone_';
+const MILESTONE_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 
 const MilestoneKeys = {
   linkPaidCreated: (userId: string) => `${STORAGE_PREFIX}linkpaid_${userId}`,
@@ -21,7 +26,16 @@ const MilestoneKeys = {
 function wasTracked(key: string): boolean {
   if (typeof window === 'undefined') return false;
   try {
-    return localStorage.getItem(key) === '1';
+    const raw = localStorage.getItem(key);
+    if (!raw) return false;
+
+    // Legado: valor '1' (sem timestamp) é considerado expirado para permitir retry
+    if (raw === '1') return false;
+
+    const timestamp = Number(raw);
+    if (!Number.isFinite(timestamp)) return false;
+
+    return Date.now() - timestamp < MILESTONE_TTL_MS;
   } catch {
     return false;
   }
@@ -30,7 +44,7 @@ function wasTracked(key: string): boolean {
 function markTracked(key: string): void {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(key, '1');
+    localStorage.setItem(key, String(Date.now()));
   } catch {
     // ignore
   }
@@ -87,7 +101,7 @@ function hasPaidLink(links: LinkData[] | LinksResponse | unknown): boolean {
 
 /**
  * Dispara LinkPaidCreated quando o usuário cria seu primeiro Link Pago.
- * Se o pagamento já estiver configurado, dispara QualifiedCreator em sequência.
+ * Em seguida, verifica se o usuário já se tornou qualificado.
  */
 export async function trackLinkPaidCreated(
   userId: string,
@@ -96,29 +110,21 @@ export async function trackLinkPaidCreated(
   if (!userId) return;
 
   const key = MilestoneKeys.linkPaidCreated(userId);
-  if (wasTracked(key)) return;
-
-  trackOrQueue('meta', 'LinkPaidCreated', {
-    content_name: 'First Paid Link',
-    value: price || 0,
-    currency: 'BRL',
-  });
-
-  markTracked(key);
-
-  try {
-    const profile = await getProfile();
-    if (hasPaymentConfigured(profile)) {
-      await trackQualifiedCreator(userId);
-    }
-  } catch {
-    // ignore — tracking não deve quebrar fluxo
+  if (!wasTracked(key)) {
+    trackOrQueue('meta', 'LinkPaidCreated', {
+      content_name: 'First Paid Link',
+      value: price || 0,
+      currency: 'BRL',
+    });
+    markTracked(key);
   }
+
+  await checkAndTrackQualifiedCreator(userId);
 }
 
 /**
  * Dispara PaymentConfigured quando o usuário configura pagamento pela primeira vez.
- * Se já existir um Link Pago, dispara QualifiedCreator em sequência.
+ * Em seguida, verifica se o usuário já se tornou qualificado.
  */
 export async function trackPaymentConfigured(
   userId: string,
@@ -127,22 +133,14 @@ export async function trackPaymentConfigured(
   if (!userId) return;
 
   const key = MilestoneKeys.paymentConfigured(userId);
-  if (wasTracked(key)) return;
-
-  trackOrQueue('meta', 'PaymentConfigured', {
-    payment_method: method,
-  });
-
-  markTracked(key);
-
-  try {
-    const links = await getLinks();
-    if (hasPaidLink(links)) {
-      await trackQualifiedCreator(userId);
-    }
-  } catch {
-    // ignore
+  if (!wasTracked(key)) {
+    trackOrQueue('meta', 'PaymentConfigured', {
+      payment_method: method,
+    });
+    markTracked(key);
   }
+
+  await checkAndTrackQualifiedCreator(userId);
 }
 
 /**
@@ -184,6 +182,6 @@ export async function trackQualifiedCreator(userId: string): Promise<void> {
   const key = MilestoneKeys.qualifiedCreator(userId);
   if (wasTracked(key)) return;
 
-  trackOrQueue('meta', 'QualifiedCreator');
+  trackOrQueue('meta', 'QualifiedCreator', {});
   markTracked(key);
 }

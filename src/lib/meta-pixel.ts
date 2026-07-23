@@ -25,9 +25,15 @@ export interface MetaAdvancedMatchingData {
   client_user_agent?: string;
 }
 
-/** Verifica se o Meta Pixel (fbq) está carregado e disponível */
+/** Verifica se o Meta Pixel (fbq) está realmente carregado e pronto */
 function isFbqAvailable(): boolean {
-  return typeof window !== 'undefined' && typeof (window as unknown as Record<string, unknown>).fbq === 'function';
+  if (typeof window === 'undefined') return false;
+  const fbq = (window as unknown as Record<string, unknown>).fbq as ((...args: unknown[]) => void) & { loaded?: boolean };
+  // O script inline cria um stub fbq imediatamente; só consideramos pronto
+  // quando o SDK real (fbevents.js) sinalizou loaded = true. Isso evita
+  // marcar eventos como enviados quando na verdade ficaram apenas na queue
+  // do stub (ex.: adblock, falha de rede, aba fechada antes do load).
+  return typeof fbq === 'function' && fbq.loaded === true;
 }
 
 /** Log de debug apenas em development */
