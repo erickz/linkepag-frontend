@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useAuth, useProtectedRoute } from '@/hooks/useAuth';
-import { trackLinkPaidCreated } from '@/lib/pixel-milestones';
+import { trackLinkCreated, trackLinkPaidCreated } from '@/lib/pixel-milestones';
 import { usePageEditor, LinkItem, headerGradients, backgroundOptions, paidLinkAccentColors } from '@/hooks/usePageEditor';
 import { uploadLinkFile, deleteLinkFile } from '@/lib/api';
 import { maskPriceInput, parsePrice, formatPrice, formatUrl, priceToInputValue } from '@/lib/masks';
@@ -247,9 +247,12 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
         linkId = result.link?.id || result.id;
         setMessage({ type: 'success', text: 'Link criado!' });
 
-        // Meta Pixel: primeiro Link Pago
-        if (isMonetized && paidLinksCount === 0 && user?.id) {
-          trackLinkPaidCreated(user.id, formData.price || 0);
+        // Meta Pixel: primeiro link (pago ou normal)
+        if (localLinks.length === 0 && user?.id) {
+          trackLinkCreated(user.id);
+          if (isMonetized) {
+            trackLinkPaidCreated(user.id, formData.price || 0);
+          }
         }
       }
       

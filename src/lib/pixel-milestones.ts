@@ -18,6 +18,7 @@ const STORAGE_PREFIX = 'lp_pixel_milestone_';
 const MILESTONE_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 
 const MilestoneKeys = {
+  linkCreated: (userId: string) => `${STORAGE_PREFIX}link_${userId}`,
   linkPaidCreated: (userId: string) => `${STORAGE_PREFIX}linkpaid_${userId}`,
   paymentConfigured: (userId: string) => `${STORAGE_PREFIX}payment_${userId}`,
   qualifiedCreator: (userId: string) => `${STORAGE_PREFIX}qualified_${userId}`,
@@ -91,12 +92,27 @@ function normalizeLinks(response: LinkData[] | LinksResponse | unknown): LinkDat
   return [];
 }
 
-function hasPaidLink(links: LinkData[] | LinksResponse | unknown): boolean {
+function hasAnyLink(links: LinkData[] | LinksResponse | unknown): boolean {
   const normalized = normalizeLinks(links);
-  return normalized.some(
-    (link) =>
-      link.template === 'paid_access' || link.template === 'digital_product',
-  );
+  return normalized.length > 0;
+}
+
+/**
+ * Dispara LinkCreated quando o usuário cria seu primeiro link (pago ou normal).
+ * Em seguida, verifica se o usuário já se tornou qualificado.
+ */
+export async function trackLinkCreated(userId: string): Promise<void> {
+  if (!userId) return;
+
+  const key = MilestoneKeys.linkCreated(userId);
+  if (!wasTracked(key)) {
+    trackOrQueue('meta', 'LinkCreated', {
+      content_name: 'First Link',
+    });
+    markTracked(key);
+  }
+
+  await checkAndTrackQualifiedCreator(userId);
 }
 
 /**
@@ -145,7 +161,7 @@ export async function trackPaymentConfigured(
 
 /**
  * Verifica no backend se o usuário já é um creator qualificado
- * (tem link pago + pagamento configurado) e dispara QualifiedCreator
+ * (tem link criado + pagamento configurado) e dispara QualifiedCreator
  * caso ainda não tenha sido tracked. Usada no carregamento da app para
  * recuperar usuários que já atingiram ambos os marcos em sessões anteriores
  * ou em outros dispositivos.
@@ -164,7 +180,7 @@ export async function checkAndTrackQualifiedCreator(
       getLinks(),
     ]);
 
-    if (hasPaymentConfigured(profile) && hasPaidLink(linksResponse)) {
+    if (hasPaymentConfigured(profile) && hasAnyLink(linksResponse)) {
       await trackQualifiedCreator(userId);
     }
   } catch {
@@ -174,7 +190,7 @@ export async function checkAndTrackQualifiedCreator(
 
 /**
  * Dispara QualifiedCreator quando o usuário completou os 3 marcos:
- * cadastro + Link Pago + pagamento configurado.
+ * cadastro + link criado + pagamento configurado.
  */
 export async function trackQualifiedCreator(userId: string): Promise<void> {
   if (!userId) return;
