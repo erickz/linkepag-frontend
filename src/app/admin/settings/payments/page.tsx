@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth, useProtectedRoute } from '@/hooks/useAuth';
 import { trackPaymentConfigured } from '@/lib/pixel-milestones';
@@ -16,6 +16,7 @@ import {
   IconSmartphone,
   IconRefresh,
   IconUnlink,
+  IconUpload,
 } from '@/components/icons';
 
 // Taxas por plano
@@ -363,17 +364,20 @@ function MercadoPagoOAuthCard({
 function PixDirectForm({
   keyType,
   pixKey,
+  qrCodeImage,
   notifyPendingPayments,
   showPixOnPage,
   onChange,
 }: {
   keyType: string;
   pixKey: string;
+  qrCodeImage: string;
   notifyPendingPayments: boolean;
   showPixOnPage: boolean;
-  onChange: (field: 'keyType' | 'key' | 'notifyPendingPayments' | 'showPixOnPage', value: string | boolean) => void;
+  onChange: (field: 'keyType' | 'key' | 'qrCodeImage' | 'notifyPendingPayments' | 'showPixOnPage', value: string | boolean) => void;
 }) {
   const { cpfMask, cnpjMask, phoneMask } = useMask();
+  const [showQrCodeField, setShowQrCodeField] = useState(!!qrCodeImage);
 
   const keyTypeOptions = [
     { value: 'CPF', label: 'CPF', placeholder: 'XXX.XXX.XXX-XX' },
@@ -444,6 +448,116 @@ function PixDirectForm({
             Digite exatamente como aparece no seu app do banco
           </p>
         </div>
+
+        {/* QR Code Upload - opção avançada */}
+        {!showQrCodeField && !qrCodeImage && (
+          <button
+            type="button"
+            onClick={() => setShowQrCodeField(true)}
+            className="text-sm text-indigo-600 hover:text-indigo-700 font-medium transition"
+          >
+            Adicionar QR Code (opcional)
+          </button>
+        )}
+
+        {(showQrCodeField || qrCodeImage) && (
+          <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="flex items-center justify-between mb-3">
+              <label className="block text-sm font-medium text-slate-700">
+                QR Code (opcional)
+              </label>
+              {!qrCodeImage && (
+                <button
+                  type="button"
+                  onClick={() => setShowQrCodeField(false)}
+                  className="text-xs text-slate-400 hover:text-slate-600 transition"
+                >
+                  Ocultar
+                </button>
+              )}
+            </div>
+            <div className="flex items-start gap-4">
+              <div className="relative">
+                <div className="w-28 h-28 rounded-xl overflow-hidden bg-slate-100 border-2 border-slate-200 flex items-center justify-center">
+                  {qrCodeImage ? (
+                    <img 
+                      src={qrCodeImage} 
+                      alt="QR Code" 
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <svg className="w-10 h-10 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                    </svg>
+                  )}
+                </div>
+              </div>
+              
+              <div className="flex-1 space-y-2">
+                <label className="inline-flex items-center gap-2 px-4 h-10 bg-emerald-600 text-white rounded-lg font-medium text-sm hover:bg-emerald-700 transition cursor-pointer">
+                  <IconUpload className="w-4 h-4" />
+                  {qrCodeImage ? 'Trocar' : 'Adicionar QR Code'}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      if (file.size > 2 * 1024 * 1024) {
+                        alert('A imagem deve ter no máximo 2MB');
+                        return;
+                      }
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        const result = event.target?.result as string;
+                        const img = new Image();
+                        img.onload = () => {
+                          const canvas = document.createElement('canvas');
+                          const MAX_SIZE = 400;
+                          let width = img.width;
+                          let height = img.height;
+                          if (width > height) {
+                            if (width > MAX_SIZE) {
+                              height *= MAX_SIZE / width;
+                              width = MAX_SIZE;
+                            }
+                          } else {
+                            if (height > MAX_SIZE) {
+                              width *= MAX_SIZE / height;
+                              height = MAX_SIZE;
+                            }
+                          }
+                          canvas.width = width;
+                          canvas.height = height;
+                          const ctx = canvas.getContext('2d');
+                          ctx?.drawImage(img, 0, 0, width, height);
+                          const optimizedImage = canvas.toDataURL('image/jpeg', 0.85);
+                          onChange('qrCodeImage', optimizedImage);
+                        };
+                        img.src = result;
+                      };
+                      reader.readAsDataURL(file);
+                    }}
+                    className="hidden"
+                  />
+                </label>
+                
+                {qrCodeImage && (
+                  <button
+                    type="button"
+                    onClick={() => onChange('qrCodeImage', '')}
+                    className="ml-2 inline-flex items-center gap-2 px-4 h-10 border border-rose-200 text-rose-600 rounded-lg font-medium text-sm hover:bg-rose-50 transition"
+                  >
+                    Remover
+                  </button>
+                )}
+                <p className="text-xs text-slate-400">
+                  JPG, PNG ou WebP. Máx 2MB.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Checkbox para exibir o botão de PIX na página pública */}
         <div className="pt-4 border-t border-slate-200">
@@ -694,6 +808,7 @@ export default function PaymentsSettingsPage() {
         <PixDirectForm
           keyType={state.pixDirect.keyType}
           pixKey={state.pixDirect.key}
+          qrCodeImage={state.pixDirect.qrCodeImage}
           notifyPendingPayments={state.pixDirect.notifyPendingPayments}
           showPixOnPage={state.pixDirect.showPixOnPage}
           onChange={(field, value) => setPixDirectData({ [field]: value })}

@@ -667,14 +667,10 @@ export default function PixCheckout({
             </svg>
           </div>
           <p className="text-slate-900 font-medium mb-1">
-            {!canReceivePayments && (mercadoPagoConfigured || pixConfigured)
-              ? 'Pagamento temporariamente indisponível'
-              : 'Pagamento temporariamente indisponível'}
+            Pagamento temporariamente indisponível
           </p>
           <p className="text-sm text-slate-500 px-4">
-            {!canReceivePayments && (mercadoPagoConfigured || pixConfigured)
-              ? 'O criador precisa regularizar pendências para voltar a receber pagamentos.'
-              : 'O criador ainda não configurou um método de recebimento.'}
+            Não é possível processar o pagamento no momento. Tente novamente mais tarde.
           </p>
         </div>
       )}

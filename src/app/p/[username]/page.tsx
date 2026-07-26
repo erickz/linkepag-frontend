@@ -274,15 +274,7 @@ const LinksList = memo(function LinksList({
   canReceivePayments?: boolean;
 }) {
   if (links.length === 0) {
-    return (
-      <div className="text-center py-12 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
-        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <IconInbox className="w-8 h-8 text-slate-400" />
-        </div>
-        <p className="text-slate-500 font-medium">Nenhum link disponível ainda</p>
-        <p className="text-slate-400 text-sm mt-1">Volte mais tarde para novidades!</p>
-      </div>
-    );
+    return null;
   }
 
   return (
