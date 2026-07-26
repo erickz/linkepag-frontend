@@ -1167,9 +1167,11 @@ export interface AnalyticsSummary {
   totalLinkViews: number;
   totalCheckoutStarts: number;
   totalPaymentsConfirmed: number;
+  totalPixCopies: number;
   linkViews7d: number;
   checkoutStarts7d: number;
   paymentsConfirmed7d: number;
+  pixCopies7d: number;
 }
 
 export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
@@ -1242,6 +1244,23 @@ export function trackLinkView(linkId: string) {
 // Mesmo padrão do trackLinkClick (sendBeacon + fallback keepalive).
 export function trackCheckoutStart(linkId: string) {
   const url = `${API_BASE_URL}/analytics/checkout-start/${encodeURIComponent(linkId)}`;
+
+  if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+    if (navigator.sendBeacon(url)) {
+      return;
+    }
+  }
+
+  fetch(url, {
+    method: 'POST',
+    keepalive: true,
+  }).catch(() => {});
+}
+
+// Registra cópia da chave PIX na página pública (sem auth).
+// Mesmo padrão do trackLinkClick (sendBeacon + fallback keepalive).
+export function trackPixCopy(username: string) {
+  const url = `${API_BASE_URL}/analytics/pix-copy/${encodeURIComponent(username)}`;
 
   if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
     if (navigator.sendBeacon(url)) {

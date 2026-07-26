@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { IconPix, IconCopy, IconCheck } from './icons';
+import { trackPixCopy } from '@/lib/api';
 
 // Copia texto com fallback para navegadores sem Clipboard API (ou contexto inseguro)
 async function copyToClipboard(text: string): Promise<boolean> {
@@ -30,7 +31,13 @@ async function copyToClipboard(text: string): Promise<boolean> {
  * Clique copia a chave e o botão transiciona para mostrar a chave + "Copiado!".
  * Usa a cor da marca PIX (#32BCAD) para se diferenciar dos botões de link.
  */
-export default function PixCopyButton({ pixKey, compact = false }: { pixKey: string; compact?: boolean }) {
+interface PixCopyButtonProps {
+  pixKey: string;
+  compact?: boolean;
+  username?: string;
+}
+
+export default function PixCopyButton({ pixKey, compact = false, username }: PixCopyButtonProps) {
   const [copied, setCopied] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -42,9 +49,12 @@ export default function PixCopyButton({ pixKey, compact = false }: { pixKey: str
     const ok = await copyToClipboard(pixKey);
     if (!ok) return;
     setCopied(true);
+    if (username) {
+      trackPixCopy(username);
+    }
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(() => setCopied(false), 3000);
-  }, [pixKey]);
+  }, [pixKey, username]);
 
   // Versão mini usada dentro dos previews (mesmo padrão das linhas de link do preview)
   if (compact) {

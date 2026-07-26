@@ -597,7 +597,7 @@ export default function PublicPage() {
                   Independente do método de pagamento ativo dos links (pode coexistir com MP). */}
               {profile?.showPixOnPage && profile?.pixKey && (
                 <div className="mb-8">
-                  <PixCopyButton pixKey={profile.pixKey} />
+                  <PixCopyButton pixKey={profile.pixKey} username={profile.username} />
                 </div>
               )}
 
