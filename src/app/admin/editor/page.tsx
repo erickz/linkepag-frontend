@@ -247,12 +247,12 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
         linkId = result.link?.id || result.id;
         setMessage({ type: 'success', text: 'Link criado!' });
 
-        // Meta Pixel: primeiro link (pago ou normal)
+        // Meta Pixel: primeiro link (pago ou normal) e primeiro link pago
         if (localLinks.length === 0 && user?.id) {
           trackLinkCreated(user.id);
-          if (isMonetized) {
-            trackLinkPaidCreated(user.id, formData.price || 0);
-          }
+        }
+        if (isMonetized && paidLinksCount === 0 && user?.id) {
+          trackLinkPaidCreated(user.id, formData.price || 0);
         }
       }
       

@@ -415,12 +415,16 @@ export default function OnboardingPage() {
       const result = await createLink(linkData);
       const linkId = result.link?.id || result.id;
 
-      // Meta Pixel: primeiro link (pago ou normal)
+      const existingPaidLinksCount = existingLinks.filter(
+        (l: any) => l.template === 'paid_access' || l.template === 'digital_product',
+      ).length;
+
+      // Meta Pixel: primeiro link (pago ou normal) e primeiro link pago
       if (existingLinks.length === 0 && user?.id) {
         trackLinkCreated(user.id);
-        if (isMonetized) {
-          trackLinkPaidCreated(user.id, parsePrice(link.price) || 0);
-        }
+      }
+      if (isMonetized && existingPaidLinksCount === 0 && user?.id) {
+        trackLinkPaidCreated(user.id, parsePrice(link.price) || 0);
       }
       
       // Upload do arquivo se selecionado (apenas para Produto Digital)
