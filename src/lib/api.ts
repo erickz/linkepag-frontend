@@ -205,6 +205,7 @@ export async function updateProfile(data: {
   notifyPendingPayments?: boolean;
   showPixOnPage?: boolean;
   activePaymentMethod?: 'mercadopago' | 'pix_direct' | null;
+  hasMonetizableAsset?: boolean;
   appearanceSettings?: {
     headerGradient?: string;
     backgroundColor?: string;

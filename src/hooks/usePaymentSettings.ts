@@ -9,7 +9,7 @@ import {
   invalidateProfileCache,
 } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
-import { trackPaymentConfigured } from '@/lib/pixel-milestones';
+import { trackPaymentConfigured, trackQualifiedLead } from '@/lib/pixel-milestones';
 
 export type PaymentMethod = 'mercadopago' | 'pix_direct' | null;
 
@@ -34,6 +34,8 @@ interface PaymentSettingsState {
   // Dados dos formulários
   mercadoPago: MercadoPagoData;
   pixDirect: PixData;
+  // Resposta do gate do onboarding (para o disparo tardio de QualifiedLead)
+  hasMonetizableAsset: boolean | null;
   // Estados da UI
   isLoading: boolean;
   isSaving: boolean;
@@ -162,6 +164,7 @@ export function usePaymentSettings(): UsePaymentSettingsReturn {
       notifyPendingPayments: true,
       showPixOnPage: false,
     },
+    hasMonetizableAsset: null,
     isLoading: true,
     isSaving: false,
     showCredentials: false,
@@ -199,6 +202,7 @@ export function usePaymentSettings(): UsePaymentSettingsReturn {
         ...prev,
         selectedMethod: activeMethod,
         activeMethod,
+        hasMonetizableAsset: profileData.hasMonetizableAsset ?? null,
         mercadoPago: {
           publicKey: mpData.mercadoPagoPublicKey || '',
           accessToken: '', // Não retornado por segurança
@@ -401,6 +405,21 @@ export function usePaymentSettings(): UsePaymentSettingsReturn {
         // Meta Pixel: pagamento configurado via PIX
         if (user?.id) {
           trackPaymentConfigured(user.id, 'pix');
+
+          // QualifiedLead (caminho tardio): PIX Direto salvo com sucesso e
+          // usuário já respondeu que tem produto pronto para vender.
+          // A guarda localStorage em trackQualifiedLead impede duplicata.
+          let answeredYes = state.hasMonetizableAsset === true;
+          if (!answeredYes && typeof window !== 'undefined') {
+            try {
+              answeredYes = localStorage.getItem('lp_monetizable_asset') === 'true';
+            } catch {
+              // ignore
+            }
+          }
+          if (answeredYes) {
+            trackQualifiedLead(user.id);
+          }
         }
       }
 

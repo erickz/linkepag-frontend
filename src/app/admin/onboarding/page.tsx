@@ -16,7 +16,7 @@ import {
   CACHE_KEYS 
 } from '@/lib/api';
 import { formatUrl, maskPriceInput, parsePrice } from '@/lib/masks';
-import { trackLinkCreated, trackLinkPaidCreated, trackPaymentConfigured } from '@/lib/pixel-milestones';
+import { trackLinkCreated, trackLinkPaidCreated, trackPaymentConfigured, trackHasMonetizableAsset, trackQualifiedLead } from '@/lib/pixel-milestones';
 import {
   getDefaultLinkTemplate,
   getTitlePlaceholder,
@@ -173,6 +173,25 @@ export default function OnboardingPage() {
   const [showNewLinkForm, setShowNewLinkForm] = useState(false);
   const [linkFormVisible, setLinkFormVisible] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<LinkTemplateId | null>(null);
+
+  // Gate da etapa 3: pergunta "já tem um produto pronto para vender?"
+  // null = ainda não respondeu (mostra a tela-gate).
+  // Lazy init no localStorage: fallback para o caso de falha de rede
+  // (a resposta definitiva do perfil sobrescreve no loadProfile).
+  const [hasMonetizableAsset, setHasMonetizableAsset] = useState<boolean | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const cached = localStorage.getItem('lp_monetizable_asset');
+      if (cached === 'true') return true;
+      if (cached === 'false') return false;
+    } catch {
+      // ignore
+    }
+    return null;
+  });
+  const [savingAssetAnswer, setSavingAssetAnswer] = useState<'yes' | 'no' | null>(null);
+  // PIX Direto já configurado (para decidir o disparo de QualifiedLead)
+  const [pixDirectReady, setPixDirectReady] = useState(false);
   
   // Upload de arquivo (apenas para links monetizados)
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -291,6 +310,27 @@ export default function OnboardingPage() {
         setPaymentMethod('mercadopago');
         setCompletedSteps(prev => [...new Set([...prev, 'payment'])]);
       }
+      // Gate "produto pronto para vender?": perfil manda; se não respondido,
+      // cai no fallback localStorage (cobertura para falha de rede anterior)
+      if (data.hasMonetizableAsset === true || data.hasMonetizableAsset === false) {
+        setHasMonetizableAsset(data.hasMonetizableAsset);
+        try {
+          localStorage.setItem('lp_monetizable_asset', String(data.hasMonetizableAsset));
+        } catch {
+          // ignore
+        }
+      } else {
+        try {
+          const cached = localStorage.getItem('lp_monetizable_asset');
+          if (cached === 'true' || cached === 'false') {
+            setHasMonetizableAsset(cached === 'true');
+          }
+        } catch {
+          // ignore
+        }
+      }
+      // PIX Direto configurado = método ativo ou chave presente no perfil
+      setPixDirectReady(data.activePaymentMethod === 'pix_direct' || !!data.pixKey);
     } catch (err) {
       console.error('Erro ao carregar perfil:', err);
     }
@@ -489,6 +529,37 @@ export default function OnboardingPage() {
 
     setCompletedSteps(prev => [...new Set([...prev, 'payment'])]);
     setCurrentStep(2); // Vai para o passo 3: Links
+  };
+
+  // Resposta do gate "Você já tem um produto pronto para vender?"
+  // UX não-bloqueante: mesmo se a API falhar, o usuário prossegue e a
+  // resposta fica no localStorage como fallback.
+  const handleAnswerMonetizableAsset = async (hasAsset: boolean) => {
+    setSavingAssetAnswer(hasAsset ? 'yes' : 'no');
+
+    try {
+      localStorage.setItem('lp_monetizable_asset', String(hasAsset));
+    } catch {
+      // ignore
+    }
+
+    try {
+      await updateProfile({ hasMonetizableAsset: hasAsset });
+    } catch (err) {
+      console.error('Erro ao salvar resposta do onboarding:', err);
+    }
+
+    // Meta Pixel: só a resposta SIM dispara eventos
+    if (hasAsset && user?.id) {
+      trackHasMonetizableAsset(user.id);
+      // Se o PIX Direto já estiver configurado, o lead já está qualificado
+      if (pixDirectReady) {
+        trackQualifiedLead(user.id);
+      }
+    }
+
+    setHasMonetizableAsset(hasAsset);
+    setSavingAssetAnswer(null);
   };
 
 
@@ -858,8 +929,58 @@ export default function OnboardingPage() {
             </div>
           )}
 
+          {/* Step 3: Gate — pergunta antes do formulário de link (uma vez só) */}
+          {currentStep === 2 && hasMonetizableAsset === null && (
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-8 animate-in fade-in slide-in-from-right-4 duration-300">
+              <div className="text-center py-6 sm:py-10">
+                <div className="w-14 h-14 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center flex-shrink-0 mx-auto mb-5">
+                  <IconLink className="w-7 h-7" />
+                </div>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 mb-4">
+                  Etapa 3 de 3
+                </span>
+                <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mb-2">
+                  Você já tem um produto pronto para vender?
+                </h2>
+                <p className="text-slate-500 mb-8 max-w-md mx-auto">
+                  Ex.: ebook, curso, planilha, mentoria ou acesso a grupo VIP (Telegram/WhatsApp).
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <button
+                    onClick={() => handleAnswerMonetizableAsset(true)}
+                    disabled={savingAssetAnswer !== null}
+                    className="inline-flex items-center justify-center gap-2 px-6 h-12 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                  >
+                    {savingAssetAnswer === 'yes' ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Salvando...
+                      </>
+                    ) : (
+                      'Sim, já tenho'
+                    )}
+                  </button>
+                  <button
+                    onClick={() => handleAnswerMonetizableAsset(false)}
+                    disabled={savingAssetAnswer !== null}
+                    className="inline-flex items-center justify-center gap-2 px-6 h-12 border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed transition"
+                  >
+                    {savingAssetAnswer === 'no' ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
+                        Salvando...
+                      </>
+                    ) : (
+                      'Ainda não'
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Step 3: Links */}
-          {currentStep === 2 && (
+          {currentStep === 2 && hasMonetizableAsset !== null && (
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-8 animate-in fade-in slide-in-from-right-4 duration-300">
               <div className="flex items-center gap-4 mb-6">
                 <div className="w-14 h-14 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center flex-shrink-0">

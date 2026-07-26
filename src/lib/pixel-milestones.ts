@@ -22,6 +22,8 @@ const MilestoneKeys = {
   linkPaidCreated: (userId: string) => `${STORAGE_PREFIX}linkpaid_${userId}`,
   paymentConfigured: (userId: string) => `${STORAGE_PREFIX}payment_${userId}`,
   qualifiedCreator: (userId: string) => `${STORAGE_PREFIX}qualified_${userId}`,
+  hasMonetizableAsset: (userId: string) => `${STORAGE_PREFIX}asset_${userId}`,
+  qualifiedLead: (userId: string) => `${STORAGE_PREFIX}qualifiedlead_${userId}`,
 };
 
 function wasTracked(key: string): boolean {
@@ -199,5 +201,35 @@ export async function trackQualifiedCreator(userId: string): Promise<void> {
   if (wasTracked(key)) return;
 
   trackOrQueue('meta', 'QualifiedCreator', {});
+  markTracked(key);
+}
+
+/**
+ * Dispara HasMonetizableAsset quando o usuário responde "Sim, já tenho"
+ * na pergunta-gate do onboarding (já tem produto pronto para vender).
+ */
+export function trackHasMonetizableAsset(userId: string): void {
+  if (!userId) return;
+
+  const key = MilestoneKeys.hasMonetizableAsset(userId);
+  if (wasTracked(key)) return;
+
+  trackOrQueue('meta', 'HasMonetizableAsset', {});
+  markTracked(key);
+}
+
+/**
+ * Dispara QualifiedLead quando o usuário tem produto pronto para vender
+ * (hasMonetizableAsset) E PIX Direto configurado. A guarda localStorage
+ * impede duplicata entre o disparo no onboarding e o caminho tardio
+ * (configuração de PIX nas settings).
+ */
+export function trackQualifiedLead(userId: string): void {
+  if (!userId) return;
+
+  const key = MilestoneKeys.qualifiedLead(userId);
+  if (wasTracked(key)) return;
+
+  trackOrQueue('meta', 'QualifiedLead', {});
   markTracked(key);
 }
