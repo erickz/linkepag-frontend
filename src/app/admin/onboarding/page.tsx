@@ -940,7 +940,7 @@ export default function OnboardingPage() {
                   Etapa 3 de 3
                 </span>
                 <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mb-2">
-                  Você já tem um produto pronto para vender?
+                  Você já tem um infoproduto pronto para vender?
                 </h2>
                 <p className="text-slate-500 mb-8 max-w-md mx-auto">
                   Ex.: ebook, curso, planilha, mentoria ou acesso a grupo VIP (Telegram/WhatsApp).
