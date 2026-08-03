@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Metadata } from "next";
 import { MobileMenu } from "./components/MobileMenu";
 import { Logo } from "@/components/Logo";
+import { IconInstagram, IconTiktok } from "@/components/icons";
 import { AuthNavButton } from "@/components/AuthNavButton";
 import { PricingSection } from "./components/PricingSection";
 import {
@@ -550,6 +551,26 @@ export default function Home() {
               <p className="text-slate-400 text-sm max-w-xs mt-2">
                 A link-in-bio que vende mais.
               </p>
+              <div className="flex items-center gap-4 mt-4">
+                <a
+                  href="https://www.tiktok.com/@linkepag"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="TikTok"
+                  className="text-slate-400 hover:text-white transition"
+                >
+                  <IconTiktok size={20} />
+                </a>
+                <a
+                  href="https://www.instagram.com/linkepag"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Instagram"
+                  className="text-slate-400 hover:text-white transition"
+                >
+                  <IconInstagram size={20} />
+                </a>
+              </div>
             </div>
             
             {/* Navegação */}

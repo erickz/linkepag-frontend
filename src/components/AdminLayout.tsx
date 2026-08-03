@@ -3,6 +3,7 @@
 import { AdminSidebar } from './AdminSidebar';
 import { PlanNotification } from './PlanNotification';
 import { useProtectedRoute } from '@/hooks/useAuth';
+import { IconInstagram, IconTiktok } from './icons';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -40,14 +41,34 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
         {/* Footer */}
         <footer className="border-t border-slate-200 bg-white py-4 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-sm text-slate-500">
+          <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-slate-500">
             <span>© {new Date().getFullYear()} LinkePag</span>
-            <a
-              href="mailto:suporte@linkepag.com.br"
-              className="text-slate-600 hover:text-indigo-600 transition"
-            >
-              suporte@linkepag.com.br
-            </a>
+            <div className="flex items-center gap-4">
+              <a
+                href="https://www.tiktok.com/@linkepag"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="TikTok"
+                className="text-slate-400 hover:text-indigo-600 transition"
+              >
+                <IconTiktok size={18} />
+              </a>
+              <a
+                href="https://www.instagram.com/linkepag"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Instagram"
+                className="text-slate-400 hover:text-indigo-600 transition"
+              >
+                <IconInstagram size={18} />
+              </a>
+              <a
+                href="mailto:suporte@linkepag.com.br"
+                className="text-slate-600 hover:text-indigo-600 transition"
+              >
+                suporte@linkepag.com.br
+              </a>
+            </div>
           </div>
         </footer>
       </div>

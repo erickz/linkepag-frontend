@@ -52,6 +52,7 @@ export default function PixCheckout({
   const [timeRemaining, setTimeRemaining] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copiedKey, setCopiedKey] = useState(false);
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
   const [lastCheckMessage, setLastCheckMessage] = useState<string | null>(null);
   const [email, setEmail] = useState<string>('');
@@ -237,6 +238,17 @@ export default function PixCheckout({
     }
   };
 
+  const handleCopyKey = async () => {
+    if (!pixKey) return;
+    try {
+      await navigator.clipboard.writeText(pixKey);
+      setCopiedKey(true);
+      setTimeout(() => setCopiedKey(false), 2000);
+    } catch {
+      setError('Erro ao copiar chave');
+    }
+  };
+
   const handleGenerateNew = async () => {
     setStatus('idle');
     setPaymentId(null);
@@ -375,7 +387,7 @@ export default function PixCheckout({
             </div>
           )}
 
-          {/* Passo 1: valor a enviar (a chave PIX não carrega o valor) */}
+          {/* Passo 1: valor a enviar (o código PIX já carrega o valor) */}
           <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mt-4 mb-4 text-center">
             <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wide mb-1">
               1 · Valor a enviar
@@ -384,14 +396,14 @@ export default function PixCheckout({
               R$ {formatPrice(price)}
             </p>
             <p className="text-xs text-emerald-600 mt-1">
-              Informe esse valor manualmente no app do seu banco — a chave PIX não carrega o valor.
+              O código PIX copiado já inclui o valor. Ao colar no app do seu banco, destinatário e valor são preenchidos automaticamente.
             </p>
           </div>
 
-          {/* Passo 2: pagar com a chave PIX */}
+          {/* Passo 2: pagar com o código PIX */}
           <div className="bg-white rounded-xl border border-slate-200 p-4 mb-4">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
-              2 · Pague com a chave PIX
+              2 · Pague com o código PIX
             </p>
 
             {/* QR Code - só mostra se tiver imagem configurada */}
@@ -439,6 +451,12 @@ export default function PixCheckout({
                   Copiar código PIX
                 </>
               )}
+            </button>
+            <button
+              onClick={handleCopyKey}
+              className="w-full mt-2 text-xs text-slate-500 hover:text-slate-700 underline transition"
+            >
+              {copiedKey ? 'Chave copiada!' : 'Se o seu banco não preencher o valor, clique para copiar apenas a chave PIX'}
             </button>
           </div>
 

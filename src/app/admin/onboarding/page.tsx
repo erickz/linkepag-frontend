@@ -1235,6 +1235,14 @@ export default function OnboardingPage() {
                 )}
                 {(!isCreatingNewLink || linkFormVisible) && (
                   <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                    {!completedSteps.includes('links') && (
+                      <button
+                        onClick={skipStep}
+                        className="inline-flex items-center justify-center gap-2 px-4 h-12 w-full sm:w-auto border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-xl font-medium transition"
+                      >
+                        Configurar depois
+                      </button>
+                    )}
                     <button
                       onClick={isCreatingNewLink ? handleCreateLink : finishOnboarding}
                       disabled={isCreatingNewLink ? (!link.title.trim() || ((link.template === 'direct' || link.template === 'scheduling') && !link.url.trim()) || ((link.template === 'paid_access' || link.template === 'digital_product') && !link.price) || (link.template === 'paid_access' && !link.url.trim()) || (link.template === 'digital_product' && !selectedFile) || isCreatingLink || isUploadingFile) : false}
