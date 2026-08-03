@@ -153,3 +153,57 @@ export function maskUrlInput(value: string): string {
   
   return trimmed;
 }
+
+const socialUrlPatterns: Record<string, { domains: string[]; path: string }> = {
+  instagram: { domains: ['instagram.com', 'www.instagram.com'], path: 'https://instagram.com/' },
+  youtube: { domains: ['youtube.com', 'www.youtube.com', 'youtu.be'], path: 'https://youtube.com/@' },
+  tiktok: { domains: ['tiktok.com', 'www.tiktok.com'], path: 'https://tiktok.com/@' },
+  twitter: { domains: ['twitter.com', 'x.com', 'www.twitter.com', 'www.x.com'], path: 'https://x.com/' },
+  linkedin: { domains: ['linkedin.com', 'www.linkedin.com'], path: 'https://linkedin.com/in/' },
+  github: { domains: ['github.com', 'www.github.com'], path: 'https://github.com/' },
+};
+
+/**
+ * Normaliza URLs de redes sociais para garantir que apontem para o domínio correto.
+ * Aceita URLs completas, domínios parciais ou apenas handles.
+ */
+export function normalizeSocialUrl(platform: string, value: string): string {
+  if (!value) return '';
+
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+
+  // Já é URL absoluta: manter
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+
+  // Site pessoal: usar formatUrl padrão
+  if (platform === 'website') {
+    return formatUrl(trimmed);
+  }
+
+  const config = socialUrlPatterns[platform];
+  if (!config) {
+    return formatUrl(trimmed);
+  }
+
+  // Se começa com www., adicionar protocolo
+  if (trimmed.toLowerCase().startsWith('www.')) {
+    return `https://${trimmed}`;
+  }
+
+  // Se contém o domínio da plataforma (ex: instagram.com/usuario)
+  const lowerTrimmed = trimmed.toLowerCase();
+  for (const domain of config.domains) {
+    if (lowerTrimmed.includes(domain)) {
+      return `https://${trimmed.replace(/^\/+/ , '')}`;
+    }
+  }
+
+  // Remove @ no início
+  const handle = trimmed.startsWith('@') ? trimmed.slice(1) : trimmed;
+
+  // Constroi URL correta para a plataforma
+  return `${config.path}${handle}`;
+}

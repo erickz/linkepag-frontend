@@ -22,6 +22,7 @@ import {
   IconInbox
 } from '@/components/icons';
 import { trackOrQueue } from '@/lib/pixel-queue';
+import { normalizeSocialUrl } from '@/lib/masks';
 
 // Configurações de gradientes (devem corresponder às da página de aparência)
 const headerGradients: Record<string, string> = {
@@ -581,12 +582,13 @@ export default function PublicPage() {
                   {Object.entries(profileData.socialLinks)
                     .filter(([platform]) => ['instagram', 'tiktok', 'youtube', 'twitter', 'linkedin', 'github', 'website'].includes(platform))
                     .map(([platform, url]) => {
-                      if (!url) return null;
+                      const normalizedUrl = normalizeSocialUrl(platform, url);
+                      if (!normalizedUrl) return null;
                       return (
                         <SocialLink
                           key={platform}
                           platform={platform}
-                          url={url}
+                          url={normalizedUrl}
                         />
                       );
                     })}

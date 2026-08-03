@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
+import { normalizeSocialUrl } from '@/lib/masks';
 import { useApi, useApiMutation, useApiParallel } from './useApi';
 import {
   getLinks,
@@ -216,12 +217,21 @@ export function usePageEditor(isAuthenticated: boolean) {
 
   // Unified save function - saves all settings at once (profile + social + appearance)
   const saveAll = useCallback(async () => {
+    const normalizedSocialLinks = profileDraft.socialLinks
+      ? Object.fromEntries(
+          Object.entries(profileDraft.socialLinks).map(([platform, url]) => [
+            platform,
+            normalizeSocialUrl(platform, url || ''),
+          ])
+        )
+      : undefined;
+
     const dataToSave = {
       displayName: profileDraft.displayName,
       bio: profileDraft.bio,
       profilePhoto: profileDraft.profilePhoto,
       location: profileDraft.location,
-      socialLinks: profileDraft.socialLinks,
+      socialLinks: normalizedSocialLinks,
       appearanceSettings: appearanceDraft,
     };
     await updateProfileMutation.mutate(dataToSave);

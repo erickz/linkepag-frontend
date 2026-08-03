@@ -3,7 +3,7 @@
  * Execute com: npx jest src/lib/masks.test.ts
  */
 
-import { formatPrice, parsePrice, maskPriceInput } from './masks';
+import { formatPrice, parsePrice, maskPriceInput, normalizeSocialUrl } from './masks';
 
 describe('maskPriceInput', () => {
   it('deve formatar valor simples corretamente', () => {
@@ -155,5 +155,34 @@ describe('Fluxo React (integração)', () => {
     
     // Deveria ser algo razoável
     expect(displayed.length).toBeLessThan(20);
+  });
+});
+
+describe('normalizeSocialUrl', () => {
+  it('deve manter URLs absolutas intactas', () => {
+    expect(normalizeSocialUrl('instagram', 'https://instagram.com/usuario')).toBe('https://instagram.com/usuario');
+    expect(normalizeSocialUrl('twitter', 'https://x.com/usuario')).toBe('https://x.com/usuario');
+    expect(normalizeSocialUrl('website', 'https://meusite.com.br')).toBe('https://meusite.com.br');
+  });
+
+  it('deve converter handles em URLs completas', () => {
+    expect(normalizeSocialUrl('instagram', '@usuario')).toBe('https://instagram.com/usuario');
+    expect(normalizeSocialUrl('instagram', 'usuario')).toBe('https://instagram.com/usuario');
+    expect(normalizeSocialUrl('tiktok', '@usuario')).toBe('https://tiktok.com/@usuario');
+    expect(normalizeSocialUrl('youtube', 'meucanal')).toBe('https://youtube.com/@meucanal');
+    expect(normalizeSocialUrl('twitter', 'usuario')).toBe('https://x.com/usuario');
+    expect(normalizeSocialUrl('linkedin', 'usuario')).toBe('https://linkedin.com/in/usuario');
+    expect(normalizeSocialUrl('github', 'usuario')).toBe('https://github.com/usuario');
+  });
+
+  it('deve adicionar protocolo em domínios parciais', () => {
+    expect(normalizeSocialUrl('instagram', 'instagram.com/usuario')).toBe('https://instagram.com/usuario');
+    expect(normalizeSocialUrl('twitter', 'twitter.com/usuario')).toBe('https://twitter.com/usuario');
+    expect(normalizeSocialUrl('website', 'www.meusite.com')).toBe('https://www.meusite.com');
+  });
+
+  it('deve retornar vazio para entrada vazia', () => {
+    expect(normalizeSocialUrl('instagram', '')).toBe('');
+    expect(normalizeSocialUrl('instagram', '   ')).toBe('');
   });
 });
