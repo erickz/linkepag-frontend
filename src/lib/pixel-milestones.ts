@@ -9,6 +9,11 @@
  * As marcas de localStorage expiram em 24h — se o evento não foi realmente
  * enviado (ex.: pixel bloqueado, falha de rede), a próxima sessão tenta
  * novamente em vez de bloquear o disparo para sempre.
+ *
+ * Exceção: QualifiedCreator usa marca PERMANENTE + guarda em memória. É um
+ * evento one-shot por usuário (espelha `qualifiedCreatorTrackedAt` no banco)
+ * e compartilha o event_id `qualified-<userId>` com o envio server-side
+ * (CAPI) — o Meta deduplica o par browser/servidor por (event_name, event_id).
  */
 
 import { trackOrQueue } from './pixel-queue';
@@ -51,6 +56,35 @@ function markTracked(key: string): void {
   } catch {
     // ignore
   }
+}
+
+/**
+ * Verifica se a marca existe, sem aplicar TTL.
+ * Usada por QualifiedCreator, que é one-shot por usuário: qualquer valor
+ * gravado (inclusive o legado '1') significa que o evento já foi disparado.
+ */
+function wasTrackedEver(key: string): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return localStorage.getItem(key) !== null;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Guarda em memória para QualifiedCreator.
+ * Elimina a race condition entre chamadas assíncronas paralelas (ex.:
+ * trackLinkCreated + trackLinkPaidCreated disparados juntos na criação de um
+ * link pago, ou gatilho do onboarding + useAuth): ambas liam localStorage
+ * antes de qualquer uma marcar e disparavam o evento duplicado.
+ */
+const qualifiedCreatorInFlight = new Set<string>();
+const qualifiedCreatorDone = new Set<string>();
+
+/** Mesmo event_id usado pelo backend (CAPI) — ver qualified-creator.service.ts */
+function qualifiedCreatorEventId(userId: string): string {
+  return `qualified-${userId}`;
 }
 
 interface ProfileData {
@@ -167,6 +201,9 @@ export async function trackPaymentConfigured(
  * caso ainda não tenha sido tracked. Usada no carregamento da app para
  * recuperar usuários que já atingiram ambos os marcos em sessões anteriores
  * ou em outros dispositivos.
+ *
+ * Idempotente: marca permanente no localStorage + guarda em memória. A guarda
+ * é registrada ANTES do fetch para que chamadas paralelas não disparem juntas.
  */
 export async function checkAndTrackQualifiedCreator(
   userId: string,
@@ -174,8 +211,10 @@ export async function checkAndTrackQualifiedCreator(
   if (!userId) return;
 
   const key = MilestoneKeys.qualifiedCreator(userId);
-  if (wasTracked(key)) return;
+  if (qualifiedCreatorDone.has(userId) || wasTrackedEver(key)) return;
+  if (qualifiedCreatorInFlight.has(userId)) return;
 
+  qualifiedCreatorInFlight.add(userId);
   try {
     const [profile, linksResponse] = await Promise.all([
       getProfile(),
@@ -187,20 +226,33 @@ export async function checkAndTrackQualifiedCreator(
     }
   } catch {
     // ignore — tracking não deve quebrar fluxo
+  } finally {
+    qualifiedCreatorInFlight.delete(userId);
   }
 }
 
 /**
  * Dispara QualifiedCreator quando o usuário completou os 3 marcos:
  * cadastro + link criado + pagamento configurado.
+ *
+ * Envia com o mesmo event_id do CAPI server-side (`qualified-<userId>`), para
+ * que o Meta deduplique o par browser/servidor. Marca permanente: o evento é
+ * one-shot por usuário; se o pixel não estava pronto, o retry fica a cargo da
+ * fila persistente (pixel-queue), não de um novo disparo.
  */
 export async function trackQualifiedCreator(userId: string): Promise<void> {
   if (!userId) return;
 
   const key = MilestoneKeys.qualifiedCreator(userId);
-  if (wasTracked(key)) return;
+  if (qualifiedCreatorDone.has(userId) || wasTrackedEver(key)) return;
 
-  trackOrQueue('meta', 'QualifiedCreator', {});
+  qualifiedCreatorDone.add(userId);
+  trackOrQueue(
+    'meta',
+    'QualifiedCreator',
+    {},
+    qualifiedCreatorEventId(userId),
+  );
   markTracked(key);
 }
 

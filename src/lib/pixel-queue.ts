@@ -102,6 +102,20 @@ export function queuePixelEvent(
   eventId?: string
 ): void {
   const queue = getQueue();
+  // Dedup: eventos com eventId (ex.: QualifiedCreator) são one-shot por id.
+  // Sem isso, cada sessão poderia enfileirar uma nova cópia e o flush
+  // reenviaria todas.
+  if (
+    eventId &&
+    queue.some(
+      (e) =>
+        e.platform === platform &&
+        e.eventName === eventName &&
+        e.eventId === eventId
+    )
+  ) {
+    return;
+  }
   queue.push({ platform, eventName, params, eventId, timestamp: Date.now() });
   saveQueue(queue);
 }
