@@ -52,7 +52,6 @@ export default function PixCheckout({
   const [timeRemaining, setTimeRemaining] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [copiedKey, setCopiedKey] = useState(false);
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
   const [lastCheckMessage, setLastCheckMessage] = useState<string | null>(null);
   const [email, setEmail] = useState<string>('');
@@ -235,17 +234,6 @@ export default function PixCheckout({
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       setError('Erro ao copiar código');
-    }
-  };
-
-  const handleCopyKey = async () => {
-    if (!pixKey) return;
-    try {
-      await navigator.clipboard.writeText(pixKey);
-      setCopiedKey(true);
-      setTimeout(() => setCopiedKey(false), 2000);
-    } catch {
-      setError('Erro ao copiar chave');
     }
   };
 
@@ -451,12 +439,6 @@ export default function PixCheckout({
                   Copiar código PIX
                 </>
               )}
-            </button>
-            <button
-              onClick={handleCopyKey}
-              className="w-full mt-2 text-xs text-slate-500 hover:text-slate-700 underline transition"
-            >
-              {copiedKey ? 'Chave copiada!' : 'Se o seu banco não preencher o valor, clique para copiar apenas a chave PIX'}
             </button>
           </div>
 
