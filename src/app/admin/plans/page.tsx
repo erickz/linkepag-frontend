@@ -296,6 +296,14 @@ export default function PlansPage() {
     return formatCurrency(currentBalance || 0);
   }, [currentBalance]);
 
+  // Só mostra alerta/card de pendências quando próximo ao vencimento
+  const showPendingPaymentAlert = useMemo(() => {
+    return (
+      (currentBalance || 0) > 0 &&
+      (isGracePeriod || (daysUntilLock !== null && daysUntilLock <= 3))
+    );
+  }, [currentBalance, isGracePeriod, daysUntilLock]);
+
   // Dados de uso do plano (simulados - em uma implementação real viriam de uma API separada)
   const planUsage: PlanUsageData = {
     transactions: 0,
@@ -844,7 +852,7 @@ export default function PlansPage() {
       </div>
 
       {/* Alertas de valores pendentes e expiração */}
-      {(currentBalance || 0) > 0 && (
+      {showPendingPaymentAlert && (
         <div className="bg-amber-50/70 border border-amber-200/70 rounded-xl p-4">
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
@@ -971,7 +979,7 @@ export default function PlansPage() {
                 )}
                 
                 {/* Botão Pagar Pendências - aparece se houver valor pendente */}
-                {(currentBalance || 0) > 0 && !hasPendingSubscription && (
+                {showPendingPaymentAlert && !hasPendingSubscription && (
                   <button
                     onClick={() => setShowPendingPaymentSection(true)}
                     className="inline-flex items-center px-5 py-2.5 bg-white text-emerald-700 text-sm font-medium rounded-xl border-2 border-emerald-500 hover:bg-emerald-50 hover:border-emerald-600 transition shadow-sm"

@@ -159,12 +159,6 @@ export function useBilling(): UseBillingReturn {
           href: '/admin/plans',
         },
       });
-    } else if (status.currentBalance > 0) {
-      list.push({
-        type: 'info',
-        message: `Há ${formatCurrency(status.currentBalance)} em aberto no ciclo atual.`,
-        actionRequired: false,
-      });
     }
 
     return list;
