@@ -259,12 +259,16 @@ export async function trackQualifiedCreator(userId: string): Promise<void> {
 /**
  * Dispara HasMonetizableAsset quando o usuário responde "Sim, já tenho"
  * na pergunta-gate do onboarding (já tem produto pronto para vender).
+ *
+ * Marca permanente no localStorage: a resposta do usuário é um marco one-shot,
+ * então nunca deve ser reenviado, mesmo que o pixel não tenha sido carregado
+ * na primeira tentativa (o retry fica a cargo da fila persistente do pixel-queue).
  */
 export function trackHasMonetizableAsset(userId: string): void {
   if (!userId) return;
 
   const key = MilestoneKeys.hasMonetizableAsset(userId);
-  if (wasTracked(key)) return;
+  if (wasTrackedEver(key)) return;
 
   trackOrQueue('meta', 'HasMonetizableAsset', {});
   markTracked(key);
