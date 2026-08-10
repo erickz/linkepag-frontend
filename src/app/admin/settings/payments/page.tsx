@@ -367,6 +367,7 @@ function PixDirectForm({
   qrCodeImage,
   notifyPendingPayments,
   showPixOnPage,
+  pixButtonText,
   onChange,
 }: {
   keyType: string;
@@ -374,7 +375,8 @@ function PixDirectForm({
   qrCodeImage: string;
   notifyPendingPayments: boolean;
   showPixOnPage: boolean;
-  onChange: (field: 'keyType' | 'key' | 'qrCodeImage' | 'notifyPendingPayments' | 'showPixOnPage', value: string | boolean) => void;
+  pixButtonText: string;
+  onChange: (field: 'keyType' | 'key' | 'qrCodeImage' | 'notifyPendingPayments' | 'showPixOnPage' | 'pixButtonText', value: string | boolean) => void;
 }) {
   const { cpfMask, cnpjMask, phoneMask } = useMask();
   const [showQrCodeField, setShowQrCodeField] = useState(!!qrCodeImage);
@@ -588,6 +590,26 @@ function PixDirectForm({
             </div>
           </label>
         </div>
+
+        {/* Texto do botão de PIX na página pública */}
+        {showPixOnPage && (
+          <div className="pt-4 border-t border-slate-200">
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Texto do botão
+            </label>
+            <input
+              type="text"
+              value={pixButtonText}
+              onChange={(e) => onChange('pixButtonText', e.target.value)}
+              placeholder="Me mande um PIX"
+              maxLength={40}
+              className="w-full h-11 px-4 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition text-sm"
+            />
+            <p className="text-xs text-slate-400 mt-1">
+              Deixe em branco para usar o padrão "Me mande um PIX"
+            </p>
+          </div>
+        )}
 
         {/* Checkbox para notificações de pagamentos pendentes */}
         <div className="pt-4 border-t border-slate-200">
@@ -811,6 +833,7 @@ export default function PaymentsSettingsPage() {
           qrCodeImage={state.pixDirect.qrCodeImage}
           notifyPendingPayments={state.pixDirect.notifyPendingPayments}
           showPixOnPage={state.pixDirect.showPixOnPage}
+          pixButtonText={state.pixDirect.pixButtonText}
           onChange={(field, value) => setPixDirectData({ [field]: value })}
         />
       )}

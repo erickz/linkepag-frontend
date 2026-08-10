@@ -7,7 +7,7 @@ import { useAuth, useProtectedRoute } from '@/hooks/useAuth';
 import { trackLinkCreated, trackLinkPaidCreated } from '@/lib/pixel-milestones';
 import { usePageEditor, LinkItem, headerGradients, backgroundOptions, paidLinkAccentColors } from '@/hooks/usePageEditor';
 import { uploadLinkFile, deleteLinkFile } from '@/lib/api';
-import { maskPriceInput, parsePrice, formatPrice, formatUrl, priceToInputValue } from '@/lib/masks';
+import { maskPriceInput, parsePrice, formatPrice, formatUrl, priceToInputValue, normalizeSocialUrl } from '@/lib/masks';
 import {
   getDefaultLinkTemplate,
   getTitlePlaceholder,
@@ -451,6 +451,7 @@ function LinksTab({ links, onCreate, onUpdate, onDelete, onToggle, onReorder, is
                   type="url"
                   value={formData.url || ''}
                   onChange={(e) => setFormData((p) => ({ ...p, url: e.target.value }))}
+                  onBlur={(e) => setFormData((p) => ({ ...p, url: formatUrl(e.target.value) }))}
                   required={isUrlRequired(formData.template) || formData.template === 'paid_access'}
                   className="w-full h-10 px-3 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm"
                   placeholder={getUrlPlaceholder(formData.template)}
@@ -854,7 +855,14 @@ function SocialTab({ socialLinks, onUpdate, onSave, isSaving }: any) {
           {platforms.map(({ key, label, placeholder }) => (
             <div key={key}>
               <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
-              <input type="url" value={socialLinks[key] || ''} onChange={e => onUpdate(key, e.target.value)} className="w-full h-10 px-3 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm" placeholder={placeholder} />
+              <input
+                type="url"
+                value={socialLinks[key] || ''}
+                onChange={e => onUpdate(key, e.target.value)}
+                onBlur={e => onUpdate(key, normalizeSocialUrl(key, e.target.value))}
+                className="w-full h-10 px-3 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm"
+                placeholder={placeholder}
+              />
             </div>
           ))}
         </div>

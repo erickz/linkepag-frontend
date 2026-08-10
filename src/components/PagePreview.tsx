@@ -25,6 +25,7 @@ export interface PagePreviewData {
   socialLinks?: Record<string, string | undefined>;
   pixKey?: string;
   showPixOnPage?: boolean;
+  pixButtonText?: string;
   appearanceSettings?: {
     headerGradient?: string;
     backgroundColor?: string;
@@ -107,7 +108,7 @@ export function PagePreview({ data, links }: { data: PagePreviewData; links: Pag
           {/* Botão PIX - mesmo componente da página pública, em versão compacta */}
           {showPixButton && (
             <div className="mt-3">
-              <PixCopyButton pixKey={data.pixKey!} compact />
+              <PixCopyButton pixKey={data.pixKey!} compact buttonText={data.pixButtonText} />
             </div>
           )}
 

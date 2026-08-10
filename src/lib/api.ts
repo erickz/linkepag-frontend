@@ -204,6 +204,7 @@ export async function updateProfile(data: {
   pixQRCodeImage?: string;
   notifyPendingPayments?: boolean;
   showPixOnPage?: boolean;
+  pixButtonText?: string;
   activePaymentMethod?: 'mercadopago' | 'pix_direct' | null;
   hasMonetizableAsset?: boolean;
   appearanceSettings?: {

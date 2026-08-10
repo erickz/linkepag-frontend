@@ -121,6 +121,7 @@ interface PublicProfile {
   pixKeyType?: string;
   pixQRCodeImage?: string;
   showPixOnPage?: boolean;
+  pixButtonText?: string;
   activePaymentMethod?: 'mercadopago' | 'pix_direct' | null;
   canReceivePayments?: boolean; // Indica se o vendedor pode receber pagamentos (billing em dia)
   appearanceSettings?: {
@@ -599,7 +600,7 @@ export default function PublicPage() {
                   Independente do método de pagamento ativo dos links (pode coexistir com MP). */}
               {profile?.showPixOnPage && profile?.pixKey && (
                 <div className="mb-8">
-                  <PixCopyButton pixKey={profile.pixKey} username={profile.username} />
+                  <PixCopyButton pixKey={profile.pixKey} username={profile.username} buttonText={profile.pixButtonText} />
                 </div>
               )}
 

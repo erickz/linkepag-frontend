@@ -15,7 +15,7 @@ import {
   uploadLinkFile,
   CACHE_KEYS 
 } from '@/lib/api';
-import { formatUrl, maskPriceInput, parsePrice } from '@/lib/masks';
+import { formatUrl, maskPriceInput, parsePrice, normalizeSocialUrl } from '@/lib/masks';
 import { trackLinkCreated, trackLinkPaidCreated, trackPaymentConfigured, trackHasMonetizableAsset, trackQualifiedLead } from '@/lib/pixel-milestones';
 import {
   getDefaultLinkTemplate,
@@ -208,6 +208,7 @@ export default function OnboardingPage() {
     pixKeyType: 'CPF' as 'CPF' | 'CNPJ' | 'EMAIL' | 'PHONE' | 'RANDOM',
     pixQRCodeImage: '',
     showPixOnPage: false,
+    pixButtonText: '',
   });
   const [isSavingPix, setIsSavingPix] = useState(false);
   const [showQrCodeField, setShowQrCodeField] = useState(false);
@@ -300,6 +301,7 @@ export default function OnboardingPage() {
           pixKeyType: data.pixKeyType || 'CPF',
           pixQRCodeImage: data.pixQRCodeImage || '',
           showPixOnPage: data.showPixOnPage ?? false,
+          pixButtonText: data.pixButtonText || '',
         });
         if (data.pixQRCodeImage) {
           setShowQrCodeField(true);
@@ -504,6 +506,7 @@ export default function OnboardingPage() {
         pixKeyType: pixConfig.pixKeyType,
         pixQRCodeImage: pixConfig.pixQRCodeImage || undefined,
         showPixOnPage: pixConfig.showPixOnPage,
+        pixButtonText: pixConfig.pixButtonText || undefined,
         activePaymentMethod: 'pix_direct',
       });
 
@@ -889,6 +892,15 @@ export default function OnboardingPage() {
                                 },
                               })
                             }
+                            onBlur={(e) =>
+                              setProfile({
+                                ...profile,
+                                socialLinks: {
+                                  ...profile.socialLinks,
+                                  [key]: normalizeSocialUrl(key, e.target.value),
+                                },
+                              })
+                            }
                             placeholder={placeholder}
                             className="w-full h-10 px-3 rounded-lg border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition text-sm"
                           />
@@ -1120,6 +1132,7 @@ export default function OnboardingPage() {
                             type="url"
                             value={link.url || ''}
                             onChange={(e) => setLink({ ...link, url: e.target.value })}
+                            onBlur={(e) => setLink({ ...link, url: formatUrl(e.target.value) })}
                             placeholder={getUrlPlaceholder(link.template)}
                             required={isUrlRequired(link.template) || link.template === 'paid_access'}
                             className="w-full h-12 px-4 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition"
@@ -1592,6 +1605,26 @@ export default function OnboardingPage() {
                       </div>
                     </label>
                   </div>
+
+                  {/* Texto do botão de PIX */}
+                  {pixConfig.showPixOnPage && (
+                    <div className="mt-4">
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Texto do botão
+                      </label>
+                      <input
+                        type="text"
+                        value={pixConfig.pixButtonText}
+                        onChange={(e) => setPixConfig({ ...pixConfig, pixButtonText: e.target.value })}
+                        placeholder="Me mande um PIX"
+                        maxLength={40}
+                        className="w-full h-12 px-4 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 focus:outline-none transition"
+                      />
+                      <p className="text-xs text-slate-400 mt-1">
+                        Deixe em branco para usar o padrão
+                      </p>
+                    </div>
+                  )}
 
                   <div className="flex flex-col-reverse sm:flex-row gap-3 sm:gap-0 justify-between mt-8">
                     <button

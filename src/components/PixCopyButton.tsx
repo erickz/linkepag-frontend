@@ -35,9 +35,11 @@ interface PixCopyButtonProps {
   pixKey: string;
   compact?: boolean;
   username?: string;
+  buttonText?: string;
 }
 
-export default function PixCopyButton({ pixKey, compact = false, username }: PixCopyButtonProps) {
+export default function PixCopyButton({ pixKey, compact = false, username, buttonText }: PixCopyButtonProps) {
+  const label = buttonText?.trim() || 'Me mande um PIX';
   const [copied, setCopied] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -67,7 +69,7 @@ export default function PixCopyButton({ pixKey, compact = false, username }: Pix
         <IconPix className="w-3.5 h-3.5 flex-shrink-0" />
         <span className="flex-1 min-w-0 grid text-left">
           <span className={`col-start-1 row-start-1 truncate transition-opacity duration-300 ${copied ? 'opacity-0' : 'opacity-100'}`}>
-            Me mande um PIX
+            {label}
           </span>
           <span className={`col-start-1 row-start-1 truncate transition-opacity duration-300 ${copied ? 'opacity-100' : 'opacity-0'}`}>
             Copiado! {pixKey}
@@ -92,7 +94,7 @@ export default function PixCopyButton({ pixKey, compact = false, username }: Pix
       {/* Content - cross-fade entre estado inicial e "Copiado!" */}
       <div className="flex-1 min-w-0 self-center grid">
         <span className={`col-start-1 row-start-1 transition-opacity duration-300 ${copied ? 'opacity-0' : 'opacity-100'}`}>
-          <span className="font-semibold text-sm sm:text-base leading-snug block">Me mande um PIX</span>
+          <span className="font-semibold text-sm sm:text-base leading-snug block">{label}</span>
           <span className="text-xs text-white/80 leading-relaxed block">Toque para copiar a chave</span>
         </span>
         <span className={`col-start-1 row-start-1 transition-opacity duration-300 ${copied ? 'opacity-100' : 'opacity-0'}`} aria-hidden={!copied}>
