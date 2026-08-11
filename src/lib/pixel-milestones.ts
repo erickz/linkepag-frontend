@@ -276,9 +276,10 @@ export function trackHasMonetizableAsset(userId: string): void {
 
 /**
  * Dispara QualifiedLead quando o usuário tem produto pronto para vender
- * (hasMonetizableAsset) E PIX Direto configurado. A guarda localStorage
- * impede duplicata entre o disparo no onboarding e o caminho tardio
- * (configuração de PIX nas settings).
+ * (hasMonetizableAsset) E uma forma de recebimento configurada
+ * (PIX Direto ou MercadoPago). A guarda localStorage impede duplicata
+ * entre o disparo no onboarding e o caminho tardio (configuração de
+ * pagamento nas settings).
  */
 export function trackQualifiedLead(userId: string): void {
   if (!userId) return;

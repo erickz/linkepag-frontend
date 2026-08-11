@@ -190,8 +190,8 @@ export default function OnboardingPage() {
     return null;
   });
   const [savingAssetAnswer, setSavingAssetAnswer] = useState<'yes' | 'no' | null>(null);
-  // PIX Direto já configurado (para decidir o disparo de QualifiedLead)
-  const [pixDirectReady, setPixDirectReady] = useState(false);
+  // Pagamento já configurado (para decidir o disparo de QualifiedLead)
+  const [paymentConfigured, setPaymentConfigured] = useState(false);
   
   // Upload de arquivo (apenas para links monetizados)
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -331,8 +331,13 @@ export default function OnboardingPage() {
           // ignore
         }
       }
-      // PIX Direto configurado = método ativo ou chave presente no perfil
-      setPixDirectReady(data.activePaymentMethod === 'pix_direct' || !!data.pixKey);
+      // Pagamento configurado = método ativo (PIX/MP) ou credenciais presentes no perfil
+      const hasPix = data.activePaymentMethod === 'pix_direct' || !!data.pixKey;
+      const hasMp =
+        data.activePaymentMethod === 'mercadopago' ||
+        !!data.mercadoPagoPublicKey ||
+        data.mpOAuthConnected === true;
+      setPaymentConfigured(hasPix || hasMp);
     } catch (err) {
       console.error('Erro ao carregar perfil:', err);
     }
@@ -555,8 +560,8 @@ export default function OnboardingPage() {
     // Meta Pixel: só a resposta SIM dispara eventos
     if (hasAsset && user?.id) {
       trackHasMonetizableAsset(user.id);
-      // Se o PIX Direto já estiver configurado, o lead já está qualificado
-      if (pixDirectReady) {
+      // Se o pagamento já estiver configurado, o lead já está qualificado
+      if (paymentConfigured) {
         trackQualifiedLead(user.id);
       }
     }

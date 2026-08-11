@@ -89,6 +89,20 @@ const normalizePixKey = (keyType: string, key: string): string => {
   }
 };
 
+/**
+ * Verifica se o usuário respondeu SIM na pergunta "tem produto pronto para vender".
+ * Usa o estado React como fonte primária e localStorage como fallback.
+ */
+const hasUserMonetizableAsset = (stateValue: boolean | null): boolean => {
+  if (stateValue === true) return true;
+  if (typeof window === 'undefined') return false;
+  try {
+    return localStorage.getItem('lp_monetizable_asset') === 'true';
+  } catch {
+    return false;
+  }
+};
+
 // Validações
 const validatePixKey = (keyType: string, key: string): { valid: boolean; message?: string } => {
   if (!key.trim()) {
@@ -374,6 +388,12 @@ export function usePaymentSettings(): UsePaymentSettingsReturn {
         // Meta Pixel: pagamento configurado via MercadoPago
         if (user?.id) {
           trackPaymentConfigured(user.id, 'mercadopago');
+
+          // QualifiedLead (caminho tardio): MercadoPago salvo com sucesso e
+          // usuário já respondeu que tem produto pronto para vender.
+          if (hasUserMonetizableAsset(state.hasMonetizableAsset)) {
+            trackQualifiedLead(user.id);
+          }
         }
       } else if (selectedMethod === 'pix_direct') {
         // Validar chave PIX
@@ -412,16 +432,7 @@ export function usePaymentSettings(): UsePaymentSettingsReturn {
 
           // QualifiedLead (caminho tardio): PIX Direto salvo com sucesso e
           // usuário já respondeu que tem produto pronto para vender.
-          // A guarda localStorage em trackQualifiedLead impede duplicata.
-          let answeredYes = state.hasMonetizableAsset === true;
-          if (!answeredYes && typeof window !== 'undefined') {
-            try {
-              answeredYes = localStorage.getItem('lp_monetizable_asset') === 'true';
-            } catch {
-              // ignore
-            }
-          }
-          if (answeredYes) {
+          if (hasUserMonetizableAsset(state.hasMonetizableAsset)) {
             trackQualifiedLead(user.id);
           }
         }
