@@ -2,9 +2,10 @@
 
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback, useMemo, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { fbqIdentify, buildMetaAdvancedMatchingData } from '@/lib/meta-pixel';
+import { fbqIdentify, buildMetaAdvancedMatchingData, getMetaTrackingParams } from '@/lib/meta-pixel';
 import { ttqIdentify } from '@/lib/tiktok-pixel';
 import { checkAndTrackQualifiedCreator } from '@/lib/pixel-milestones';
+import { saveMetaTracking } from '@/lib/api';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.linkepag.com.br';
 
@@ -166,6 +167,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await ttqIdentify(user.email, undefined, user.id);
 
           identifiedUserRef.current = user.id;
+
+          // Envia dados de atribuição do Meta para o backend enriquecer
+          // eventos CAPI (QualifiedCreator, Purchase) com fbc/fbp/IP/UA.
+          // Fire-and-forget: não deve quebrar o fluxo se falhar.
+          void saveMetaTracking(getMetaTrackingParams()).catch(() => {});
 
           // Verifica se o usuário já é um creator qualificado e dispara
           // o evento QualifiedCreator caso ainda não tenha sido enviado.

@@ -248,6 +248,25 @@ export async function updateUsername(username: string) {
   return response.json();
 }
 
+export async function saveMetaTracking(data: {
+  fbc?: string | null;
+  fbp?: string | null;
+  clientUserAgent?: string | null;
+}) {
+  const response = await fetch(`${API_BASE_URL}/users/meta-tracking`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Erro ao salvar tracking');
+  }
+
+  return response.json();
+}
+
 export async function checkUsernameAvailability(username: string): Promise<{ available: boolean; username: string }> {
   const response = await fetch(`${API_BASE_URL}/users/check-username/${encodeURIComponent(username)}`, {
     method: 'GET',

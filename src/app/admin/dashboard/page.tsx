@@ -4,7 +4,8 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { useAuth, useProtectedRoute } from '@/hooks/useAuth';
 import { useApiParallel } from '@/hooks/useApi';
-import { getLinks, getProfile, getSalesReport, getPendingPayments, getAnalyticsSummary, trackActivity, CACHE_KEYS } from '@/lib/api';
+import { getLinks, getProfile, getSalesReport, getPendingPayments, getAnalyticsSummary, trackActivity, saveMetaTracking, CACHE_KEYS } from '@/lib/api';
+import { getMetaTrackingParams } from '@/lib/meta-pixel';
 import { getMpOAuthStatus } from '@/lib/api';
 import type { AnalyticsSummary } from '@/lib/api';
 import { PageHeader } from '@/components/PageHeader';
@@ -100,6 +101,10 @@ export default function AdminDashboard() {
     ) {
       sessionStorage.setItem('lp_activity_tracked', '1');
       trackActivity().catch(() => {});
+
+      // Renova snapshot de atribuição do Meta para eventos CAPI futuros.
+      // Fire-and-forget: falhas não devem quebrar o dashboard.
+      void saveMetaTracking(getMetaTrackingParams()).catch(() => {});
     }
   }, [isAuthenticated]);
 
