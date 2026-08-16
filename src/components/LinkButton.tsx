@@ -58,6 +58,7 @@ interface LinkButtonProps {
   pixKeyType?: string;
   pixQRCodeImage?: string;
   canReceivePayments?: boolean; // Indica se o vendedor pode receber pagamentos (billing em dia)
+  isDemoUser?: boolean; // Página demo: não dispara eventos de conversão no Meta
 }
 
 // Mapeamento de emojis para ícones - memoizado fora do componente
@@ -104,6 +105,7 @@ function LinkButtonComponent({
   pixKeyType,
   pixQRCodeImage,
   canReceivePayments,
+  isDemoUser,
 }: LinkButtonProps) {
   // Memoizar handlers para evitar recriação a cada render
   const isMonetized = link.template === 'paid_access' || link.template === 'digital_product';
@@ -125,16 +127,20 @@ function LinkButtonComponent({
     if (isMonetized && !isExpanded && link.price) {
       // Analytics (pagestats): checkout_start — comprador abriu o checkout
       trackCheckoutStart(link.id);
-      trackEcommerceEvent('InitiateCheckout', {
-        contentId: link.id,
-        contentName: link.title,
-        value: link.price,
-      });
+      trackEcommerceEvent(
+        'InitiateCheckout',
+        {
+          contentId: link.id,
+          contentName: link.title,
+          value: link.price,
+        },
+        isDemoUser ? { skipMeta: true } : undefined,
+      );
     }
     
     // Sempre chama onToggle (para abrir/fechar checkout de links monetizados)
     onToggle();
-  }, [isDirect, isMonetized, isExpanded, link.url, link.openInNewTab, link.price, link.title, link.id, onToggle]);
+  }, [isDirect, isMonetized, isExpanded, link.url, link.openInNewTab, link.price, link.title, link.id, onToggle, isDemoUser]);
 
   // Memoizar ícone para evitar re-computação
   const IconComponent = useMemo(() => {
@@ -298,6 +304,7 @@ function LinkButtonComponent({
             pixKeyType={pixKeyType}
             pixQRCodeImage={pixQRCodeImage}
             canReceivePayments={canReceivePayments}
+            isDemoUser={isDemoUser}
           />
         </div>
       )}

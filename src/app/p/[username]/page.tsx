@@ -124,6 +124,7 @@ interface PublicProfile {
   pixButtonText?: string;
   activePaymentMethod?: 'mercadopago' | 'pix_direct' | null;
   canReceivePayments?: boolean; // Indica se o vendedor pode receber pagamentos (billing em dia)
+  isDemoUser?: boolean; // Página demo: não dispara eventos de conversão no Meta
   appearanceSettings?: {
     headerGradient?: string;
     backgroundColor?: string;
@@ -262,6 +263,7 @@ const LinksList = memo(function LinksList({
   pixKeyType,
   pixQRCodeImage,
   canReceivePayments,
+  isDemoUser,
 }: {
   links: ApiLink[];
   expandedId: string | null;
@@ -274,6 +276,7 @@ const LinksList = memo(function LinksList({
   pixKeyType?: string;
   pixQRCodeImage?: string;
   canReceivePayments?: boolean;
+  isDemoUser?: boolean;
 }) {
   if (links.length === 0) {
     return null;
@@ -298,6 +301,7 @@ const LinksList = memo(function LinksList({
           pixKeyType={pixKeyType}
           pixQRCodeImage={pixQRCodeImage}
           canReceivePayments={canReceivePayments}
+          isDemoUser={isDemoUser}
         />
       ))}
     </>
@@ -354,13 +358,15 @@ export default function PublicPage() {
         .map((l: ApiLink) => l._id || l.id)
         .slice(0, 5);
 
-      trackOrQueue('meta', 'ViewContent', {
-        content_name: profile.displayName || profile.username,
-        content_type: 'profile',
-        content_ids: contentIds,
-        value: 0,
-        currency: 'BRL',
-      });
+      if (!profile.isDemoUser) {
+        trackOrQueue('meta', 'ViewContent', {
+          content_name: profile.displayName || profile.username,
+          content_type: 'profile',
+          content_ids: contentIds,
+          value: 0,
+          currency: 'BRL',
+        });
+      }
       trackOrQueue('tiktok', 'ViewContent', {
         content_name: profile.displayName || profile.username,
         content_type: 'product',
@@ -618,6 +624,7 @@ export default function PublicPage() {
                   pixKeyType={profileData.pixKeyType}
                   pixQRCodeImage={profileData.pixQRCodeImage}
                   canReceivePayments={profileData.canReceivePayments}
+                  isDemoUser={profile?.isDemoUser}
                 />
               </div>
             </div>

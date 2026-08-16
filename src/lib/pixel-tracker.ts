@@ -28,6 +28,11 @@ export interface EcommerceEventParams {
   eventId?: string;
 }
 
+export interface EcommerceEventOptions {
+  /** Quando true, omite o disparo para o Meta Pixel (ex.: página demo). */
+  skipMeta?: boolean;
+}
+
 /** Dados do usuário para identify/advanced matching */
 export interface UserIdentifyData {
   email?: string | null;
@@ -45,7 +50,8 @@ const DEFAULT_CURRENCY = 'BRL';
  */
 export function trackEcommerceEvent(
   eventName: string,
-  params: EcommerceEventParams
+  params: EcommerceEventParams,
+  options?: EcommerceEventOptions,
 ): void {
   const currency = params.currency || DEFAULT_CURRENCY;
   const quantity = params.quantity ?? 1;
@@ -53,14 +59,16 @@ export function trackEcommerceEvent(
   const unitPrice = quantity > 0 ? params.value / quantity : params.value;
 
   // Meta Pixel (com eventID para dedup com o evento server-side da CAPI)
-  trackOrQueue('meta', eventName, {
-    content_ids: [params.contentId],
-    content_name: params.contentName,
-    content_type: contentType,
-    value: params.value,
-    currency,
-    num_items: quantity,
-  }, params.eventId);
+  if (!options?.skipMeta) {
+    trackOrQueue('meta', eventName, {
+      content_ids: [params.contentId],
+      content_name: params.contentName,
+      content_type: contentType,
+      value: params.value,
+      currency,
+      num_items: quantity,
+    }, params.eventId);
+  }
 
   // TikTok Pixel — formato oficial contents[]
   trackOrQueue('tiktok', eventName, {

@@ -21,6 +21,7 @@ interface PixCheckoutProps {
   pixKeyType?: string;
   pixQRCodeImage?: string;
   canReceivePayments?: boolean; // Indica se o vendedor pode receber pagamentos (billing em dia)
+  isDemoUser?: boolean; // Página demo: não dispara eventos de conversão no Meta
 }
 
 type PaymentStatus = 'idle' | 'creating' | 'pending' | 'awaiting_confirmation' | 'confirming' | 'confirmed' | 'expired' | 'error';
@@ -43,6 +44,7 @@ export default function PixCheckout({
   pixKeyType,
   pixQRCodeImage,
   canReceivePayments = true,
+  isDemoUser,
 }: PixCheckoutProps) {
   const [status, setStatus] = useState<PaymentStatus>('idle');
   const [paymentId, setPaymentId] = useState<string | null>(null);
@@ -187,18 +189,26 @@ export default function PixCheckout({
 
       if (response.status === 'confirmed') {
         setStatus('confirmed');
-        
+
         // Tracking: Purchase + Identify do comprador
         // eventId casa com o event_id enviado pelo backend via CAPI
-        // (`purchase-{paymentId}`) — o Meta deduplica browser/servidor
+        // (`purchase-{paymentId}`) — o Meta deduplica browser/servidor.
+        // Páginas demo e auto-pagamentos antes da primeira venda real
+        // não disparam o evento Purchase no Meta.
         const buyerEmail = email.trim().toLowerCase();
         const buyerName = name.trim();
-        trackEcommerceEvent('Purchase', {
-          contentId: linkId,
-          contentName: title,
-          value: price,
-          eventId: `purchase-${paymentId}`,
-        });
+        trackEcommerceEvent(
+          'Purchase',
+          {
+            contentId: linkId,
+            contentName: title,
+            value: price,
+            eventId: `purchase-${paymentId}`,
+          },
+          isDemoUser || response.skipMetaPurchase
+            ? { skipMeta: true }
+            : undefined,
+        );
         // Identify do comprador para advanced matching
         if (buyerEmail) {
           identifyUser({
