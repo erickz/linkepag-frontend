@@ -82,6 +82,10 @@ function wasTrackedEver(key: string): boolean {
 const qualifiedCreatorInFlight = new Set<string>();
 const qualifiedCreatorDone = new Set<string>();
 
+/** Guarda em memória contra race conditions em eventos one-shot */
+const hasMonetizableAssetInFlight = new Set<string>();
+const qualifiedLeadInFlight = new Set<string>();
+
 /** Mesmo event_id usado pelo backend (CAPI) — ver qualified-creator.service.ts */
 function qualifiedCreatorEventId(userId: string): string {
   return `qualified-${userId}`;
@@ -265,13 +269,15 @@ export async function trackQualifiedCreator(userId: string): Promise<void> {
  * na primeira tentativa (o retry fica a cargo da fila persistente do pixel-queue).
  */
 export function trackHasMonetizableAsset(userId: string): void {
-  if (!userId) return;
+  if (!userId || hasMonetizableAssetInFlight.has(userId)) return;
 
   const key = MilestoneKeys.hasMonetizableAsset(userId);
   if (wasTrackedEver(key)) return;
 
+  hasMonetizableAssetInFlight.add(userId);
   trackOrQueue('meta', 'HasMonetizableAsset', {}, `asset-${userId}`);
   markTracked(key);
+  hasMonetizableAssetInFlight.delete(userId);
 }
 
 /**
@@ -282,11 +288,13 @@ export function trackHasMonetizableAsset(userId: string): void {
  * pagamento nas settings).
  */
 export function trackQualifiedLead(userId: string): void {
-  if (!userId) return;
+  if (!userId || qualifiedLeadInFlight.has(userId)) return;
 
   const key = MilestoneKeys.qualifiedLead(userId);
   if (wasTracked(key)) return;
 
+  qualifiedLeadInFlight.add(userId);
   trackOrQueue('meta', 'QualifiedLead', {}, `qualifiedlead-${userId}`);
   markTracked(key);
+  qualifiedLeadInFlight.delete(userId);
 }
