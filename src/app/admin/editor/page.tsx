@@ -782,6 +782,34 @@ function ProfileTab({ draft, original, onUpdate, onSave, isSaving, usernameStatu
         </div>
         <div><label className="block text-sm font-medium text-slate-700 mb-1">Localização</label><div className="relative"><Icon path={Icons.location} className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" /><input type="text" value={draft.location || ''} onChange={e => onUpdate('location', e.target.value)} className="w-full h-10 pl-10 pr-3 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm" placeholder="São Paulo, Brasil" /></div></div>
         <div><label className="block text-sm font-medium text-slate-700 mb-1">Bio</label><textarea value={draft.bio || ''} onChange={e => onUpdate('bio', e.target.value)} rows={3} className="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm resize-none" placeholder="Conte um pouco sobre você..." /></div>
+
+        <div className="pt-4 border-t border-slate-200">
+          <h4 className="text-sm font-bold text-slate-900 mb-3">Botão de PIX</h4>
+          <label className="flex items-start gap-3 cursor-pointer group">
+            <input
+              type="checkbox"
+              checked={!!draft.showPixOnPage}
+              onChange={(e) => onUpdate('showPixOnPage', e.target.checked)}
+              className="w-5 h-5 mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+            />
+            <span className="text-sm text-slate-700 group-hover:text-slate-900 transition">Exibir botão de PIX na minha página</span>
+          </label>
+          {draft.showPixOnPage && (
+            <div className="mt-3">
+              <label className="block text-sm font-medium text-slate-700 mb-1">Texto do botão</label>
+              <input
+                type="text"
+                value={draft.pixButtonText || ''}
+                onChange={(e) => onUpdate('pixButtonText', e.target.value)}
+                placeholder="Me mande um PIX"
+                maxLength={40}
+                className="w-full h-10 px-3 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm"
+              />
+              <p className="text-xs text-slate-400 mt-1">Deixe em branco para usar o padrão &quot;Me mande um PIX&quot;. Máx 40 caracteres.</p>
+            </div>
+          )}
+        </div>
+
         <button onClick={handleSave} disabled={isSaving} className="w-full h-11 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold hover:from-indigo-700 hover:to-purple-700 transition disabled:opacity-50">{isSaving ? 'Salvando...' : 'Salvar Perfil'}</button>
       </div>
     </div>

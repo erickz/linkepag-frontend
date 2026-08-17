@@ -51,6 +51,7 @@ export interface ProfileData {
   location?: string;
   pixKey?: string;
   showPixOnPage?: boolean;
+  pixButtonText?: string;
   socialLinks?: {
     instagram?: string;
     tiktok?: string;
@@ -132,7 +133,10 @@ export function usePageEditor(isAuthenticated: boolean) {
   const links = useMemo(() => data?.links?.links || [], [data?.links?.links]);
 
   // Profile draft state
-  const [profileDraft, setProfileDraft] = useState<Partial<ProfileData>>({});
+  const [profileDraft, setProfileDraft] = useState<Partial<ProfileData>>({
+    showPixOnPage: false,
+    pixButtonText: '',
+  });
   const [appearanceDraft, setAppearanceDraft] = useState<AppearanceSettings>({
     headerGradient: 'indigo-purple',
     backgroundColor: 'white',
@@ -150,6 +154,8 @@ export function usePageEditor(isAuthenticated: boolean) {
         location: profile.location || '',
         username: profile.username || '',
         socialLinks: profile.socialLinks || {},
+        showPixOnPage: profile.showPixOnPage ?? prev.showPixOnPage ?? false,
+        pixButtonText: profile.pixButtonText || prev.pixButtonText || '',
       }));
       if (profile.appearanceSettings) {
         setAppearanceDraft({
@@ -233,6 +239,8 @@ export function usePageEditor(isAuthenticated: boolean) {
       location: profileDraft.location,
       socialLinks: normalizedSocialLinks,
       appearanceSettings: appearanceDraft,
+      showPixOnPage: profileDraft.showPixOnPage,
+      pixButtonText: profileDraft.pixButtonText,
     };
     await updateProfileMutation.mutate(dataToSave);
     await refetch();
@@ -325,6 +333,8 @@ export function usePageEditor(isAuthenticated: boolean) {
       profileDraft.bio !== profile.bio ||
       profileDraft.profilePhoto !== profile.profilePhoto ||
       profileDraft.location !== profile.location ||
+      profileDraft.showPixOnPage !== profile.showPixOnPage ||
+      profileDraft.pixButtonText !== profile.pixButtonText ||
       JSON.stringify(profileDraft.socialLinks) !== JSON.stringify(profile.socialLinks)
     );
   }, [profile, profileDraft]);

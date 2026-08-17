@@ -155,7 +155,12 @@ export default function AdminDashboard() {
         const diffTime = expiryDate.getTime() - now.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         
-        if (diffDays <= 7 && diffDays > 0 && profile?.planStatus === 'active') {
+        if (
+          diffDays <= 7 &&
+          diffDays > 0 &&
+          profile?.planStatus === 'active' &&
+          profile?.planId !== 1
+        ) {
           setPlanExpiringSoon(true);
           setDaysUntilExpiry(diffDays);
         } else {

@@ -207,6 +207,7 @@ export async function updateProfile(data: {
   pixButtonText?: string;
   activePaymentMethod?: 'mercadopago' | 'pix_direct' | null;
   hasMonetizableAsset?: boolean;
+  monetizableAssetType?: 'infoproduto' | 'afiliado' | 'servico' | 'nada' | null;
   appearanceSettings?: {
     headerGradient?: string;
     backgroundColor?: string;

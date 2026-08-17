@@ -261,31 +261,39 @@ export async function trackQualifiedCreator(userId: string): Promise<void> {
 }
 
 /**
- * Dispara HasMonetizableAsset quando o usuário responde "Sim, já tenho"
- * na pergunta-gate do onboarding (já tem produto pronto para vender).
+ * Dispara HasMonetizableAsset quando o usuário responde uma opção diferente
+ * de "nada" na pergunta-gate do onboarding ("O que você vende?").
  *
  * Marca permanente no localStorage: a resposta do usuário é um marco one-shot,
  * então nunca deve ser reenviado, mesmo que o pixel não tenha sido carregado
  * na primeira tentativa (o retry fica a cargo da fila persistente do pixel-queue).
  */
-export function trackHasMonetizableAsset(userId: string): void {
+export function trackHasMonetizableAsset(
+  userId: string,
+  assetType: 'infoproduto' | 'afiliado' | 'servico',
+): void {
   if (!userId || hasMonetizableAssetInFlight.has(userId)) return;
 
   const key = MilestoneKeys.hasMonetizableAsset(userId);
   if (wasTrackedEver(key)) return;
 
   hasMonetizableAssetInFlight.add(userId);
-  trackOrQueue('meta', 'HasMonetizableAsset', {}, `asset-${userId}`);
+  trackOrQueue(
+    'meta',
+    'HasMonetizableAsset',
+    { content_category: assetType },
+    `asset-${userId}`,
+  );
   markTracked(key);
   hasMonetizableAssetInFlight.delete(userId);
 }
 
 /**
- * Dispara QualifiedLead quando o usuário tem produto pronto para vender
- * (hasMonetizableAsset) E uma forma de recebimento configurada
- * (PIX Direto ou MercadoPago). A guarda localStorage impede duplicata
- * entre o disparo no onboarding e o caminho tardio (configuração de
- * pagamento nas settings).
+ * Dispara QualifiedLead quando o usuário tem algo para vender
+ * (monetizableAssetType diferente de 'nada') E uma forma de recebimento
+ * configurada (PIX Direto ou MercadoPago). A guarda localStorage impede
+ * duplicata entre o disparo no onboarding e o caminho tardio (configuração
+ * de pagamento nas settings).
  */
 export function trackQualifiedLead(userId: string): void {
   if (!userId || qualifiedLeadInFlight.has(userId)) return;

@@ -36,7 +36,7 @@ interface PaymentSettingsState {
   mercadoPago: MercadoPagoData;
   pixDirect: PixData;
   // Resposta do gate do onboarding (para o disparo tardio de QualifiedLead)
-  hasMonetizableAsset: boolean | null;
+  monetizableAssetType: 'infoproduto' | 'afiliado' | 'servico' | 'nada' | null;
   // Estados da UI
   isLoading: boolean;
   isSaving: boolean;
@@ -90,14 +90,18 @@ const normalizePixKey = (keyType: string, key: string): string => {
 };
 
 /**
- * Verifica se o usuário respondeu SIM na pergunta "tem produto pronto para vender".
- * Usa o estado React como fonte primária e localStorage como fallback.
+ * Verifica se o usuário respondeu uma opção diferente de "nada" no gate
+ * "O que você vende?". Usa o estado React como fonte primária e localStorage
+ * como fallback.
  */
-const hasUserMonetizableAsset = (stateValue: boolean | null): boolean => {
-  if (stateValue === true) return true;
+const hasUserMonetizableAsset = (
+  stateValue: 'infoproduto' | 'afiliado' | 'servico' | 'nada' | null,
+): boolean => {
+  if (stateValue && stateValue !== 'nada') return true;
   if (typeof window === 'undefined') return false;
   try {
-    return localStorage.getItem('lp_monetizable_asset') === 'true';
+    const cached = localStorage.getItem('lp_monetizable_asset_type');
+    return !!cached && cached !== 'nada';
   } catch {
     return false;
   }
@@ -180,7 +184,7 @@ export function usePaymentSettings(): UsePaymentSettingsReturn {
       showPixOnPage: false,
       pixButtonText: '',
     },
-    hasMonetizableAsset: null,
+    monetizableAssetType: null,
     isLoading: true,
     isSaving: false,
     showCredentials: false,
@@ -218,7 +222,13 @@ export function usePaymentSettings(): UsePaymentSettingsReturn {
         ...prev,
         selectedMethod: activeMethod,
         activeMethod,
-        hasMonetizableAsset: profileData.hasMonetizableAsset ?? null,
+        monetizableAssetType:
+          profileData.monetizableAssetType ??
+          (profileData.hasMonetizableAsset === true
+            ? 'infoproduto'
+            : profileData.hasMonetizableAsset === false
+              ? 'nada'
+              : null),
         mercadoPago: {
           publicKey: mpData.mercadoPagoPublicKey || '',
           accessToken: '', // Não retornado por segurança
@@ -391,7 +401,7 @@ export function usePaymentSettings(): UsePaymentSettingsReturn {
 
           // QualifiedLead (caminho tardio): MercadoPago salvo com sucesso e
           // usuário já respondeu que tem produto pronto para vender.
-          if (hasUserMonetizableAsset(state.hasMonetizableAsset)) {
+          if (hasUserMonetizableAsset(state.monetizableAssetType)) {
             trackQualifiedLead(user.id);
           }
         }
@@ -432,7 +442,7 @@ export function usePaymentSettings(): UsePaymentSettingsReturn {
 
           // QualifiedLead (caminho tardio): PIX Direto salvo com sucesso e
           // usuário já respondeu que tem produto pronto para vender.
-          if (hasUserMonetizableAsset(state.hasMonetizableAsset)) {
+          if (hasUserMonetizableAsset(state.monetizableAssetType)) {
             trackQualifiedLead(user.id);
           }
         }

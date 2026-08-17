@@ -42,6 +42,19 @@ interface OnboardingStep {
 }
 
 // ORDEM CORRETA: Profile -> Payment -> Links (por último)
+type MonetizableAssetType = 'infoproduto' | 'afiliado' | 'servico' | 'nada';
+
+const monetizableAssetOptions: {
+  id: MonetizableAssetType;
+  label: string;
+  description: string;
+}[] = [
+  { id: 'infoproduto', label: 'Infoproduto', description: 'Ebook, curso, planilha, etc.' },
+  { id: 'afiliado', label: 'Afiliado', description: 'Divulgo produtos de outras pessoas' },
+  { id: 'servico', label: 'Serviço', description: 'Mentoria, consultoria, freelancer, etc.' },
+  { id: 'nada', label: 'Ainda nada', description: 'Só estou começando' },
+];
+
 const steps: OnboardingStep[] = [
   {
     id: 'profile',
@@ -174,22 +187,32 @@ export default function OnboardingPage() {
   const [linkFormVisible, setLinkFormVisible] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<LinkTemplateId | null>(null);
 
-  // Gate da etapa 3: pergunta "já tem um produto pronto para vender?"
+  // Gate da etapa 3: pergunta "O que você vende?"
   // null = ainda não respondeu (mostra a tela-gate).
   // Lazy init no localStorage: fallback para o caso de falha de rede
   // (a resposta definitiva do perfil sobrescreve no loadProfile).
-  const [hasMonetizableAsset, setHasMonetizableAsset] = useState<boolean | null>(() => {
+  const [monetizableAssetType, setMonetizableAssetType] = useState<
+    MonetizableAssetType | null
+  >(() => {
     if (typeof window === 'undefined') return null;
     try {
-      const cached = localStorage.getItem('lp_monetizable_asset');
-      if (cached === 'true') return true;
-      if (cached === 'false') return false;
+      const cached = localStorage.getItem('lp_monetizable_asset_type');
+      if (
+        cached === 'infoproduto' ||
+        cached === 'afiliado' ||
+        cached === 'servico' ||
+        cached === 'nada'
+      ) {
+        return cached;
+      }
     } catch {
       // ignore
     }
     return null;
   });
-  const [savingAssetAnswer, setSavingAssetAnswer] = useState<'yes' | 'no' | null>(null);
+  const [savingAssetAnswer, setSavingAssetAnswer] = useState<
+    MonetizableAssetType | null
+  >(null);
   // Pagamento já configurado (para decidir o disparo de QualifiedLead)
   const [paymentConfigured, setPaymentConfigured] = useState(false);
   
@@ -312,20 +335,32 @@ export default function OnboardingPage() {
         setPaymentMethod('mercadopago');
         setCompletedSteps(prev => [...new Set([...prev, 'payment'])]);
       }
-      // Gate "produto pronto para vender?": perfil manda; se não respondido,
+      // Gate "O que você vende?": perfil manda; se não respondido,
       // cai no fallback localStorage (cobertura para falha de rede anterior)
-      if (data.hasMonetizableAsset === true || data.hasMonetizableAsset === false) {
-        setHasMonetizableAsset(data.hasMonetizableAsset);
+      const loadedAssetType =
+        data.monetizableAssetType ??
+        (data.hasMonetizableAsset === true
+          ? 'infoproduto'
+          : data.hasMonetizableAsset === false
+            ? 'nada'
+            : null);
+      if (loadedAssetType) {
+        setMonetizableAssetType(loadedAssetType);
         try {
-          localStorage.setItem('lp_monetizable_asset', String(data.hasMonetizableAsset));
+          localStorage.setItem('lp_monetizable_asset_type', loadedAssetType);
         } catch {
           // ignore
         }
       } else {
         try {
-          const cached = localStorage.getItem('lp_monetizable_asset');
-          if (cached === 'true' || cached === 'false') {
-            setHasMonetizableAsset(cached === 'true');
+          const cached = localStorage.getItem('lp_monetizable_asset_type');
+          if (
+            cached === 'infoproduto' ||
+            cached === 'afiliado' ||
+            cached === 'servico' ||
+            cached === 'nada'
+          ) {
+            setMonetizableAssetType(cached);
           }
         } catch {
           // ignore
@@ -541,34 +576,34 @@ export default function OnboardingPage() {
     setCurrentStep(2); // Vai para o passo 3: Links
   };
 
-  // Resposta do gate "Você já tem um produto pronto para vender?"
+  // Resposta do gate "O que você vende?"
   // UX não-bloqueante: mesmo se a API falhar, o usuário prossegue e a
   // resposta fica no localStorage como fallback.
-  const handleAnswerMonetizableAsset = async (hasAsset: boolean) => {
-    setSavingAssetAnswer(hasAsset ? 'yes' : 'no');
+  const handleAnswerMonetizableAsset = async (assetType: MonetizableAssetType) => {
+    setSavingAssetAnswer(assetType);
 
     try {
-      localStorage.setItem('lp_monetizable_asset', String(hasAsset));
+      localStorage.setItem('lp_monetizable_asset_type', assetType);
     } catch {
       // ignore
     }
 
     try {
-      await updateProfile({ hasMonetizableAsset: hasAsset });
+      await updateProfile({ monetizableAssetType: assetType });
     } catch (err) {
       console.error('Erro ao salvar resposta do onboarding:', err);
     }
 
-    // Meta Pixel: só a resposta SIM dispara eventos
-    if (hasAsset && user?.id) {
-      trackHasMonetizableAsset(user.id);
+    // Meta Pixel: só dispara quando a resposta é diferente de "nada"
+    if (assetType !== 'nada' && user?.id) {
+      trackHasMonetizableAsset(user.id, assetType);
       // Se o pagamento já estiver configurado, o lead já está qualificado
       if (paymentConfigured) {
         trackQualifiedLead(user.id);
       }
     }
 
-    setHasMonetizableAsset(hasAsset);
+    setMonetizableAssetType(assetType);
     setSavingAssetAnswer(null);
   };
 
@@ -949,7 +984,7 @@ export default function OnboardingPage() {
           )}
 
           {/* Step 3: Gate — pergunta antes do formulário de link (uma vez só) */}
-          {currentStep === 2 && hasMonetizableAsset === null && (
+          {currentStep === 2 && monetizableAssetType === null && (
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-8 animate-in fade-in slide-in-from-right-4 duration-300">
               <div className="text-center py-6 sm:py-10">
                 <div className="w-14 h-14 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center flex-shrink-0 mx-auto mb-5">
@@ -959,47 +994,39 @@ export default function OnboardingPage() {
                   Etapa 3 de 3
                 </span>
                 <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mb-2">
-                  Você já tem um infoproduto pronto ou serviço para vender?
+                  O que você vende?
                 </h2>
                 <p className="text-slate-500 mb-8 max-w-md mx-auto">
-                  Ex.: ebook, mentoria, curso, planilha ou acesso a grupo VIP (Telegram/WhatsApp).
+                  Isso nos ajuda a direcionar você para as melhores funcionalidades.
                 </p>
-                <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                  <button
-                    onClick={() => handleAnswerMonetizableAsset(true)}
-                    disabled={savingAssetAnswer !== null}
-                    className="inline-flex items-center justify-center gap-2 px-6 h-12 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                  >
-                    {savingAssetAnswer === 'yes' ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        Salvando...
-                      </>
-                    ) : (
-                      'Sim, já tenho'
-                    )}
-                  </button>
-                  <button
-                    onClick={() => handleAnswerMonetizableAsset(false)}
-                    disabled={savingAssetAnswer !== null}
-                    className="inline-flex items-center justify-center gap-2 px-6 h-12 border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed transition"
-                  >
-                    {savingAssetAnswer === 'no' ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
-                        Salvando...
-                      </>
-                    ) : (
-                      'Ainda não'
-                    )}
-                  </button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg mx-auto">
+                  {monetizableAssetOptions.map((option) => (
+                    <button
+                      key={option.id}
+                      onClick={() => handleAnswerMonetizableAsset(option.id)}
+                      disabled={savingAssetAnswer !== null}
+                      className="inline-flex flex-col items-start gap-1 p-4 rounded-xl border border-slate-200 text-left hover:border-indigo-500 hover:bg-indigo-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    >
+                      {savingAssetAnswer === option.id ? (
+                        <span className="flex items-center gap-2 text-indigo-600 font-semibold">
+                          <div className="w-4 h-4 border-2 border-indigo-300 border-t-indigo-600 rounded-full animate-spin" />
+                          Salvando...
+                        </span>
+                      ) : (
+                        <>
+                          <span className="font-semibold text-slate-900">{option.label}</span>
+                          <span className="text-xs text-slate-500">{option.description}</span>
+                        </>
+                      )}
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
           )}
 
           {/* Step 3: Links */}
-          {currentStep === 2 && hasMonetizableAsset !== null && (
+          {currentStep === 2 && monetizableAssetType !== null && (
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-8 animate-in fade-in slide-in-from-right-4 duration-300">
               <div className="flex items-center gap-4 mb-6">
                 <div className="w-14 h-14 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center flex-shrink-0">
