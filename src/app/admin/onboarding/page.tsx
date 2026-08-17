@@ -519,6 +519,7 @@ export default function OnboardingPage() {
       if (user?.id) {
         trackPaymentConfigured(user.id, 'pix');
       }
+      setPaymentConfigured(true);
 
       setCompletedSteps(prev => [...new Set([...prev, 'payment'])]);
       setCurrentStep(2); // Vai para o passo 3: Links
@@ -534,6 +535,7 @@ export default function OnboardingPage() {
     if (user?.id) {
       trackPaymentConfigured(user.id, 'mercadopago');
     }
+    setPaymentConfigured(true);
 
     setCompletedSteps(prev => [...new Set([...prev, 'payment'])]);
     setCurrentStep(2); // Vai para o passo 3: Links

@@ -270,7 +270,7 @@ export function trackHasMonetizableAsset(userId: string): void {
   const key = MilestoneKeys.hasMonetizableAsset(userId);
   if (wasTrackedEver(key)) return;
 
-  trackOrQueue('meta', 'HasMonetizableAsset', {});
+  trackOrQueue('meta', 'HasMonetizableAsset', {}, `asset-${userId}`);
   markTracked(key);
 }
 
@@ -287,6 +287,6 @@ export function trackQualifiedLead(userId: string): void {
   const key = MilestoneKeys.qualifiedLead(userId);
   if (wasTracked(key)) return;
 
-  trackOrQueue('meta', 'QualifiedLead', {});
+  trackOrQueue('meta', 'QualifiedLead', {}, `qualifiedlead-${userId}`);
   markTracked(key);
 }
