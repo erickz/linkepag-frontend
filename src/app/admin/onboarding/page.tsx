@@ -149,6 +149,7 @@ export default function OnboardingPage() {
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [showSocialLinks, setShowSocialLinks] = useState(false);
   const [socialError, setSocialError] = useState<string | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
   
   // Step 3: Links
   const [link, setLink] = useState({
@@ -378,6 +379,16 @@ export default function OnboardingPage() {
   // Alguma das redes do toggle "outras redes" preenchida
   const hasOptionalSocial = OPTIONAL_SOCIAL_KEYS.some((key) => profile.socialLinks[key]);
 
+  const normalizeAllSocialLinks = (links: typeof profile.socialLinks) => ({
+    instagram: normalizeSocialUrl('instagram', links.instagram),
+    tiktok: normalizeSocialUrl('tiktok', links.tiktok),
+    youtube: normalizeSocialUrl('youtube', links.youtube),
+    twitter: normalizeSocialUrl('twitter', links.twitter),
+    linkedin: normalizeSocialUrl('linkedin', links.linkedin),
+    github: normalizeSocialUrl('github', links.github),
+    website: normalizeSocialUrl('website', links.website),
+  });
+
   const handleSaveProfile = async () => {
     if (!profile.displayName.trim()) return;
 
@@ -387,6 +398,15 @@ export default function OnboardingPage() {
       return;
     }
     setSocialError(null);
+    setProfileError(null);
+
+    // Normaliza todas as redes antes de enviar, garantindo que o backend
+    // receba URLs canônicas mesmo se o usuário clicar em "Continuar" antes
+    // do onBlur dos campos.
+    const normalizedSocialLinks = normalizeAllSocialLinks(profile.socialLinks);
+    setProfile((prev) => ({ ...prev, socialLinks: normalizedSocialLinks }));
+
+    console.log('[Onboarding] saving profile', { ...profile, socialLinks: normalizedSocialLinks });
 
     setIsLoadingProfile(true);
     try {
@@ -395,22 +415,26 @@ export default function OnboardingPage() {
         displayName: profile.displayName,
         bio: profile.bio,
         profilePhoto: profile.profilePhoto,
-        socialLinks: profile.socialLinks,
+        socialLinks: normalizedSocialLinks,
       });
-      
-      // Se tiver username, atualiza separadamente
+
+      // Se tiver username, atualiza separadamente. Erros são exibidos mas
+      // não bloqueiam o fluxo, pois o username é opcional no onboarding.
       if (profile.username.trim()) {
         try {
           await updateUsername(profile.username);
-        } catch (usernameErr) {
+        } catch (usernameErr: any) {
+          const message = usernameErr?.message || 'Não foi possível salvar seu username.';
           console.error('Erro ao salvar username:', usernameErr);
+          setProfileError(message);
         }
       }
-      
+
       setCompletedSteps(prev => [...new Set([...prev, 'profile'])]);
       setCurrentStep(1); // Vai para o passo 2: Pagamento
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro ao salvar perfil:', err);
+      setProfileError(err?.message || 'Não foi possível salvar seu perfil. Tente novamente.');
     } finally {
       setIsLoadingProfile(false);
     }
@@ -788,7 +812,10 @@ export default function OnboardingPage() {
                   <input
                     type="text"
                     value={profile.displayName}
-                    onChange={(e) => setProfile({ ...profile, displayName: e.target.value })}
+                    onChange={(e) => {
+                      setProfile({ ...profile, displayName: e.target.value });
+                      setProfileError(null);
+                    }}
                     placeholder="Como você quer ser chamado"
                     className="w-full h-12 px-4 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition"
                   />
@@ -803,7 +830,10 @@ export default function OnboardingPage() {
                     <input
                       type="text"
                       value={profile.username}
-                      onChange={(e) => setProfile({ ...profile, username: e.target.value.replace(/[^a-zA-Z0-9_]/g, '').toLowerCase() })}
+                      onChange={(e) => {
+                        setProfile({ ...profile, username: e.target.value.replace(/[^a-zA-Z0-9_]/g, '').toLowerCase() });
+                        setProfileError(null);
+                      }}
                       placeholder="seuusername"
                       className="w-full h-12 pl-9 pr-4 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition"
                     />
@@ -819,7 +849,10 @@ export default function OnboardingPage() {
                   </label>
                   <textarea
                     value={profile.bio}
-                    onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
+                    onChange={(e) => {
+                      setProfile({ ...profile, bio: e.target.value });
+                      setProfileError(null);
+                    }}
                     placeholder="Conte um pouco sobre você ou seu negócio"
                     rows={3}
                     maxLength={160}
@@ -847,6 +880,7 @@ export default function OnboardingPage() {
                           socialLinks: { ...profile.socialLinks, instagram: url },
                         });
                         setSocialError(null);
+                        setProfileError(null);
                       }}
                     />
                     <SocialHandleInput
@@ -860,6 +894,7 @@ export default function OnboardingPage() {
                           socialLinks: { ...profile.socialLinks, tiktok: url },
                         });
                         setSocialError(null);
+                        setProfileError(null);
                       }}
                     />
                   </div>
@@ -914,24 +949,26 @@ export default function OnboardingPage() {
                           <input
                             type="url"
                             value={profile.socialLinks[key as keyof typeof profile.socialLinks] || ''}
-                            onChange={(e) =>
+                            onChange={(e) => {
                               setProfile({
                                 ...profile,
                                 socialLinks: {
                                   ...profile.socialLinks,
                                   [key]: e.target.value,
                                 },
-                              })
-                            }
-                            onBlur={(e) =>
+                              });
+                              setProfileError(null);
+                            }}
+                            onBlur={(e) => {
                               setProfile({
                                 ...profile,
                                 socialLinks: {
                                   ...profile.socialLinks,
                                   [key]: normalizeSocialUrl(key, e.target.value),
                                 },
-                              })
-                            }
+                              });
+                              setProfileError(null);
+                            }}
                             placeholder={placeholder}
                             className="w-full h-10 px-3 rounded-lg border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition text-sm"
                           />
@@ -941,6 +978,12 @@ export default function OnboardingPage() {
                   )}
                 </div>
               </div>
+
+              {profileError && (
+                <div className="mt-6 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">
+                  {profileError}
+                </div>
+              )}
 
               <div className="mt-8 flex justify-end">
                 <button

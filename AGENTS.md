@@ -920,6 +920,7 @@ this.logger.log(`[Webhook] Recebido: ${type} | ID: ${id} | Request: ${xRequestId
 
 | Data | Mudança |
 |------|---------|
+| 2026-08-18 | Onboarding estilo checkout: Instagram/TikTok obrigatórios na etapa 1, página de conclusão com deep links e flag pageLinkCopiedAt para segmentar emails. |
 | 2026-03-14 | **🗑️ REMOÇÃO DO BILLING** - Removido sistema complexo de billing cycles, invoices, prorating. Taxas por transação serão cobradas na hora (nova implementação futura). Webhooks consolidados em um só endpoint. |
 | 2026-03-09 | Reestruturação completa do AGENTS.md (zona crítica, guidelines de pagamento, tom de voz) |
 | 2026-03-05 | Dois webhooks MP distintos + Sistema de alertas admin |

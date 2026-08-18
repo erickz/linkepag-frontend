@@ -39,8 +39,11 @@ export function SocialHandleInput({ platform, value, onChange, label, id }: Soci
   }, [platform, value]);
 
   const emitChange = (nextHandle: string) => {
+    const canonical = nextHandle ? normalizeSocialUrl(platform, nextHandle) : '';
+    // eslint-disable-next-line no-console
+    console.log('[SocialHandleInput]', platform, 'emit', { nextHandle, canonical });
     setHandle(nextHandle);
-    onChange(nextHandle ? normalizeSocialUrl(platform, nextHandle) : '');
+    onChange(canonical);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {

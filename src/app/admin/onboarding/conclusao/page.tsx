@@ -12,7 +12,6 @@ import { OnboardingProgress, onboardingSteps } from '@/components/OnboardingProg
 import {
   IconCheck,
   IconCopy,
-  IconExternalLink,
   IconWhatsApp,
   IconAlert,
   IconEye,
@@ -60,8 +59,8 @@ interface ShareTarget {
   label: string;
 }
 
-// Feedback de cópia por botão: plataforma específica ou botão genérico
-type CopiedTarget = SharePlatform | 'generic';
+// Feedback de cópia por botão: plataforma específica, whatsapp ou botão genérico
+type CopiedTarget = SharePlatform | 'whatsapp' | 'generic';
 
 export default function OnboardingConclusaoPage() {
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
@@ -103,6 +102,7 @@ export default function OnboardingConclusaoPage() {
   const fullPublicUrl = typeof window !== 'undefined'
     ? `${window.location.origin}${publicUrl}`
     : publicUrl;
+  const whatsAppShareUrl = `https://wa.me/?text=${encodeURIComponent(`Dá uma olhada na minha página: ${fullPublicUrl}`)}`;
 
   // Feedback "copiado" por ~3s no botão clicado
   const flashCopied = useCallback((target: CopiedTarget) => {
@@ -128,6 +128,15 @@ export default function OnboardingConclusaoPage() {
     markPageLinkCopied().catch(() => {});
   }, [fullPublicUrl, flashCopied]);
 
+  // Botão WhatsApp: compartilha o link direto no app/web
+  const handleShareWhatsApp = useCallback(async () => {
+    const ok = await copyToClipboard(fullPublicUrl);
+    if (!ok) return;
+    flashCopied('whatsapp');
+    window.open(whatsAppShareUrl, '_blank', 'noopener,noreferrer');
+    markPageLinkCopied().catch(() => {});
+  }, [fullPublicUrl, flashCopied, whatsAppShareUrl]);
+
   if (isAuthLoading || isLoading) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -142,8 +151,6 @@ export default function OnboardingConclusaoPage() {
   const hasPayment = !!(profile?.pixKey || profile?.mercadoPagoConfigured || profile?.activePaymentMethod);
   const hasLinks = links.length > 0;
   const isComplete = hasPayment && hasLinks;
-
-  const whatsAppShareUrl = `https://wa.me/?text=${encodeURIComponent(`Dá uma olhada na minha página: ${fullPublicUrl}`)}`;
 
   return (
     <div>
@@ -214,63 +221,136 @@ export default function OnboardingConclusaoPage() {
               {fullPublicUrl}
             </p>
 
-            {shareTargets.length > 0 ? (
-              <div className="space-y-3">
-                {shareTargets.map((target) => {
-                  const isCopied = copiedTarget === target.platform;
-                  return (
-                    <button
-                      key={target.platform}
-                      onClick={() => handleCopyAndOpen(target)}
-                      className={`w-full h-12 px-4 rounded-xl font-semibold text-sm text-white transition-all duration-200 flex items-center justify-center gap-2 ${
-                        isCopied
-                          ? 'bg-emerald-500'
-                          : target.platform === 'instagram'
-                            ? 'bg-gradient-to-r from-pink-500 via-rose-500 to-purple-600 hover:opacity-90'
-                            : 'bg-slate-900 hover:bg-slate-800'
-                      }`}
-                    >
-                      {isCopied ? (
-                        <>
-                          <IconCheck className="w-4 h-4" />
-                          Link copiado! Agora cole na bio ✂️
-                        </>
-                      ) : (
-                        <>
-                          {target.platform === 'instagram' ? (
-                            <IconInstagram className="w-4 h-4" />
+            {/*
+              Prioridade de compartilhamento:
+              1) Instagram (se preenchido)
+              2) TikTok (se preenchido)
+              3) WhatsApp (fallback quando não há rede social)
+            */}
+            {(() => {
+              const primaryTarget = shareTargets[0] ?? null;
+              const secondaryTargets = shareTargets.slice(1);
+              const isCopiedPrimary = primaryTarget
+                ? copiedTarget === primaryTarget.platform
+                : copiedTarget === 'whatsapp';
+
+              return (
+                <>
+                  <div className="space-y-3">
+                    {primaryTarget ? (
+                      <button
+                        onClick={() => handleCopyAndOpen(primaryTarget)}
+                        className={`w-full h-12 px-4 rounded-xl font-semibold text-sm text-white transition-all duration-200 flex items-center justify-center gap-2 ${
+                          isCopiedPrimary
+                            ? 'bg-emerald-500'
+                            : primaryTarget.platform === 'instagram'
+                              ? 'bg-gradient-to-r from-pink-500 via-rose-500 to-purple-600 hover:opacity-90'
+                              : 'bg-slate-900 hover:bg-slate-800'
+                        }`}
+                      >
+                        {isCopiedPrimary ? (
+                          <>
+                            <IconCheck className="w-4 h-4" />
+                            Link copiado! Agora cole na bio ✂️
+                          </>
+                        ) : (
+                          <>
+                            {primaryTarget.platform === 'instagram' ? (
+                              <IconInstagram className="w-4 h-4" />
+                            ) : (
+                              <IconTiktok className="w-4 h-4" />
+                            )}
+                            Copiar link e abrir {primaryTarget.label}
+                          </>
+                        )}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleShareWhatsApp}
+                        className={`w-full h-12 px-4 rounded-xl font-semibold text-sm text-white transition-all duration-200 flex items-center justify-center gap-2 ${
+                          isCopiedPrimary
+                            ? 'bg-emerald-500'
+                            : 'bg-emerald-600 hover:bg-emerald-700'
+                        }`}
+                      >
+                        {isCopiedPrimary ? (
+                          <>
+                            <IconCheck className="w-4 h-4" />
+                            Link copiado! Agora cole na bio ✂️
+                          </>
+                        ) : (
+                          <>
+                            <IconWhatsApp className="w-4 h-4" />
+                            Compartilhar no WhatsApp
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Outras formas de divulgar (secundário) */}
+                  {(secondaryTargets.length > 0 || primaryTarget) && (
+                    <div className="mt-4 space-y-3">
+                      {secondaryTargets.map((target) => {
+                        const isCopied = copiedTarget === target.platform;
+                        return (
+                          <button
+                            key={target.platform}
+                            onClick={() => handleCopyAndOpen(target)}
+                            className={`w-full h-11 px-4 rounded-xl font-medium text-sm transition-all duration-200 flex items-center justify-center gap-2 ${
+                              isCopied
+                                ? 'bg-emerald-500 text-white'
+                                : target.platform === 'instagram'
+                                  ? 'bg-pink-50 text-pink-700 border border-pink-200 hover:bg-pink-100'
+                                  : 'bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100'
+                            }`}
+                          >
+                            {isCopied ? (
+                              <>
+                                <IconCheck className="w-4 h-4" />
+                                Link copiado!
+                              </>
+                            ) : (
+                              <>
+                                {target.platform === 'instagram' ? (
+                                  <IconInstagram className="w-4 h-4" />
+                                ) : (
+                                  <IconTiktok className="w-4 h-4" />
+                                )}
+                                Copiar link e abrir {target.label}
+                              </>
+                            )}
+                          </button>
+                        );
+                      })}
+
+                      {primaryTarget && (
+                        <button
+                          onClick={handleShareWhatsApp}
+                          className={`w-full h-11 px-4 rounded-xl font-medium text-sm transition-all duration-200 flex items-center justify-center gap-2 ${
+                            copiedTarget === 'whatsapp'
+                              ? 'bg-emerald-500 text-white'
+                              : 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                          }`}
+                        >
+                          {copiedTarget === 'whatsapp' ? (
+                            <>
+                              <IconCheck className="w-4 h-4" />
+                              Link copiado!
+                            </>
                           ) : (
-                            <IconTiktok className="w-4 h-4" />
+                            <>
+                              <IconWhatsApp className="w-4 h-4" />
+                              Compartilhar no WhatsApp
+                            </>
                           )}
-                          Copiar link e abrir {target.label}
-                        </>
+                        </button>
                       )}
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              <button
-                onClick={handleCopyLink}
-                className={`w-full h-12 px-4 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 ${
-                  copiedTarget === 'generic'
-                    ? 'bg-emerald-500 text-white'
-                    : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                }`}
-              >
-                {copiedTarget === 'generic' ? (
-                  <>
-                    <IconCheck className="w-4 h-4" />
-                    Link copiado! Agora cole na bio ✂️
-                  </>
-                ) : (
-                  <>
-                    <IconCopy className="w-4 h-4" />
-                    Copiar meu link
-                  </>
-                )}
-              </button>
-            )}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
 
             {/* Como colar na bio */}
             <ol className="mt-5 space-y-2.5">
@@ -289,32 +369,35 @@ export default function OnboardingConclusaoPage() {
             </ol>
           </div>
 
-          {/* Outras formas de divulgar (secundário) */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-            <h3 className="font-bold text-slate-900 mb-1">Divulgue também no WhatsApp</h3>
-            <p className="text-xs text-slate-500 mb-4">
-              Mande nos grupos e no status!
-            </p>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <a
-                href={whatsAppShareUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-1 h-11 px-4 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl font-medium text-sm hover:bg-emerald-100 transition flex items-center justify-center gap-2"
+          {/* Fallback discreto: copiar link puro (quando há rede principal) */}
+          {shareTargets.length > 0 && (
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+              <h3 className="font-bold text-slate-900 mb-1">Ou copie o link puro</h3>
+              <p className="text-xs text-slate-500 mb-4">
+                Para colar onde você quiser.
+              </p>
+              <button
+                onClick={handleCopyLink}
+                className={`w-full h-11 px-4 rounded-xl font-medium text-sm transition-all duration-200 flex items-center justify-center gap-2 ${
+                  copiedTarget === 'generic'
+                    ? 'bg-emerald-500 text-white'
+                    : 'bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100'
+                }`}
               >
-                <IconWhatsApp className="w-4 h-4" />
-                Compartilhar no WhatsApp
-              </a>
-              <Link
-                href={publicUrl}
-                target="_blank"
-                className="h-11 px-4 bg-slate-100 text-slate-700 rounded-xl font-medium text-sm hover:bg-slate-200 transition flex items-center justify-center gap-2"
-              >
-                <IconExternalLink className="w-4 h-4" />
-                Abrir minha página
-              </Link>
+                {copiedTarget === 'generic' ? (
+                  <>
+                    <IconCheck className="w-4 h-4" />
+                    Link copiado!
+                  </>
+                ) : (
+                  <>
+                    <IconCopy className="w-4 h-4" />
+                    Copiar meu link
+                  </>
+                )}
+              </button>
             </div>
-          </div>
+          )}
 
           {/* CTA discreto para o dashboard */}
           <div className="text-center">

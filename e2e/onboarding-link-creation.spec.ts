@@ -66,6 +66,13 @@ test.describe('Onboarding - Link Creation', () => {
     await page.getByRole('button', { name: 'Cadastre um link' }).click();
     await page.waitForTimeout(1000);
 
+    // Responde o gate "O que você vende?" (só aparece na primeira vez)
+    const infoprodutoGate = page.getByRole('button', { name: /Infoproduto/ });
+    if (await infoprodutoGate.isVisible().catch(() => false)) {
+      await infoprodutoGate.click();
+      await page.waitForTimeout(500);
+    }
+
     // Usuário já tem links -> botão principal deve ser "Finalizar"
     await expect(page.getByRole('button', { name: 'Finalizar' })).toBeVisible();
 
@@ -91,8 +98,8 @@ test.describe('Onboarding - Link Creation', () => {
     await expect(submitButton).toBeEnabled({ timeout: 5000 });
     await submitButton.click();
 
-    // Finaliza e redireciona para o dashboard
-    await page.waitForURL(/\/admin\/dashboard/, { timeout: 15000 });
+    // Finaliza e redireciona para a página de conclusão
+    await page.waitForURL(/\/admin\/onboarding\/conclusao/, { timeout: 15000 });
 
     // VERIFICAÇÃO CRÍTICA: o link precisa existir no backend
     const linksRes = await request.get('http://localhost:3001/links', {
@@ -113,6 +120,13 @@ test.describe('Onboarding - Link Creation', () => {
     await page.getByRole('button', { name: 'Cadastre um link' }).click();
     await page.waitForTimeout(1000);
 
+    // Responde o gate "O que você vende?" (só aparece na primeira vez)
+    const infoprodutoGate = page.getByRole('button', { name: /Infoproduto/ });
+    if (await infoprodutoGate.isVisible().catch(() => false)) {
+      await infoprodutoGate.click();
+      await page.waitForTimeout(500);
+    }
+
     await page.getByRole('button', { name: 'Criar outro link' }).click();
     await page.waitForTimeout(500);
 
@@ -131,8 +145,9 @@ test.describe('Onboarding - Link Creation', () => {
     const submitButton = page.getByRole('button', { name: /Salvar e Finalizar/ });
     await expect(submitButton).toBeEnabled({ timeout: 5000 });
     await submitButton.click();
+    await page.waitForTimeout(2000);
 
-    await page.waitForURL(/\/admin\/dashboard/, { timeout: 15000 });
+    await page.waitForURL(/\/admin\/onboarding\/conclusao/, { timeout: 15000 });
 
     // Verifica no backend: link criado com o preço correto
     const linksRes = await request.get('http://localhost:3001/links', {
