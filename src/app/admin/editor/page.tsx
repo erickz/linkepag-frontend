@@ -778,7 +778,7 @@ function ProfileTab({ draft, original, onUpdate, onSave, isSaving, usernameStatu
               <div className="absolute right-3 top-1/2 -translate-y-1/2">{usernameStatus === 'checking' ? <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" /> : usernameStatus === 'available' ? <Icon path={Icons.check} className="w-4 h-4 text-emerald-500" /> : null}</div>
             </div>
             {usernameError && <p className="text-xs text-rose-500 mt-1">{usernameError}</p>}
-            <p className="text-xs text-slate-400 mt-1">linkpagg.com/p/{localUsername || 'username'}</p>
+            <p className="text-xs text-slate-400 mt-1">linkepag.com.br/p/{localUsername || 'username'}</p>
           </div>
         </div>
         <div><label className="block text-sm font-medium text-slate-700 mb-1">Localização</label><div className="relative"><Icon path={Icons.location} className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" /><input type="text" value={draft.location || ''} onChange={e => onUpdate('location', e.target.value)} className="w-full h-10 pl-10 pr-3 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm" placeholder="São Paulo, Brasil" /></div></div>

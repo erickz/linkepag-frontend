@@ -10,13 +10,13 @@ import { getMpOAuthStatus } from '@/lib/api';
 import type { AnalyticsSummary } from '@/lib/api';
 import { PageHeader } from '@/components/PageHeader';
 import { BillingAlert } from '@/components/billing/BillingAlert';
-import { 
-  IconLink, 
-  IconCoins, 
+import { SharePageButtons } from '@/components/SharePageButtons';
+import {
+  IconLink,
+  IconCoins,
   IconCrown,
   IconArrowRight,
   IconExternalLink,
-  IconCopy,
   IconClock,
   IconEye,
   IconTarget,
@@ -40,6 +40,7 @@ interface ProfileData {
   planStatus?: 'active' | 'expired' | 'cancelled' | 'pending_payment';
   planExpiryDate?: string;
   pixKey?: string;
+  socialLinks?: { instagram?: string; tiktok?: string; [k: string]: string | undefined };
 }
 
 interface SalesReport {
@@ -202,9 +203,6 @@ export default function AdminDashboard() {
   };
 
   const publicUrl = profile?.username ? `/p/${profile.username}` : '#';
-  const fullPublicUrl = typeof window !== 'undefined' 
-    ? `${window.location.origin}/p/${profile?.username || ''}` 
-    : '';
 
   const getPlanName = () => {
     if (profile?.planStatus === 'pending_payment') return 'Starter';
@@ -261,18 +259,17 @@ export default function AdminDashboard() {
             <div className="min-w-0">
               <p className="text-indigo-100 text-sm font-medium mb-1">Sua página pública</p>
               <div className="flex items-center gap-2">
-                <span className="text-base sm:text-xl font-bold truncate">linkpagg.com/p/{profile.username}</span>
+                <span className="text-base sm:text-xl font-bold truncate">linkepag.com.br/p/{profile.username}</span>
                 <span className="px-2 py-0.5 bg-white/20 rounded text-xs font-medium flex-shrink-0">Pública</span>
               </div>
+              <p className="text-indigo-100/80 text-xs mt-1.5">Espalhe seu link para começar a vender 📣</p>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => navigator.clipboard.writeText(fullPublicUrl)}
-                className="flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl font-medium text-sm transition backdrop-blur-sm"
-              >
-                <IconCopy className="w-4 h-4" />
-                Copiar link
-              </button>
+              <SharePageButtons
+                username={profile.username}
+                socialLinks={profile.socialLinks}
+                variant="gradient"
+              />
               <Link
                 href={publicUrl}
                 target="_blank"

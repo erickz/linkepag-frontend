@@ -32,16 +32,11 @@ import {
   type LinkTemplateId,
 } from '@/lib/link-templates';
 import { LinkTemplateSelector } from '@/components/LinkTemplateSelector';
+import { SocialHandleInput } from '@/components/SocialHandleInput';
+import { OnboardingProgress, onboardingSteps as steps } from '@/components/OnboardingProgress';
 import { IconCheck, IconArrowRight, IconArrowLeft, IconUser, IconCreditCard, IconLink, IconAlert, IconHelp, IconRefresh, IconUnlink, IconUpload, IconChevronDown } from '@/components/icons';
 
-interface OnboardingStep {
-  id: string;
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-}
-
-// ORDEM CORRETA: Profile -> Payment -> Links (por último)
+// ORDEM CORRETA: Profile -> Payment -> Links (por último) -> Share (vive na rota /conclusao)
 type MonetizableAssetType = 'infoproduto' | 'afiliado' | 'servico' | 'nada';
 
 const monetizableAssetOptions: {
@@ -55,26 +50,9 @@ const monetizableAssetOptions: {
   { id: 'nada', label: 'Ainda nada', description: 'Só estou começando' },
 ];
 
-const steps: OnboardingStep[] = [
-  {
-    id: 'profile',
-    title: 'Personalize seu perfil',
-    description: 'Adicione suas informações para sua página pública',
-    icon: <IconUser className="w-6 h-6" />,
-  },
-  {
-    id: 'payment',
-    title: 'Configure recebimento',
-    description: 'Escolha como quer receber seus pagamentos',
-    icon: <IconCreditCard className="w-6 h-6" />,
-  },
-  {
-    id: 'link',
-    title: 'Cadastre um link',
-    description: 'Seu link na bio esta quase pronto! Crie um link, leva menos de 30 segundos',
-    icon: <IconLink className="w-6 h-6" />,
-  },
-];
+// Redes do toggle "outras redes": instagram e tiktok ficam sempre visíveis
+// na etapa 1 (pelo menos uma delas é obrigatória), então o toggle cobre só estas
+const OPTIONAL_SOCIAL_KEYS = ['youtube', 'twitter', 'linkedin', 'github', 'website'] as const;
 
 /**
  * Normaliza a chave PIX antes de enviar ao backend.
@@ -170,6 +148,7 @@ export default function OnboardingPage() {
   });
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [showSocialLinks, setShowSocialLinks] = useState(false);
+  const [socialError, setSocialError] = useState<string | null>(null);
   
   // Step 3: Links
   const [link, setLink] = useState({
@@ -311,7 +290,7 @@ export default function OnboardingPage() {
           website: data.socialLinks?.website || '',
         },
       });
-      if (data.socialLinks && Object.values(data.socialLinks).some(Boolean)) {
+      if (data.socialLinks && OPTIONAL_SOCIAL_KEYS.some((key) => data.socialLinks?.[key])) {
         setShowSocialLinks(true);
       }
       if (data.displayName) {
@@ -391,9 +370,24 @@ export default function OnboardingPage() {
     }
   };
 
+  // Instagram ou TikTok preenchido (URLs canônicas ou ''): libera a etapa 1
+  const hasRequiredSocial = Boolean(
+    profile.socialLinks.instagram.trim() || profile.socialLinks.tiktok.trim()
+  );
+
+  // Alguma das redes do toggle "outras redes" preenchida
+  const hasOptionalSocial = OPTIONAL_SOCIAL_KEYS.some((key) => profile.socialLinks[key]);
+
   const handleSaveProfile = async () => {
     if (!profile.displayName.trim()) return;
-    
+
+    // Instagram ou TikTok: pelo menos uma rede é obrigatória na etapa 1
+    if (!hasRequiredSocial) {
+      setSocialError('Adicione seu Instagram ou TikTok para continuar — é por lá que seus seguidores vão te achar.');
+      return;
+    }
+    setSocialError(null);
+
     setIsLoadingProfile(true);
     try {
       // Atualiza dados do perfil (exceto username que tem endpoint separado)
@@ -615,8 +609,10 @@ export default function OnboardingPage() {
   };
 
   const skipStep = () => {
-    // Pula para o próximo passo ou finaliza
-    if (currentStep < steps.length - 1) {
+    // Os painéis desta página cobrem só os passos 1-3; o passo 'share'
+    // (último do array) vive na rota /admin/onboarding/conclusao
+    const lastPanelIndex = steps.length - 2;
+    if (currentStep < lastPanelIndex) {
       setCurrentStep(currentStep + 1);
     } else {
       finishOnboarding();
@@ -627,6 +623,15 @@ export default function OnboardingPage() {
     localStorage.setItem('lp_onboarding_complete', 'true');
     router.push('/admin/onboarding/conclusao');
   };
+
+  // Segurança: o passo 'share' não tem painel aqui. Se algum estado estranho
+  // apontar para ele, finaliza e deixa a página de conclusão assumir.
+  useEffect(() => {
+    if (currentStep > steps.length - 2) {
+      finishOnboarding();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep]);
 
   if (isLoading) {
     return (
@@ -647,76 +652,21 @@ export default function OnboardingPage() {
   // Não usar completedSteps aqui — quem já tem links também pode criar outro.
   const isCreatingNewLink = existingLinks.length === 0 || showNewLinkForm;
 
-  const progress = ((completedSteps.length) / steps.length) * 100;
-
   return (
     <div className="max-w-4xl mx-auto">
-        {/* Progress Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">
-            {completedSteps.length === steps.length 
-              ? '🎉 Tudo pronto!' 
-              : `Você está a ${steps.length - completedSteps.length} passo${steps.length - completedSteps.length !== 1 ? 's' : ''} da primeira venda!`}
-          </h1>
-          <p className="text-slate-500 mb-6">
-            Complete essas etapas para começar a monetizar sua audiência
-          </p>
-          
-          {/* Progress Bar */}
-          <div className="max-w-md mx-auto">
-            <div className="h-3 bg-slate-200 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 transition-all duration-500"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            <div className="flex justify-between mt-2 text-sm text-slate-500">
-              <span>{completedSteps.length} de {steps.length} completos</span>
-              <span>{Math.round(progress)}%</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Steps Navigation */}
-        <div className="flex justify-center mb-8">
-          <div className="flex items-center gap-4">
-            {steps.map((step, index) => {
-              const isCompleted = completedSteps.includes(step.id);
-              const isCurrent = currentStep === index;
-              
-              return (
-                <div key={step.id} className="flex items-center">
-                  <button
-                    onClick={() => setCurrentStep(index)}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-                      isCurrent 
-                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' 
-                        : isCompleted
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : 'bg-white text-slate-600 border border-slate-200 hover:border-indigo-300'
-                    }`}
-                  >
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                      isCurrent ? 'bg-white/20' : isCompleted ? 'bg-emerald-200' : 'bg-slate-100'
-                    }`}>
-                      {isCompleted ? (
-                        <IconCheck className="w-5 h-5" />
-                      ) : (
-                        <span className="text-sm font-bold">{index + 1}</span>
-                      )}
-                    </div>
-                    <span className="font-medium hidden sm:block">{step.title}</span>
-                  </button>
-                  {index < steps.length - 1 && (
-                    <div className={`w-8 h-0.5 mx-2 ${
-                      isCompleted ? 'bg-emerald-300' : 'bg-slate-200'
-                    }`} />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        <OnboardingProgress
+          steps={steps}
+          completedStepIds={completedSteps}
+          currentStepId={steps[currentStep]?.id ?? steps[0].id}
+          onStepClick={(index) => {
+            // O passo 'share' não tem painel aqui — finaliza e cai na conclusão
+            if (steps[index].id === 'share') {
+              finishOnboarding();
+              return;
+            }
+            setCurrentStep(index);
+          }}
+        />
 
         {/* Step Content */}
         <div className="max-w-2xl mx-auto">
@@ -731,7 +681,7 @@ export default function OnboardingPage() {
                   <div className="flex flex-col items-start sm:flex-row sm:items-center gap-1 sm:gap-2 mb-1">
                     <h2 className="text-xl font-bold text-slate-900">{steps[0].title}</h2>
                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 flex-shrink-0">
-                      Etapa 1 de 3
+                      Etapa 1 de 4
                     </span>
                   </div>
                   <p className="text-slate-500">{steps[0].description}</p>
@@ -880,25 +830,66 @@ export default function OnboardingPage() {
                   </p>
                 </div>
 
-                {/* Redes Sociais - opcional, expansível */}
+                {/* Redes sociais em destaque: pelo menos uma é obrigatória */}
                 <div>
-                  {!showSocialLinks && !Object.values(profile.socialLinks).some(Boolean) && (
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Suas redes sociais *
+                  </label>
+                  <div className="space-y-3">
+                    <SocialHandleInput
+                      platform="instagram"
+                      id="onboarding-instagram"
+                      label="Instagram"
+                      value={profile.socialLinks.instagram}
+                      onChange={(url) => {
+                        setProfile({
+                          ...profile,
+                          socialLinks: { ...profile.socialLinks, instagram: url },
+                        });
+                        setSocialError(null);
+                      }}
+                    />
+                    <SocialHandleInput
+                      platform="tiktok"
+                      id="onboarding-tiktok"
+                      label="TikTok"
+                      value={profile.socialLinks.tiktok}
+                      onChange={(url) => {
+                        setProfile({
+                          ...profile,
+                          socialLinks: { ...profile.socialLinks, tiktok: url },
+                        });
+                        setSocialError(null);
+                      }}
+                    />
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Preencha pelo menos uma — é nela que você vai colar o link da sua página para vender.
+                  </p>
+                  {socialError && (
+                    <p className="text-sm text-rose-600 mt-2">{socialError}</p>
+                  )}
+                </div>
+
+                {/* Outras redes - opcional, expansível */}
+                <div>
+                  {!showSocialLinks && !hasOptionalSocial && (
                     <button
                       type="button"
                       onClick={() => setShowSocialLinks(true)}
                       className="text-sm text-indigo-600 hover:text-indigo-700 font-medium transition"
                     >
-                      Adicionar redes sociais (opcional)
+                      Adicionar outras redes (opcional)
                     </button>
                   )}
 
-                  {(showSocialLinks || Object.values(profile.socialLinks).some(Boolean)) && (
+                  {(showSocialLinks || hasOptionalSocial) && (
                     <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
                       <div className="flex items-center justify-between">
                         <label className="block text-sm font-medium text-slate-700">
-                          Redes sociais <span className="text-slate-400 font-normal">(opcional)</span>
+                          Outras redes <span className="text-slate-400 font-normal">(opcional)</span>
                         </label>
-                        {!Object.values(profile.socialLinks).some(Boolean) && (
+                        {!hasOptionalSocial && (
                           <button
                             type="button"
                             onClick={() => setShowSocialLinks(false)}
@@ -910,12 +901,10 @@ export default function OnboardingPage() {
                       </div>
 
                       {[
-                        { key: 'instagram', label: 'Instagram', placeholder: 'https://instagram.com/seuusuario' },
                         { key: 'youtube', label: 'YouTube', placeholder: 'https://youtube.com/@seucanal' },
                         { key: 'twitter', label: 'Twitter/X', placeholder: 'https://twitter.com/seuusuario' },
                         { key: 'linkedin', label: 'LinkedIn', placeholder: 'https://linkedin.com/in/seuusuario' },
                         { key: 'github', label: 'GitHub', placeholder: 'https://github.com/seuusuario' },
-                        { key: 'tiktok', label: 'TikTok', placeholder: 'https://tiktok.com/@seuusuario' },
                         { key: 'website', label: 'Site Pessoal', placeholder: 'https://seusite.com' },
                       ].map(({ key, label, placeholder }) => (
                         <div key={key}>
@@ -953,18 +942,10 @@ export default function OnboardingPage() {
                 </div>
               </div>
 
-              <div className={`mt-8 ${completedSteps.includes('profile') ? 'flex justify-end' : 'flex flex-col-reverse sm:flex-row gap-3 sm:gap-0 justify-between'}`}>
-                {!completedSteps.includes('profile') && (
-                  <button
-                    onClick={skipStep}
-                    className="inline-flex items-center justify-center gap-2 px-4 h-12 w-full sm:w-auto text-slate-600 hover:text-slate-900 hover:bg-slate-50 font-medium transition"
-                  >
-                    Pular etapa
-                  </button>
-                )}
+              <div className="mt-8 flex justify-end">
                 <button
                   onClick={handleSaveProfile}
-                  disabled={!profile.displayName.trim() || isLoadingProfile}
+                  disabled={!profile.displayName.trim() || !hasRequiredSocial || isLoadingProfile}
                   className="inline-flex items-center justify-center gap-2 px-6 h-12 w-full sm:w-auto bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
                 >
                   {isLoadingProfile ? (
@@ -991,7 +972,7 @@ export default function OnboardingPage() {
                   <IconLink className="w-7 h-7" />
                 </div>
                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 mb-4">
-                  Etapa 3 de 3
+                  Etapa 3 de 4
                 </span>
                 <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mb-2">
                   O que você vende?
@@ -1036,7 +1017,7 @@ export default function OnboardingPage() {
                   <div className="flex flex-col items-start sm:flex-row sm:items-center gap-1 sm:gap-2 mb-1">
                     <h2 className="text-xl font-bold text-slate-900">Crie seu primeiro link</h2>
                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 flex-shrink-0">
-                      Etapa 3 de 3
+                      Etapa 3 de 4
                     </span>
                   </div>
                   <p className="text-slate-500">Crie um link para vender infoproduto ou acesso a grupo VIP</p>
@@ -1336,7 +1317,7 @@ export default function OnboardingPage() {
                   <div className="flex flex-col items-start sm:flex-row sm:items-center gap-1 sm:gap-2 mb-1">
                     <h2 className="text-xl font-bold text-slate-900">Como você quer receber pagamentos?</h2>
                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 flex-shrink-0">
-                      Etapa 2 de 3
+                      Etapa 2 de 4
                     </span>
                   </div>
                   <p className="text-slate-500">

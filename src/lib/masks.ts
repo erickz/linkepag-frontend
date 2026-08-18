@@ -211,3 +211,49 @@ export function normalizeSocialUrl(platform: string, value: unknown): string {
   // Constroi URL correta para a plataforma
   return `${config.path}${handle}`;
 }
+
+/**
+ * Extrai apenas o handle de um valor de rede social — inversa de normalizeSocialUrl.
+ * Aceita URL completa, URL sem protocolo, @handle ou handle puro.
+ * Retorna o handle em lowercase, sem @, sem domínio e sem query string.
+ * Se não houver nada extraível, retorna ''.
+ */
+export function extractSocialHandle(platform: string, value: unknown): string {
+  if (value === undefined || value === null || value === '') return '';
+  if (typeof value !== 'string') return '';
+
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+
+  // Caracteres válidos de handle (instagram e tiktok): letras, números, _ e .
+  const sanitize = (raw: string): string =>
+    raw
+      .replace(/^@+/, '')
+      .replace(/[^a-zA-Z0-9_.]/g, '')
+      .toLowerCase();
+
+  // Se a URL contém o domínio da plataforma, extrair o primeiro segmento
+  // do path após o domínio (no tiktok o path começa com @)
+  const config = socialUrlPatterns[platform];
+  if (config) {
+    const lowerTrimmed = trimmed.toLowerCase();
+    for (const domain of config.domains) {
+      const domainIndex = lowerTrimmed.indexOf(domain);
+      if (domainIndex !== -1) {
+        const afterDomain = trimmed.slice(domainIndex + domain.length);
+        const pathOnly = afterDomain.split(/[?#]/)[0];
+        const firstSegment = pathOnly.split('/').filter(Boolean)[0] || '';
+        return sanitize(firstSegment);
+      }
+    }
+  }
+
+  // URL de outro domínio: não há handle da plataforma a extrair
+  if (/^https?:\/\//i.test(trimmed)) return '';
+
+  // Caso contrário, tratar como handle puro (ou @handle):
+  // descarta query/hash e qualquer path extra, ficando com o primeiro segmento
+  const withoutQuery = trimmed.split(/[?#]/)[0];
+  const firstSegment = withoutQuery.split('/').filter(Boolean)[0] || '';
+  return sanitize(firstSegment);
+}

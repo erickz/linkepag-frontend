@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { copyToClipboard } from '@/lib/clipboard';
 import { Logo } from './Logo';
 // import { PlanBadge } from './PlanNotification';
 import {
@@ -20,6 +21,8 @@ import {
   IconMenu,
   IconX,
   IconReceipt,
+  IconCopy,
+  IconCheck,
 } from './icons';
 
 interface NavItem {
@@ -40,15 +43,18 @@ export function AdminSidebar() {
   const [profile, setProfile] = useState<{ username: string; displayName?: string; profilePhoto?: string } | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  
+  const [linkCopied, setLinkCopied] = useState(false);
+
   // Ref para controle de montagem
   const isMountedRef = useRef(true);
+  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     isMountedRef.current = true;
-    
+
     return () => {
       isMountedRef.current = false;
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
     };
   }, []);
 
@@ -85,6 +91,16 @@ export function AdminSidebar() {
   const publicUrlFull = typeof window !== 'undefined' && profile?.username
     ? `${window.location.origin}/p/${profile.username}`
     : '';
+
+  // Copia o link da página pública com feedback "Copiado!" por ~3s
+  const handleCopyPublicUrl = async () => {
+    if (!publicUrlFull) return;
+    const ok = await copyToClipboard(publicUrlFull);
+    if (!ok) return;
+    setLinkCopied(true);
+    if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+    copyTimeoutRef.current = setTimeout(() => setLinkCopied(false), 3000);
+  };
 
   const mainNavItems: NavItem[] = [
     {
@@ -181,17 +197,41 @@ export function AdminSidebar() {
               <p className="text-xs text-slate-500 mb-1.5">Sua página pública</p>
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-xs font-medium text-indigo-700 truncate flex-1">
-                  linkpagg.com/p/{profile.username}
+                  linkepag.com.br/p/{profile.username}
                 </span>
               </div>
-              <Link
-                href={publicUrl}
-                target="_blank"
-                className="flex items-center justify-center gap-1.5 w-full px-3 py-2 bg-white text-indigo-600 text-xs font-semibold rounded-lg border border-indigo-200 hover:bg-indigo-50 hover:border-indigo-300 transition"
-              >
-                <IconExternalLink className="w-3.5 h-3.5" />
-                Ver minha página
-              </Link>
+              <div className="flex gap-2">
+                <Link
+                  href={publicUrl}
+                  target="_blank"
+                  className="flex items-center justify-center gap-1.5 flex-1 px-3 py-2 bg-white text-indigo-600 text-xs font-semibold rounded-lg border border-indigo-200 hover:bg-indigo-50 hover:border-indigo-300 transition"
+                >
+                  <IconExternalLink className="w-3.5 h-3.5" />
+                  Ver minha página
+                </Link>
+                <button
+                  onClick={handleCopyPublicUrl}
+                  title="Copiar link"
+                  aria-label="Copiar link"
+                  className={`flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg transition ${
+                    linkCopied
+                      ? 'bg-emerald-500 text-white'
+                      : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                  }`}
+                >
+                  {linkCopied ? (
+                    <>
+                      <IconCheck className="w-3.5 h-3.5" />
+                      Copiado!
+                    </>
+                  ) : (
+                    <>
+                      <IconCopy className="w-3.5 h-3.5" />
+                      Copiar link
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         )}

@@ -301,6 +301,20 @@ export async function trackActivity() {
   return response.json();
 }
 
+export async function markPageLinkCopied() {
+  const response = await fetch(`${API_BASE_URL}/users/page-link-copied`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Erro ao registrar cópia do link da página');
+  }
+
+  return response.json();
+}
+
 // ============ PUBLIC PROFILE (com cache) ============
 
 export async function getPublicProfile(username: string) {

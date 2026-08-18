@@ -4,9 +4,11 @@ import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useAuth, useProtectedRoute } from '@/hooks/useAuth';
 import { useApiParallel } from '@/hooks/useApi';
-import { getProfile, getLinks, CACHE_KEYS } from '@/lib/api';
+import { getProfile, getLinks, markPageLinkCopied, CACHE_KEYS } from '@/lib/api';
+import { extractSocialHandle } from '@/lib/masks';
+import { openSocialProfile } from '@/lib/share';
 import { PagePreview, PagePreviewData, PagePreviewLink } from '@/components/PagePreview';
-import { PageHeader } from '@/components/PageHeader';
+import { OnboardingProgress, onboardingSteps } from '@/components/OnboardingProgress';
 import {
   IconCheck,
   IconCopy,
@@ -15,6 +17,8 @@ import {
   IconAlert,
   IconEye,
   IconArrowRight,
+  IconInstagram,
+  IconTiktok,
 } from '@/components/icons';
 
 // Copia texto com fallback para navegadores sem Clipboard API (ou contexto inseguro)
@@ -47,6 +51,18 @@ interface ConclusaoProfile extends PagePreviewData {
 
 type LinksResponse = PagePreviewLink[] | { links?: PagePreviewLink[] };
 
+type SharePlatform = 'instagram' | 'tiktok';
+
+// Rede preenchida no perfil, pronta para o deep link de compartilhamento
+interface ShareTarget {
+  platform: SharePlatform;
+  handle: string;
+  label: string;
+}
+
+// Feedback de cópia por botão: plataforma específica ou botão genérico
+type CopiedTarget = SharePlatform | 'generic';
+
 export default function OnboardingConclusaoPage() {
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
   useProtectedRoute('/login');
@@ -66,7 +82,17 @@ export default function OnboardingConclusaoPage() {
     return Array.isArray(raw) ? raw : (raw?.links || []);
   }, [data?.links]);
 
-  const [copied, setCopied] = useState(false);
+  // Redes do perfil que ganham botão de compartilhamento com deep link
+  const shareTargets: ShareTarget[] = useMemo(() => {
+    const targets: ShareTarget[] = [];
+    const instagram = extractSocialHandle('instagram', profile?.socialLinks?.instagram);
+    const tiktok = extractSocialHandle('tiktok', profile?.socialLinks?.tiktok);
+    if (instagram) targets.push({ platform: 'instagram', handle: instagram, label: 'Instagram' });
+    if (tiktok) targets.push({ platform: 'tiktok', handle: tiktok, label: 'TikTok' });
+    return targets;
+  }, [profile?.socialLinks]);
+
+  const [copiedTarget, setCopiedTarget] = useState<CopiedTarget | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => {
@@ -78,13 +104,29 @@ export default function OnboardingConclusaoPage() {
     ? `${window.location.origin}${publicUrl}`
     : publicUrl;
 
+  // Feedback "copiado" por ~3s no botão clicado
+  const flashCopied = useCallback((target: CopiedTarget) => {
+    setCopiedTarget(target);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => setCopiedTarget(null), 3000);
+  }, []);
+
+  // Botão genérico: só copia o link (tracking fire-and-forget)
   const handleCopyLink = useCallback(async () => {
     const ok = await copyToClipboard(fullPublicUrl);
     if (!ok) return;
-    setCopied(true);
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    timeoutRef.current = setTimeout(() => setCopied(false), 3000);
-  }, [fullPublicUrl]);
+    flashCopied('generic');
+    markPageLinkCopied().catch(() => {});
+  }, [fullPublicUrl, flashCopied]);
+
+  // Botão por rede: copia o link, abre o perfil no app/web e trackeia
+  const handleCopyAndOpen = useCallback(async (target: ShareTarget) => {
+    const ok = await copyToClipboard(fullPublicUrl);
+    if (!ok) return;
+    flashCopied(target.platform);
+    openSocialProfile(target.platform, target.handle);
+    markPageLinkCopied().catch(() => {});
+  }, [fullPublicUrl, flashCopied]);
 
   if (isAuthLoading || isLoading) {
     return (
@@ -105,10 +147,14 @@ export default function OnboardingConclusaoPage() {
 
   return (
     <div>
-      <PageHeader
+      {/* Última etapa do onboarding: divulgação (somente exibição) */}
+      <OnboardingProgress
+        steps={onboardingSteps}
+        completedStepIds={['profile', 'payment', 'link']}
+        currentStepId="share"
+        readOnly
         title="Sua página está no ar 🎉"
-        description="Agora é só espalhar seu link por aí e começar a monetizar"
-        breadcrumbs={[{ label: 'Onboarding' }, { label: 'Conclusão' }]}
+        subtitle="Agora o passo que separa você da primeira venda: cole seu link na bio."
       />
 
       {/* Aviso amigável quando o usuário pulou etapas */}
@@ -155,89 +201,119 @@ export default function OnboardingConclusaoPage() {
           <PagePreview data={profile || {}} links={links} />
         </div>
 
-        {/* Instruções de divulgação */}
+        {/* Divulgação */}
         <div className="space-y-6">
+          {/* Compartilhamento principal: copiar link + colar na bio */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-            <h3 className="font-bold text-slate-900 text-lg mb-1">Bora divulgar?</h3>
-            <p className="text-sm text-slate-500 mb-6">São 3 passos rápidos para o seu link chegar na sua audiência:</p>
+            <h3 className="font-bold text-slate-900 text-lg mb-1">Compartilhe para começar a vender</h3>
+            <p className="text-sm text-slate-500 mb-4">
+              Um toque copia seu link e abre sua rede. Depois é só colar na bio.
+            </p>
 
-            <ol className="space-y-5">
-              {/* Passo 1 */}
-              <li className="flex items-start gap-3">
-                <div className="w-7 h-7 rounded-full bg-indigo-600 text-white flex items-center justify-center flex-shrink-0 text-sm font-bold">
-                  1
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-slate-900">Copie o link da sua página</p>
-                  <p className="text-xs text-slate-500 mt-0.5 truncate">{fullPublicUrl}</p>
-                  <button
-                    onClick={handleCopyLink}
-                    className={`mt-3 w-full h-11 px-4 rounded-xl font-medium text-sm transition-all duration-200 flex items-center justify-center gap-2 ${
-                      copied
-                        ? 'bg-emerald-500 text-white'
-                        : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                    }`}
-                  >
-                    {copied ? (
-                      <>
-                        <IconCheck className="w-4 h-4" />
-                        Copiado!
-                      </>
-                    ) : (
-                      <>
-                        <IconCopy className="w-4 h-4" />
-                        Copiar meu link
-                      </>
-                    )}
-                  </button>
-                </div>
-              </li>
+            <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 mb-4 truncate">
+              {fullPublicUrl}
+            </p>
 
-              {/* Passo 2 */}
-              <li className="flex items-start gap-3">
-                <div className="w-7 h-7 rounded-full bg-indigo-600 text-white flex items-center justify-center flex-shrink-0 text-sm font-bold">
-                  2
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-slate-900">Cole na bio do Instagram ou TikTok</p>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    É lá que seus seguidores procuram seus links. Trocou a bio, pronto!
-                  </p>
-                </div>
-              </li>
-
-              {/* Passo 3 */}
-              <li className="flex items-start gap-3">
-                <div className="w-7 h-7 rounded-full bg-indigo-600 text-white flex items-center justify-center flex-shrink-0 text-sm font-bold">
-                  3
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-slate-900">Compartilhe no WhatsApp</p>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Mande nos grupos e no status — quanto mais gente vê, mais você vende.
-                  </p>
-                  <div className="mt-3 flex flex-col sm:flex-row gap-2">
-                    <a
-                      href={whatsAppShareUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-1 h-11 px-4 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl font-medium text-sm hover:bg-emerald-100 transition flex items-center justify-center gap-2"
+            {shareTargets.length > 0 ? (
+              <div className="space-y-3">
+                {shareTargets.map((target) => {
+                  const isCopied = copiedTarget === target.platform;
+                  return (
+                    <button
+                      key={target.platform}
+                      onClick={() => handleCopyAndOpen(target)}
+                      className={`w-full h-12 px-4 rounded-xl font-semibold text-sm text-white transition-all duration-200 flex items-center justify-center gap-2 ${
+                        isCopied
+                          ? 'bg-emerald-500'
+                          : target.platform === 'instagram'
+                            ? 'bg-gradient-to-r from-pink-500 via-rose-500 to-purple-600 hover:opacity-90'
+                            : 'bg-slate-900 hover:bg-slate-800'
+                      }`}
                     >
-                      <IconWhatsApp className="w-4 h-4" />
-                      Compartilhar no WhatsApp
-                    </a>
-                    <Link
-                      href={publicUrl}
-                      target="_blank"
-                      className="h-11 px-4 bg-slate-100 text-slate-700 rounded-xl font-medium text-sm hover:bg-slate-200 transition flex items-center justify-center gap-2"
-                    >
-                      <IconExternalLink className="w-4 h-4" />
-                      Abrir minha página
-                    </Link>
-                  </div>
-                </div>
-              </li>
+                      {isCopied ? (
+                        <>
+                          <IconCheck className="w-4 h-4" />
+                          Link copiado! Agora cole na bio ✂️
+                        </>
+                      ) : (
+                        <>
+                          {target.platform === 'instagram' ? (
+                            <IconInstagram className="w-4 h-4" />
+                          ) : (
+                            <IconTiktok className="w-4 h-4" />
+                          )}
+                          Copiar link e abrir {target.label}
+                        </>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <button
+                onClick={handleCopyLink}
+                className={`w-full h-12 px-4 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 ${
+                  copiedTarget === 'generic'
+                    ? 'bg-emerald-500 text-white'
+                    : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                }`}
+              >
+                {copiedTarget === 'generic' ? (
+                  <>
+                    <IconCheck className="w-4 h-4" />
+                    Link copiado! Agora cole na bio ✂️
+                  </>
+                ) : (
+                  <>
+                    <IconCopy className="w-4 h-4" />
+                    Copiar meu link
+                  </>
+                )}
+              </button>
+            )}
+
+            {/* Como colar na bio */}
+            <ol className="mt-5 space-y-2.5">
+              {[
+                'Link copiado automaticamente',
+                'No app, toque em Editar perfil',
+                'Cole no campo Site/Link da bio',
+              ].map((text, index) => (
+                <li key={text} className="flex items-center gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold">
+                    {index + 1}
+                  </span>
+                  <p className="text-sm text-slate-600">{text}</p>
+                </li>
+              ))}
             </ol>
+          </div>
+
+          {/* Outras formas de divulgar (secundário) */}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+            <h3 className="font-bold text-slate-900 mb-1">Divulgue também no WhatsApp</h3>
+            <p className="text-xs text-slate-500 mb-4">
+              Mande nos grupos e no status!
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <a
+                href={whatsAppShareUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 h-11 px-4 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl font-medium text-sm hover:bg-emerald-100 transition flex items-center justify-center gap-2"
+              >
+                <IconWhatsApp className="w-4 h-4" />
+                Compartilhar no WhatsApp
+              </a>
+              <Link
+                href={publicUrl}
+                target="_blank"
+                className="h-11 px-4 bg-slate-100 text-slate-700 rounded-xl font-medium text-sm hover:bg-slate-200 transition flex items-center justify-center gap-2"
+              >
+                <IconExternalLink className="w-4 h-4" />
+                Abrir minha página
+              </Link>
+            </div>
           </div>
 
           {/* CTA discreto para o dashboard */}

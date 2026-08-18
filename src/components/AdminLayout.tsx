@@ -1,7 +1,10 @@
 'use client';
 
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { AdminSidebar } from './AdminSidebar';
 import { PlanNotification } from './PlanNotification';
+import { Logo } from './Logo';
 import { useProtectedRoute } from '@/hooks/useAuth';
 import { IconInstagram, IconTiktok } from './icons';
 
@@ -11,6 +14,11 @@ interface AdminLayoutProps {
 
 export function AdminLayout({ children }: AdminLayoutProps) {
   const { isAuthenticated, isLoading } = useProtectedRoute('/login');
+  const pathname = usePathname();
+
+  // Onboarding usa chrome estilo checkout: sem sidebar, banner de plano ou footer,
+  // para o usuário focar só em concluir as etapas
+  const isCheckoutMode = pathname?.startsWith('/admin/onboarding') ?? false;
 
   // Não renderiza NADA até confirmar autenticação
   // Isso previne que o conteúdo seja visível antes do redirecionamento
@@ -18,6 +26,32 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
+
+  if (isCheckoutMode) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col">
+        {/* Header fino estilo checkout */}
+        <header className="border-b border-slate-200 bg-white">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
+            <Logo size="sm" showText={true} />
+            <Link
+              href="/admin/dashboard"
+              className="text-sm text-slate-400 hover:text-indigo-600 transition"
+            >
+              Ir para o admin
+            </Link>
+          </div>
+        </header>
+
+        {/* Conteúdo centralizado */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8">
+          <div className="max-w-6xl mx-auto">
+            {children}
+          </div>
+        </main>
       </div>
     );
   }
