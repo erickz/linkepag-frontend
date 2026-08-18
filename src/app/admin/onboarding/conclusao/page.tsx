@@ -106,7 +106,7 @@ export default function OnboardingConclusaoPage() {
   return (
     <div>
       <PageHeader
-        title="Deu certo! Sua página está no ar 🎉"
+        title="Sua página está no ar 🎉"
         description="Agora é só espalhar seu link por aí e começar a monetizar"
         breadcrumbs={[{ label: 'Onboarding' }, { label: 'Conclusão' }]}
       />
