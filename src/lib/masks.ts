@@ -90,9 +90,10 @@ export function priceToInputValue(price: number | string | undefined): string {
 /**
  * Formats URL input by ensuring https:// prefix
  */
-export function formatUrl(value: string): string {
-  if (!value) return '';
-  
+export function formatUrl(value: unknown): string {
+  if (value === undefined || value === null || value === '') return '';
+  if (typeof value !== 'string') return '';
+
   const trimmed = value.trim();
   
   // If already has a protocol, return as-is
@@ -126,9 +127,10 @@ export function isValidUrl(value: string): boolean {
 /**
  * Displays URL in a friendly format (removes protocol)
  */
-export function displayUrl(value: string): string {
-  if (!value) return '';
-  
+export function displayUrl(value: unknown): string {
+  if (value === undefined || value === null || value === '') return '';
+  if (typeof value !== 'string') return '';
+
   return value
     .replace(/^https?:\/\//, '')
     .replace(/^www\./, '');
@@ -138,9 +140,10 @@ export function displayUrl(value: string): string {
  * Masks URL input in real-time
  * Automatically adds https:// when user starts typing
  */
-export function maskUrlInput(value: string): string {
-  if (!value) return '';
-  
+export function maskUrlInput(value: unknown): string {
+  if (value === undefined || value === null || value === '') return '';
+  if (typeof value !== 'string') return '';
+
   const trimmed = value.trim();
   
   // If user is typing and doesn't have protocol, suggest https://
@@ -167,8 +170,9 @@ const socialUrlPatterns: Record<string, { domains: string[]; path: string }> = {
  * Normaliza URLs de redes sociais para garantir que apontem para o domínio correto.
  * Aceita URLs completas, domínios parciais ou apenas handles.
  */
-export function normalizeSocialUrl(platform: string, value: string): string {
-  if (!value) return '';
+export function normalizeSocialUrl(platform: string, value: unknown): string {
+  if (value === undefined || value === null || value === '') return '';
+  if (typeof value !== 'string') return '';
 
   const trimmed = value.trim();
   if (!trimmed) return '';

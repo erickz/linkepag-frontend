@@ -2,6 +2,13 @@
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { normalizeSocialUrl } from '@/lib/masks';
+import {
+  DEFAULT_THEME_ID,
+  DEFAULT_BUTTON_STYLE_ID,
+  resolveTheme,
+  resolveButtonStyleId,
+  type AppearanceInput,
+} from '@/lib/themes';
 import { useApi, useApiMutation, useApiParallel } from './useApi';
 import {
   getLinks,
@@ -61,58 +68,19 @@ export interface ProfileData {
     github?: string;
     website?: string;
   };
-  appearanceSettings?: {
-    headerGradient?: string;
-    backgroundColor?: string;
-    paidLinkAccent?: string;
-  };
+  // Aparência: shape completo vindo do banco (theme/buttonStyle + campos legados)
+  appearanceSettings?: AppearanceInput;
 }
 
+// Draft editável de aparência — só os campos do modelo novo são editáveis.
+// Os campos legados (headerGradient/backgroundColor/paidLinkAccent) ficam
+// intactos no banco e servem apenas para resolver o tema de usuários antigos.
 export interface AppearanceSettings {
-  headerGradient: string;
-  backgroundColor: string;
-  paidLinkAccent: string;
+  theme?: string;
+  buttonStyle?: string;
 }
 
 export type EditorTab = 'links' | 'profile' | 'appearance' | 'social';
-
-// Gradientes disponíveis
-export const headerGradients = [
-  { id: 'indigo-purple', name: 'Criativo', gradient: 'from-indigo-500 via-purple-500 to-pink-500', preview: 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500', description: 'Ideal para artistas' },
-  { id: 'blue-cyan', name: 'Tecnologia', gradient: 'from-blue-500 via-cyan-500 to-teal-400', preview: 'bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-400', description: 'Para devs e tech' },
-  { id: 'rose-orange', name: 'Energia', gradient: 'from-rose-500 via-orange-500 to-amber-400', preview: 'bg-gradient-to-r from-rose-500 via-orange-500 to-amber-400', description: 'Vibrante e motivador' },
-  { id: 'emerald-teal', name: 'Natureza', gradient: 'from-emerald-500 via-teal-500 to-cyan-500', preview: 'bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500', description: 'Vibe natural' },
-  { id: 'violet-fuchsia', name: 'Luxo', gradient: 'from-violet-600 via-fuchsia-500 to-pink-500', preview: 'bg-gradient-to-r from-violet-600 via-fuchsia-500 to-pink-500', description: 'Elegante e sofisticado' },
-  { id: 'slate-zinc', name: 'Minimalista', gradient: 'from-slate-700 via-zinc-600 to-neutral-500', preview: 'bg-gradient-to-r from-slate-700 via-zinc-600 to-neutral-500', description: 'Clean e profissional' },
-  { id: 'amber-yellow', name: 'Sol', gradient: 'from-amber-400 via-yellow-400 to-lime-400', preview: 'bg-gradient-to-r from-amber-400 via-yellow-400 to-lime-400', description: 'Alegre e radiante' },
-  { id: 'monochrome-dark', name: 'Preto & Branco', gradient: 'from-neutral-500 via-neutral-800 to-black', preview: 'bg-gradient-to-r from-neutral-500 via-neutral-800 to-black', description: 'Clássico atemporal' },
-];
-
-// Cores de fundo
-export const backgroundOptions = [
-  { id: 'white', name: 'Branco', class: 'bg-white', textColor: 'text-slate-900' },
-  { id: 'slate-50', name: 'Cinza Claro', class: 'bg-slate-50', textColor: 'text-slate-900' },
-  { id: 'neutral-900', name: 'Escuro', class: 'bg-neutral-900', textColor: 'text-white' },
-  { id: 'slate-900', name: 'Meia-noite', class: 'bg-slate-900', textColor: 'text-white' },
-  { id: 'indigo-100', name: 'Lavanda', class: 'bg-indigo-100', textColor: 'text-slate-900' },
-  { id: 'purple-100', name: 'Lilás', class: 'bg-purple-100', textColor: 'text-slate-900' },
-  { id: 'rose-50', name: 'Rosê', class: 'bg-rose-50', textColor: 'text-slate-900' },
-  { id: 'amber-50', name: 'Creme', class: 'bg-amber-50', textColor: 'text-slate-900' },
-  { id: 'emerald-50', name: 'Menta', class: 'bg-emerald-50', textColor: 'text-slate-900' },
-  { id: 'cyan-50', name: 'Gelo', class: 'bg-cyan-50', textColor: 'text-slate-900' },
-  { id: 'gradient-purple', name: 'Roxo Suave', class: 'bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100', textColor: 'text-slate-900' },
-  { id: 'gradient-sunset', name: 'Pôr do Sol', class: 'bg-gradient-to-br from-rose-100 via-orange-100 to-amber-100', textColor: 'text-slate-900' },
-];
-
-// Cores de destaque
-export const paidLinkAccentColors = [
-  { id: 'amber', name: 'Âmbar', class: 'bg-amber-500', textClass: 'text-amber-400', borderClass: 'border-amber-500/30', bgClass: 'bg-amber-500/20' },
-  { id: 'emerald', name: 'Esmeralda', class: 'bg-emerald-500', textClass: 'text-emerald-400', borderClass: 'border-emerald-500/30', bgClass: 'bg-emerald-500/20' },
-  { id: 'rose', name: 'Rosa', class: 'bg-rose-500', textClass: 'text-rose-400', borderClass: 'border-rose-500/30', bgClass: 'bg-rose-500/20' },
-  { id: 'cyan', name: 'Ciano', class: 'bg-cyan-500', textClass: 'text-cyan-400', borderClass: 'border-cyan-500/30', bgClass: 'bg-cyan-500/20' },
-  { id: 'violet', name: 'Violeta', class: 'bg-violet-500', textClass: 'text-violet-400', borderClass: 'border-violet-500/30', bgClass: 'bg-violet-500/20' },
-  { id: 'orange', name: 'Laranja', class: 'bg-orange-500', textClass: 'text-orange-400', borderClass: 'border-orange-500/30', bgClass: 'bg-orange-500/20' },
-];
 
 export function usePageEditor(isAuthenticated: boolean) {
   // Load initial data - usa chaves estáveis
@@ -138,9 +106,8 @@ export function usePageEditor(isAuthenticated: boolean) {
     pixButtonText: '',
   });
   const [appearanceDraft, setAppearanceDraft] = useState<AppearanceSettings>({
-    headerGradient: 'indigo-purple',
-    backgroundColor: 'white',
-    paidLinkAccent: 'amber',
+    theme: DEFAULT_THEME_ID,
+    buttonStyle: DEFAULT_BUTTON_STYLE_ID,
   });
 
   // Initialize drafts when data loads - executa sempre que os dados mudam
@@ -157,13 +124,12 @@ export function usePageEditor(isAuthenticated: boolean) {
         showPixOnPage: profile.showPixOnPage ?? prev.showPixOnPage ?? false,
         pixButtonText: profile.pixButtonText || prev.pixButtonText || '',
       }));
-      if (profile.appearanceSettings) {
-        setAppearanceDraft({
-          headerGradient: profile.appearanceSettings.headerGradient || 'indigo-purple',
-          backgroundColor: profile.appearanceSettings.backgroundColor || 'white',
-          paidLinkAccent: profile.appearanceSettings.paidLinkAccent || 'amber',
-        });
-      }
+      // Resolve o tema do perfil (cobre usuário legado via mapeamento do
+      // themes.ts) — assim o draft já nasce com o tema efetivo selecionado
+      setAppearanceDraft({
+        theme: resolveTheme(profile.appearanceSettings).id,
+        buttonStyle: resolveButtonStyleId(profile.appearanceSettings),
+      });
     }
   }, [profile]);
 
@@ -227,7 +193,7 @@ export function usePageEditor(isAuthenticated: boolean) {
       ? Object.fromEntries(
           Object.entries(profileDraft.socialLinks).map(([platform, url]) => [
             platform,
-            normalizeSocialUrl(platform, url || ''),
+            normalizeSocialUrl(platform, typeof url === 'string' ? url : String(url ?? '')),
           ])
         )
       : undefined;
@@ -238,7 +204,11 @@ export function usePageEditor(isAuthenticated: boolean) {
       profilePhoto: profileDraft.profilePhoto,
       location: profileDraft.location,
       socialLinks: normalizedSocialLinks,
-      appearanceSettings: appearanceDraft,
+      // Só os campos do modelo novo são enviados; os legados ficam intactos no banco
+      appearanceSettings: {
+        theme: appearanceDraft.theme,
+        buttonStyle: appearanceDraft.buttonStyle,
+      },
       showPixOnPage: profileDraft.showPixOnPage,
       pixButtonText: profileDraft.pixButtonText,
     };
@@ -339,12 +309,13 @@ export function usePageEditor(isAuthenticated: boolean) {
     );
   }, [profile, profileDraft]);
 
+  // Compara o draft com os valores RESOLVIDOS do perfil (mesma regra usada
+  // para inicializar o draft) — usuário legado não vê badge de "não salvo"
   const hasUnsavedAppearance = useMemo(() => {
-    if (!profile?.appearanceSettings) return true;
+    if (!profile) return false;
     return (
-      appearanceDraft.headerGradient !== profile.appearanceSettings.headerGradient ||
-      appearanceDraft.backgroundColor !== profile.appearanceSettings.backgroundColor ||
-      appearanceDraft.paidLinkAccent !== profile.appearanceSettings.paidLinkAccent
+      appearanceDraft.theme !== resolveTheme(profile.appearanceSettings).id ||
+      appearanceDraft.buttonStyle !== resolveButtonStyleId(profile.appearanceSettings)
     );
   }, [profile, appearanceDraft]);
 

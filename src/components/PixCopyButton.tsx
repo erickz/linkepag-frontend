@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { IconPix, IconCopy, IconCheck } from './icons';
 import { trackPixCopy } from '@/lib/api';
+import { resolveButtonRadius, type ButtonStyleId } from '@/lib/themes';
 
 // Copia texto com fallback para navegadores sem Clipboard API (ou contexto inseguro)
 async function copyToClipboard(text: string): Promise<boolean> {
@@ -26,20 +27,64 @@ async function copyToClipboard(text: string): Promise<boolean> {
   }
 }
 
+interface PixStyleTokens {
+  container: string;
+  iconContainer: string;
+  label: string;
+  muted: string;
+}
+
+function resolvePixTokens(styleId?: ButtonStyleId | null): PixStyleTokens {
+  const effectiveStyle = styleId || 'rounded';
+  const base = 'transition-all duration-200 active:scale-[0.98]';
+  switch (effectiveStyle) {
+    case 'outline':
+      // Fundo sutil para garantir contraste do texto verde sobre qualquer
+      // tema (especialmente previews com fundo claro/transparente).
+      return {
+        container: `${base} bg-[#32BCAD]/5 border-2 border-[#32BCAD] text-[#32BCAD] hover:bg-[#32BCAD]/10`,
+        iconContainer: 'bg-[#32BCAD]/10 group-hover:bg-[#32BCAD]/20',
+        label: 'text-[#32BCAD]',
+        muted: 'text-[#32BCAD]/80',
+      };
+    case 'shadow':
+      return {
+        container: `${base} bg-[#32BCAD] text-white border-2 border-[#279E90] shadow-[4px_4px_0_0_rgba(39,158,144,0.35)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_0_rgba(39,158,144,0.35)]`,
+        iconContainer: 'bg-white/20 group-hover:bg-white/25',
+        label: 'text-white',
+        muted: 'text-white/80',
+      };
+    case 'rounded':
+    default:
+      return {
+        container: `${base} bg-[#32BCAD] text-white hover:bg-[#2BA99B] hover:shadow-lg hover:shadow-[#32BCAD]/25 hover:-translate-y-0.5`,
+        iconContainer: 'bg-white/20 group-hover:bg-white/25',
+        label: 'text-white',
+        muted: 'text-white/80',
+      };
+  }
+}
+
 /**
  * Botão "Me mande um PIX" exibido na página pública (e nos previews).
  * Clique copia a chave e o botão transiciona para mostrar a chave + "Copiado!".
- * Usa a cor da marca PIX (#32BCAD) para se diferenciar dos botões de link.
+ * Usa a cor da marca PIX (#32BCAD) para se diferenciar dos botões de link,
+ * mas segue o estilo de botão escolhido no tema (preenchido/contorno/sombra).
  */
 interface PixCopyButtonProps {
   pixKey: string;
   compact?: boolean;
   username?: string;
   buttonText?: string;
+  /** Estilo de botão do tema (casa raio/acabamento). */
+  buttonStyle?: ButtonStyleId;
+  /** LEGADO: mantido para compatibilidade com chamadores antigos. */
+  radiusClass?: string;
 }
 
-export default function PixCopyButton({ pixKey, compact = false, username, buttonText }: PixCopyButtonProps) {
-  const label = buttonText?.trim() || 'Me mande um PIX';
+export default function PixCopyButton({ pixKey, compact = false, username, buttonText, buttonStyle = 'rounded' }: PixCopyButtonProps) {
+  const effectiveButtonStyle = buttonStyle || 'rounded';
+  const label = typeof buttonText === 'string' ? buttonText.trim() || 'Me mande um PIX' : 'Me mande um PIX';
   const [copied, setCopied] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -80,32 +125,35 @@ export default function PixCopyButton({ pixKey, compact = false, username, butto
     );
   }
 
+  const radius = resolveButtonRadius(effectiveButtonStyle);
+  const tokens = resolvePixTokens(effectiveButtonStyle);
+
   return (
     <button
       onClick={handleCopy}
       title="Copiar chave PIX"
-      className="flex items-center gap-2 sm:gap-4 w-full px-3 sm:px-5 py-3 sm:py-4 rounded-2xl bg-[#32BCAD] text-white transition-all duration-200 hover:bg-[#2BA99B] hover:shadow-lg hover:shadow-[#32BCAD]/30 hover:scale-[1.01] active:scale-[0.98] cursor-pointer text-left"
+      className={`group flex items-center gap-2 sm:gap-4 w-full px-3 sm:px-5 py-3 sm:py-4 cursor-pointer text-left ${radius} ${tokens.container}`}
     >
       {/* Icon Container - mesmo padrão dos botões de link */}
-      <div className="flex items-center justify-center flex-shrink-0 w-9 h-9 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-white/20 self-center">
+      <div className={`flex items-center justify-center flex-shrink-0 w-9 h-9 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl self-center transition-colors ${tokens.iconContainer}`}>
         <IconPix className="w-4 h-4 sm:w-5 sm:h-5" />
       </div>
 
       {/* Content - cross-fade entre estado inicial e "Copiado!" */}
-      <div className="flex-1 min-w-0 self-center grid">
+      <div className="flex-1 min-w-0 self-center grid overflow-hidden">
         <span className={`col-start-1 row-start-1 transition-opacity duration-300 ${copied ? 'opacity-0' : 'opacity-100'}`}>
-          <span className="font-semibold text-sm sm:text-base leading-snug block">{label}</span>
-          <span className="text-xs text-white/80 leading-relaxed block">Toque para copiar a chave</span>
+          <span className={`font-semibold text-sm sm:text-base leading-snug block truncate ${tokens.label}`}>{label}</span>
+          <span className={`text-xs leading-relaxed block truncate ${tokens.muted}`}>Toque para copiar a chave</span>
         </span>
         <span className={`col-start-1 row-start-1 transition-opacity duration-300 ${copied ? 'opacity-100' : 'opacity-0'}`} aria-hidden={!copied}>
-          <span className="font-semibold text-sm sm:text-base leading-snug block truncate">{pixKey}</span>
-          <span className="text-xs text-white/80 leading-relaxed block">Copiado!</span>
+          <span className={`font-semibold text-sm sm:text-base leading-snug block truncate ${tokens.label}`}>{pixKey}</span>
+          <span className={`text-xs leading-relaxed block truncate ${tokens.muted}`}>Copiado!</span>
         </span>
       </div>
 
       {/* Right Side */}
       <div className="flex items-center flex-shrink-0 self-center">
-        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white/20 flex items-center justify-center">
+        <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-colors ${tokens.iconContainer}`}>
           {copied ? <IconCheck className="w-4 h-4 sm:w-5 sm:h-5" /> : <IconCopy className="w-4 h-4 sm:w-5 sm:h-5" />}
         </div>
       </div>

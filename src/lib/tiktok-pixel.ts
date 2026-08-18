@@ -27,11 +27,9 @@ function isTiktokAvailable(): boolean {
   return typeof (ttq as Record<string, unknown>).track === 'function';
 }
 
-/** Log de debug apenas em development */
-function pixelLog(message: string): void {
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`[TikTok Pixel] ${message}`);
-  }
+/** Log de debug — desabilitado para não poluir o console. */
+function pixelLog(..._args: unknown[]): void {
+  // no-op: logs de pixel são barulho no console do usuário.
 }
 
 /** Tipos de parâmetros de e-commerce que o TikTok espera */

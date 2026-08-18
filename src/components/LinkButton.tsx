@@ -3,9 +3,8 @@
 import { memo, useMemo, useCallback } from 'react';
 import PixCheckout from './PixCheckout';
 import { formatPrice } from '@/lib/masks';
-import { 
-  IconExternalLink, 
-  IconCheck, 
+import {
+  IconExternalLink,
   IconGift,
   IconLink,
   IconFileText,
@@ -15,7 +14,6 @@ import {
   IconStar,
   IconZap,
   IconTarget,
-  IconCrown,
   IconLock,
   IconCalendar,
   IconTelegram,
@@ -25,12 +23,7 @@ import {
 import { detectPlatformFromUrl } from '@/lib/platform-detector';
 import { trackEcommerceEvent } from '@/lib/pixel-tracker';
 import { trackLinkClick, trackCheckoutStart } from '@/lib/api';
-
-interface AccentColor {
-  textClass: string;
-  borderClass: string;
-  bgClass: string;
-}
+import { AccentTokens, ButtonStyleId } from '@/lib/themes';
 
 interface LinkButtonProps {
   link: {
@@ -44,15 +37,24 @@ interface LinkButtonProps {
     isPaid?: boolean;
     price?: number;
     openInNewTab?: boolean;
-    buttonColor?: string;
-    textColor?: string;
   };
   isExpanded: boolean;
   onToggle: () => void;
-  accentColor?: AccentColor;
+  /** Acento do tema (card escuro dos links monetizados) */
+  accent: AccentTokens;
+  /** Classes do container do link gratuito (vêm de resolveButton) */
+  buttonContainerClass: string;
+  /** Classes do tile de ícone do link gratuito (vêm de resolveButton) */
+  iconTileClass: string;
+  /** Raio de borda do estilo de botão (aplicado ao card pago e ao botão Comprar) */
+  buttonRadiusClass?: string;
+  /** Estilo de botão escolhido no tema (aplicado ao botão Comprar) */
+  buttonStyle?: ButtonStyleId;
+  /** false = preview: sem navegação, tracking ou checkout */
+  interactive?: boolean;
   mercadoPagoPublicKey?: string;
   mercadoPagoConfigured?: boolean;
-  // PIX direct payment options
+  // Opções de pagamento PIX Direto
   pixConfigured?: boolean;
   pixKey?: string;
   pixKeyType?: string;
@@ -93,11 +95,16 @@ const getIconForEmoji = (emoji: string): React.ComponentType<{ className?: strin
 };
 
 // Componente LinkButton memoizado para evitar re-renderizações desnecessárias
-function LinkButtonComponent({ 
-  link, 
-  isExpanded, 
-  onToggle, 
-  accentColor,
+function LinkButtonComponent({
+  link,
+  isExpanded,
+  onToggle,
+  accent,
+  buttonContainerClass,
+  iconTileClass,
+  buttonRadiusClass = 'rounded-2xl',
+  buttonStyle = 'rounded',
+  interactive = true,
   mercadoPagoPublicKey,
   mercadoPagoConfigured,
   pixConfigured,
@@ -112,6 +119,9 @@ function LinkButtonComponent({
   const isDirect = link.template === 'direct' || link.template === 'scheduling';
 
   const handleLinkClick = useCallback(() => {
+    // Preview (interactive=false): sem tracking, navegação ou checkout
+    if (!interactive) return;
+
     // Analytics: conta o clique ao navegar (links diretos) ou ao abrir o
     // checkout (links pagos). Não conta ao fechar o checkout (isExpanded).
     if (isDirect || !isExpanded) {
@@ -122,7 +132,7 @@ function LinkButtonComponent({
     if (isDirect && link.url) {
       window.open(link.url, link.openInNewTab ? '_blank' : '_self');
     }
-    
+
     // Tracking: InitiateCheckout quando usuário clica em link pago pela primeira vez
     if (isMonetized && !isExpanded && link.price) {
       // Analytics (pagestats): checkout_start — comprador abriu o checkout
@@ -137,10 +147,10 @@ function LinkButtonComponent({
         isDemoUser ? { skipMeta: true } : undefined,
       );
     }
-    
+
     // Sempre chama onToggle (para abrir/fechar checkout de links monetizados)
     onToggle();
-  }, [isDirect, isMonetized, isExpanded, link.url, link.openInNewTab, link.price, link.title, link.id, onToggle, isDemoUser]);
+  }, [interactive, isDirect, isMonetized, isExpanded, link.url, link.openInNewTab, link.price, link.title, link.id, onToggle, isDemoUser]);
 
   // Memoizar ícone para evitar re-computação
   const IconComponent = useMemo(() => {
@@ -157,7 +167,7 @@ function LinkButtonComponent({
     if (isMonetized) {
       return IconLock;
     }
-    
+
     if (link.icon) {
       // Se for emoji, converte para ícone
       if (/^[\u{1F300}-\u{1F9FF}]$/u.test(link.icon) || link.icon.length <= 2) {
@@ -168,67 +178,60 @@ function LinkButtonComponent({
         return getIconForEmoji(link.icon) || IconLink;
       }
     }
-    
+
     // Ícone padrão para links diretos
     return IconLink;
   }, [link.template, link.url, isMonetized, link.icon]);
 
-  // Memoizar classes do botão
-  const buttonClasses = useMemo(() => {
+  // Memoizar classes do container do botão
+  const containerClasses = useMemo(() => {
     if (isMonetized) {
-      const accentBorder = accentColor?.borderClass.replace('/30', '/50') || 'border-amber-400/50';
-      const accentShadow = accentColor?.textClass.replace('text-', '') || 'amber-500';
-      return `bg-gradient-to-br from-slate-800 via-slate-900 to-black text-white border border-slate-700 hover:${accentBorder} hover:shadow-xl hover:shadow-${accentShadow}/20 hover:scale-[1.02]`;
+      // Card escuro fixo com borda suave no acento do tema
+      return `bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 text-white border ${accent.border} shadow-lg hover:shadow-xl hover:-translate-y-0.5 ${buttonRadiusClass} transition-all duration-200`;
     }
-    
-    if (link.buttonColor || link.textColor) {
-      return '';
-    }
-    
-    return 'bg-white text-slate-700 border border-slate-200 hover:border-indigo-300 hover:shadow-md hover:scale-[1.01]';
-  }, [isMonetized, link.buttonColor, link.textColor, accentColor]);
+    return buttonContainerClass;
+  }, [isMonetized, accent, buttonRadiusClass, buttonContainerClass]);
 
-  // Memoizar estilos inline
-  const buttonStyle = useMemo(() => {
-    if (link.buttonColor || link.textColor) {
-      return {
-        backgroundColor: link.buttonColor || '#ffffff',
-        color: link.textColor || '#0f172a',
-        border: '1px solid #e2e8f0',
-      };
-    }
-    return undefined;
-  }, [link.buttonColor, link.textColor]);
-
-  // Memoizar classes do container do ícone
+  // Memoizar classes do tile do ícone
   const iconContainerClasses = useMemo(() => {
+    if (isMonetized) {
+      return `rounded-xl ${accent.bg} ${accent.text}`;
+    }
+    // Links de agendamento/contato mantêm o tile na cor da plataforma
+    // (reconhecimento de marca: WhatsApp verde, Telegram azul, etc.)
     if (link.template === 'scheduling' && link.url) {
       const platform = detectPlatformFromUrl(link.url);
-      if (platform === 'telegram') return 'bg-sky-100 text-sky-600';
-      if (platform === 'whatsapp') return 'bg-emerald-100 text-emerald-600';
-      if (platform === 'google-calendar') return 'bg-red-100 text-red-600';
-      return 'bg-violet-100 text-violet-600';
+      if (platform === 'telegram') return 'rounded-xl bg-sky-100 text-sky-600';
+      if (platform === 'whatsapp') return 'rounded-xl bg-emerald-100 text-emerald-600';
+      if (platform === 'google-calendar') return 'rounded-xl bg-red-100 text-red-600';
+      return 'rounded-xl bg-violet-100 text-violet-600';
     }
-    if (isMonetized) {
-      return `${accentColor?.bgClass || 'bg-amber-500/20'} ${accentColor?.textClass || 'text-amber-400'}`;
-    }
-    return 'bg-gradient-to-br from-indigo-50 to-purple-50 text-indigo-600';
-  }, [link.template, link.url, isMonetized, accentColor]);
+    return iconTileClass;
+  }, [link.template, link.url, isMonetized, accent, iconTileClass]);
 
   // Memoizar conteúdo do lado direito
   const rightSideContent = useMemo(() => {
     if (isMonetized) {
-      // Sempre mostra o preço e botão Comprar/Fechar
+      // Chip de preço + botão Comprar/Fechar no acento do tema
+      const buyButtonClass = (() => {
+        if (isExpanded) {
+          return `${buttonRadiusClass} bg-white/10 text-white hover:bg-white/20`;
+        }
+        if (buttonStyle === 'outline') {
+          return `${buttonRadiusClass} bg-transparent border-2 ${accent.borderStrong} ${accent.text} hover:bg-white/5`;
+        }
+        if (buttonStyle === 'shadow') {
+          return `${buttonRadiusClass} ${accent.solid} ${accent.solidHover} ${accent.solidText} border-2 border-slate-900 shadow-[4px_4px_0_0_#0f172a] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_0_#0f172a]`;
+        }
+        return `${buttonRadiusClass} ${accent.solid} ${accent.solidHover} ${accent.solidText}`;
+      })();
+
       return (
-        <div className="flex flex-col sm:flex-row sm:items-center items-end gap-1 sm:gap-2 flex-shrink-0 min-w-0">
-          <span className={`text-sm sm:text-xl font-bold ${accentColor?.textClass || 'text-amber-400'} whitespace-nowrap`}>
+        <div className="flex flex-col sm:flex-row sm:items-center items-end gap-1.5 sm:gap-2 flex-shrink-0 min-w-0">
+          <span className={`px-2.5 py-1 rounded-full border text-sm sm:text-base font-bold whitespace-nowrap ${accent.bg} ${accent.border} ${accent.text}`}>
             R$ {formatPrice(link.price || 0)}
           </span>
-          <div className={`px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl font-bold text-xs shadow-sm transition whitespace-nowrap ${
-            isExpanded
-              ? 'bg-slate-600 text-white hover:bg-slate-500'
-              : 'bg-white text-slate-600 hover:bg-slate-50'
-          }`}>
+          <div className={`px-3 py-1.5 sm:py-2 font-bold text-xs shadow-sm transition whitespace-nowrap ${buyButtonClass}`}>
             {isExpanded ? 'Fechar' : 'Comprar'}
           </div>
         </div>
@@ -236,14 +239,11 @@ function LinkButtonComponent({
     }
 
     return (
-      <div className={`
-        w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0
-        ${link.buttonColor || link.textColor ? 'bg-black/5' : 'bg-slate-100 text-slate-400'}
-      `}>
+      <div className={`w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center flex-shrink-0 ${iconTileClass}`}>
         <IconExternalLink className="w-4 h-4 sm:w-5 sm:h-5" />
       </div>
     );
-  }, [isMonetized, link.price, isExpanded, accentColor, link.buttonColor, link.textColor]);
+  }, [isMonetized, link.price, isExpanded, accent, buttonRadiusClass, buttonStyle, iconTileClass]);
 
   return (
     <div className="relative">
@@ -251,34 +251,30 @@ function LinkButtonComponent({
         onClick={handleLinkClick}
         title={link.title}
         className={`
-          flex items-stretch gap-2 sm:gap-4 w-full px-3 sm:px-5 py-3 sm:py-4 rounded-2xl
-          transition-all duration-200 active:scale-[0.98] cursor-pointer text-left
-          ${buttonClasses}
+          group flex items-center gap-2 sm:gap-4 w-full px-3 sm:px-5 py-3 sm:py-4
+          cursor-pointer text-left active:scale-[0.98]
+          ${containerClasses}
         `}
-        style={buttonStyle}
       >
-        {/* Icon Container - centralizado verticalmente */}
-        <div className={`
-          flex items-center justify-center flex-shrink-0 w-9 h-9 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl self-center
-          ${iconContainerClasses}
-        `}>
+        {/* Tile do ícone */}
+        <div className={`flex items-center justify-center flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 ${iconContainerClasses}`}>
           <IconComponent className="w-4 h-4 sm:w-5 sm:h-5" />
         </div>
 
         {/* Content - texto limitado a 2 linhas para não explodir o layout */}
-        <div className="flex-1 min-w-0 self-center py-0.5">
+        <div className="flex-1 min-w-0 py-0.5">
           <div className="font-semibold text-sm sm:text-base leading-snug break-words line-clamp-2">
             {link.title}
           </div>
           {link.description && (
-            <div className={`text-xs mt-1 leading-relaxed break-words line-clamp-2 ${isMonetized ? 'text-white/70' : 'text-slate-500'}`}>
+            <div className={`text-xs mt-1 leading-relaxed break-words line-clamp-2 ${isMonetized ? 'text-white/70' : 'opacity-60'}`}>
               {link.description}
             </div>
           )}
         </div>
 
-        {/* Right Side - centralizado verticalmente */}
-        <div className="flex items-center flex-shrink-0 self-center">
+        {/* Right Side */}
+        <div className="flex items-center flex-shrink-0">
           {rightSideContent}
         </div>
       </button>

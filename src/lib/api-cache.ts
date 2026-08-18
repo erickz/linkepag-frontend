@@ -78,10 +78,6 @@ class ApiCache {
   clearAll(): void {
     this.cache.clear();
     this.pendingRequests.clear();
-    // Não logar em produção para evitar poluição do console
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[ApiCache] All cache cleared');
-    }
   }
 
   getStats(): { entries: number; pending: number } {

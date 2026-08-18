@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useAuth, useProtectedRoute } from '@/hooks/useAuth';
 import { trackLinkCreated, trackLinkPaidCreated } from '@/lib/pixel-milestones';
-import { usePageEditor, LinkItem, headerGradients, backgroundOptions, paidLinkAccentColors } from '@/hooks/usePageEditor';
+import { usePageEditor, LinkItem } from '@/hooks/usePageEditor';
 import { uploadLinkFile, deleteLinkFile } from '@/lib/api';
 import { maskPriceInput, parsePrice, formatPrice, formatUrl, priceToInputValue, normalizeSocialUrl } from '@/lib/masks';
 import {
@@ -24,6 +24,7 @@ import {
 } from '@/lib/link-templates';
 import { LinkTemplateSelector } from '@/components/LinkTemplateSelector';
 import { PagePreview } from '@/components/PagePreview';
+import { THEME_LIST, BUTTON_STYLES, resolveTheme, resolveButton } from '@/lib/themes';
 import { useSubscription } from '@/hooks/useSubscription';
 import { PlanLimitWarning, PlanUpgradeModal } from '@/components/PlanUpgradeModal';
 import { detectPlatformFromUrl } from '@/lib/platform-detector';
@@ -820,41 +821,68 @@ function AppearanceTab({ settings, onUpdate, onSave, isSaving }: any) {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const handleSave = async () => { setMessage(null); try { await onSave(); setMessage({ type: 'success', text: 'Aparência salva!' }); } catch (err: any) { setMessage({ type: 'error', text: err.message || 'Erro ao salvar' }); } };
 
+  // Tema do draft — as amostras de botão abaixo refletem a escolha em tempo real
+  const currentTheme = useMemo(() => resolveTheme({ theme: settings.theme }), [settings.theme]);
+
   return (
     <div className="space-y-6">
       {message && <div className={`p-4 rounded-xl ${message.type === 'success' ? 'bg-emerald-50 border border-emerald-200' : 'bg-rose-50 border border-rose-200'}`}><p className={`font-medium text-sm ${message.type === 'success' ? 'text-emerald-700' : 'text-rose-700'}`}>{message.text}</p></div>}
+
+      {/* Tema da página */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-        <h3 className="text-lg font-bold text-slate-900 mb-4">Gradiente do Cabeçalho</h3>
+        <h3 className="text-lg font-bold text-slate-900 mb-1">Tema da página</h3>
+        <p className="text-sm text-slate-500 mb-4">Escolha a vibe da sua página — o preview ali do lado atualiza na hora.</p>
         <div className="grid grid-cols-2 gap-3">
-          {headerGradients.map((g) => (
-            <button key={g.id} onClick={() => onUpdate('headerGradient', g.id)} className={`relative group rounded-xl overflow-hidden transition-all ${settings.headerGradient === g.id ? 'ring-2 ring-indigo-500 ring-offset-2 scale-105' : 'hover:scale-105'}`}>
-              <div className={`h-12 ${g.preview}`} />
-              {settings.headerGradient === g.id && <div className="absolute top-1.5 right-1.5 w-5 h-5 bg-white rounded-full flex items-center justify-center shadow-lg"><Icon path={Icons.check} className="w-3 h-3 text-indigo-600" /></div>}
-              <div className="p-2 bg-white"><p className="text-xs font-semibold text-slate-900">{g.name}</p></div>
+          {THEME_LIST.map((t) => (
+            <button key={t.id} onClick={() => onUpdate('theme', t.id)} className={`relative group rounded-xl overflow-hidden text-left transition-all ${settings.theme === t.id ? 'ring-2 ring-indigo-500 ring-offset-2' : 'hover:scale-[1.02]'}`}>
+              {/* Mini-preview montado com os próprios tokens do tema */}
+              <div className={`p-2.5 ${t.page.backgroundClass}`}>
+                <div className="rounded-lg overflow-hidden bg-white/85 shadow-sm border border-white/70">
+                  <div className={`h-5 bg-gradient-to-r ${t.header.gradientClass}`} />
+                  <div className="p-2 space-y-1.5">
+                    <div className={`h-2.5 rounded-md border ${t.buttonPalette.bg} ${t.buttonPalette.border}`} />
+                    <div className={`h-2.5 rounded-md border ${t.buttonPalette.bg} ${t.buttonPalette.border}`} />
+                  </div>
+                </div>
+              </div>
+              {settings.theme === t.id && <div className="absolute top-2 right-2 w-5 h-5 bg-indigo-500 rounded-full flex items-center justify-center shadow-lg"><Icon path={Icons.check} className="w-3 h-3 text-white" /></div>}
+              <div className="px-2.5 py-2 bg-white border-t border-slate-100">
+                <p className="text-xs font-semibold text-slate-900">{t.name}</p>
+                <p className="text-[11px] text-slate-400">{t.tagline}</p>
+              </div>
             </button>
           ))}
         </div>
       </div>
+
+      {/* Estilo dos botões */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-        <h3 className="text-lg font-bold text-slate-900 mb-4">Cor de Fundo</h3>
-        <div className="flex flex-wrap gap-3">
-          {backgroundOptions.map((bg) => (
-            <button key={bg.id} onClick={() => onUpdate('backgroundColor', bg.id)} className={`relative group w-14 h-14 rounded-xl border-2 transition-all ${settings.backgroundColor === bg.id ? 'border-indigo-500 ring-2 ring-indigo-200 scale-110' : 'border-slate-200 hover:border-slate-300'} ${bg.class}`}>
-              {settings.backgroundColor === bg.id && <div className="absolute inset-0 flex items-center justify-center"><svg className={`w-5 h-5 ${bg.textColor === 'text-white' ? 'text-white' : 'text-indigo-600'}`} fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg></div>}
-            </button>
-          ))}
+        <h3 className="text-lg font-bold text-slate-900 mb-1">Estilo dos botões</h3>
+        <p className="text-sm text-slate-500 mb-4">A forma dos botões de link. As cores acompanham o tema escolhido acima.</p>
+        <div className="space-y-3">
+          {BUTTON_STYLES.map((style) => {
+            const button = resolveButton(currentTheme, style.id);
+            const isSelected = settings.buttonStyle === style.id;
+            return (
+              <button key={style.id} onClick={() => onUpdate('buttonStyle', style.id)} className={`relative w-full rounded-xl border p-3 transition-all ${isSelected ? 'border-indigo-500 ring-2 ring-indigo-200' : 'border-slate-200 hover:border-slate-300'}`}>
+                {/* Botão de demonstração real, já nas cores do tema atual */}
+                <div className={`flex items-center justify-center gap-2 h-11 px-4 ${button.containerClass}`}>
+                  <span className={`w-7 h-7 flex items-center justify-center ${button.iconTileClass}`}>
+                    <Icon path={Icons.link} className="w-3.5 h-3.5" />
+                  </span>
+                  <span className="text-sm font-medium">Amostra</span>
+                </div>
+                <div className="mt-2 flex items-baseline justify-between gap-2">
+                  <p className="text-xs font-semibold text-slate-900">{style.name}</p>
+                  <p className="text-[11px] text-slate-400">{style.tagline}</p>
+                </div>
+                {isSelected && <div className="absolute -top-2 -right-2 w-5 h-5 bg-indigo-500 rounded-full flex items-center justify-center shadow-lg"><Icon path={Icons.check} className="w-3 h-3 text-white" /></div>}
+              </button>
+            );
+          })}
         </div>
       </div>
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-        <h3 className="text-lg font-bold text-slate-900 mb-4">Destaque de Links Monetizados</h3>
-        <div className="flex flex-wrap gap-3">
-          {paidLinkAccentColors.map((a) => (
-            <button key={a.id} onClick={() => onUpdate('paidLinkAccent', a.id)} className={`relative group w-12 h-12 rounded-full transition-all ${a.class} ${settings.paidLinkAccent === a.id ? 'ring-4 ring-offset-2 ring-slate-300 scale-110' : 'hover:scale-110'}`}>
-              {settings.paidLinkAccent === a.id && <div className="absolute inset-0 flex items-center justify-center"><svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg></div>}
-            </button>
-          ))}
-        </div>
-      </div>
+
       <button onClick={handleSave} disabled={isSaving} className="w-full h-11 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold hover:from-indigo-700 hover:to-purple-700 transition disabled:opacity-50">{isSaving ? 'Salvando...' : 'Salvar Aparência'}</button>
     </div>
   );

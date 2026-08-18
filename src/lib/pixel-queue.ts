@@ -143,10 +143,6 @@ export function trackOrQueue(
 
   if (!success) {
     queuePixelEvent(platform, eventName, params, eventId);
-    if (process.env.NODE_ENV === 'development') {
-      // eslint-disable-next-line no-console
-      console.log(`[PixelQueue] Evento "${eventName}" (${platform}) enfileirado — pixel não estava pronto`);
-    }
   }
 }
 
@@ -177,10 +173,6 @@ export async function identifyOrQueue(
     const queue = getIdentifyQueue();
     queue.push({ platform, data, timestamp: Date.now() });
     saveIdentifyQueue(queue);
-    if (process.env.NODE_ENV === 'development') {
-      // eslint-disable-next-line no-console
-      console.log(`[PixelQueue] Identify (${platform}) enfileirado — pixel não estava pronto`);
-    }
   }
 }
 
@@ -213,16 +205,8 @@ export function flushPixelQueue(): void {
 
   if (remaining.length === 0) {
     clearQueue();
-    if (process.env.NODE_ENV === 'development') {
-      // eslint-disable-next-line no-console
-      console.log(`[PixelQueue] Flush OK — ${queue.length} eventos enviados`);
-    }
   } else {
     saveQueue(remaining);
-    if (process.env.NODE_ENV === 'development') {
-      // eslint-disable-next-line no-console
-      console.log(`[PixelQueue] Flush parcial — ${queue.length - remaining.length}/${queue.length} enviados, ${remaining.length} permanecem na fila`);
-    }
   }
 }
 
@@ -259,15 +243,7 @@ export async function flushPixelIdentifyQueue(): Promise<void> {
 
   if (remaining.length === 0) {
     clearIdentifyQueue();
-    if (process.env.NODE_ENV === 'development') {
-      // eslint-disable-next-line no-console
-      console.log(`[PixelQueue] Identify flush OK — ${queue.length} enviados`);
-    }
   } else {
     saveIdentifyQueue(remaining);
-    if (process.env.NODE_ENV === 'development') {
-      // eslint-disable-next-line no-console
-      console.log(`[PixelQueue] Identify flush parcial — ${queue.length - remaining.length}/${queue.length} enviados, ${remaining.length} permanecem na fila`);
-    }
   }
 }

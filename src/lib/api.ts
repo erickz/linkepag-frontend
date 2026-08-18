@@ -209,6 +209,9 @@ export async function updateProfile(data: {
   hasMonetizableAsset?: boolean;
   monetizableAssetType?: 'infoproduto' | 'afiliado' | 'servico' | 'nada' | null;
   appearanceSettings?: {
+    theme?: string;
+    buttonStyle?: string;
+    // LEGADOS: mantidos só para compatibilidade/rollback — código novo não envia
     headerGradient?: string;
     backgroundColor?: string;
     paidLinkAccent?: string;

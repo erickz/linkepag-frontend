@@ -36,12 +36,9 @@ function isFbqAvailable(): boolean {
   return typeof fbq === 'function' && fbq.loaded === true;
 }
 
-/** Log de debug apenas em development */
-function pixelLog(message: string): void {
-  if (process.env.NODE_ENV === 'development') {
-    // eslint-disable-next-line no-console
-    console.log(`[Meta Pixel] ${message}`);
-  }
+/** Log de debug — desabilitado para não poluir o console. */
+function pixelLog(..._args: unknown[]): void {
+  // no-op: logs de pixel são barulho no console do usuário.
 }
 
 /** Lê cookie */
